@@ -1,4 +1,5 @@
-const BASE_URL = "http://localhost:4000";
+// Use the environment variable if available, otherwise fallback to the Android emulator IP
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:4000";
 
 export const api = {
   health: async () => {

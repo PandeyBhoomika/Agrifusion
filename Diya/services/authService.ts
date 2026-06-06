@@ -56,7 +56,8 @@ export const sendOtp = async (
  */
 export const verifyOtp = async (email: string, otp: string) => {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+    // FIX: Removed the extra /api here. It now correctly uses the API_BASE_URL
+    const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, otp }),
