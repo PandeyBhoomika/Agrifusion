@@ -1,0 +1,11 @@
+GET  /api/quiz/all              → Returns { quizzes: QuizCategory[] }
+GET  /api/quiz/:categoryId      → Returns { quiz: QuizCategory }
+POST /api/quiz/:categoryId/submit → Accepts { answers: {...} }
+                                   Returns { score, totalPoints, percentage }
+                                   
+videos
+GET  /api/videos                     → Returns { videos: VideoModule[] }
+GET  /api/videos/category/:category  → Returns { videos: VideoModule[] }
+GET  /api/videos/:videoId            → Returns { video: VideoModule }
+POST /api/videos/:videoId/progress   → Accepts { progress: number, completed: boolean }
+GET  /api/videos/search?q=query      → Returns { videos: VideoModule[] }
