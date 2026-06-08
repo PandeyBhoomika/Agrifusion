@@ -1,8 +1,6 @@
-import { Stack, useRouter } from "expo-router";
-// ✅ IMPORT ADDED: useState
+import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
-// ✅ IMPORT ADDED: AsyncStorage
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function RouteGuard({ children }: { children: React.ReactNode }) {

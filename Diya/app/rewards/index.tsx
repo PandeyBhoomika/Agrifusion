@@ -9,8 +9,7 @@ import {
   Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import AnimatedView, { FadeInUp } from "react-native-reanimated";
-
+import Animated, { FadeInUp } from "react-native-reanimated";
 /* ---------------------- MOCK DATA ---------------------- */
 const MOCK_DATA = {
   level: 4,
@@ -117,7 +116,7 @@ export default function RewardsScreen() {
           contentContainerStyle={styles.scroll}
         >
           {/* ---------------- XP RING ---------------- */}
-          <AnimatedView entering={FadeInUp} style={styles.xpSection}>
+          <Animated.View entering={FadeInUp} style={styles.xpSection}>
             <View style={styles.xpRingWrap}>
               <View style={styles.xpCircle}>
                 <Text style={styles.levelText}>Lv {MOCK_DATA.level}</Text>
@@ -127,7 +126,7 @@ export default function RewardsScreen() {
                 <Text style={styles.tierText}>{MOCK_DATA.rankTier}</Text>
               </View>
             </View>
-          </AnimatedView>
+          </Animated.View>
 
           {/* ---------------- COINS & CARBON ---------------- */}
           <View style={styles.row}>

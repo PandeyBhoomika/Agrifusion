@@ -2,7 +2,7 @@
 
 import { indianStates as mockStates } from '../data/mockData';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.103:4000/api';
 
 export interface StateResponse {
   success: boolean;
