@@ -6,10 +6,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Animated,
+  Animated as RNAnimated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import ReAnimated, { FadeInUp } from "react-native-reanimated";
+
 /* ---------------------- MOCK DATA ---------------------- */
 const MOCK_DATA = {
   level: 4,
@@ -75,11 +76,11 @@ export default function RewardsScreen() {
   const [chestClaimed, setChestClaimed] = useState(false);
 
   // Confetti animation (emoji falling)
-  const [confetti] = useState(new Animated.Value(0));
+  const [confetti] = useState(new RNAnimated.Value(0));
 
   const triggerConfetti = () => {
     confetti.setValue(0);
-    Animated.timing(confetti, {
+    RNAnimated.timing(confetti, {
       toValue: 1,
       duration: 1500,
       useNativeDriver: true,
@@ -102,21 +103,21 @@ export default function RewardsScreen() {
     <LinearGradient colors={["#E7F8ED", "#D4F3DF"]} style={{ flex: 1 }}>
       <SafeAreaView style={styles.safe}>
         {/* EMOJI CONFETTI */}
-        <Animated.Text
+        <RNAnimated.Text
           style={[
             styles.confetti,
             { transform: [{ translateY: confettiTranslateY }] },
           ]}
         >
           🎉
-        </Animated.Text>
+        </RNAnimated.Text>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
           {/* ---------------- XP RING ---------------- */}
-          <Animated.View entering={FadeInUp} style={styles.xpSection}>
+          <ReAnimated.View entering={FadeInUp} style={styles.xpSection}>
             <View style={styles.xpRingWrap}>
               <View style={styles.xpCircle}>
                 <Text style={styles.levelText}>Lv {MOCK_DATA.level}</Text>
@@ -126,7 +127,7 @@ export default function RewardsScreen() {
                 <Text style={styles.tierText}>{MOCK_DATA.rankTier}</Text>
               </View>
             </View>
-          </Animated.View>
+          </ReAnimated.View>
 
           {/* ---------------- COINS & CARBON ---------------- */}
           <View style={styles.row}>
