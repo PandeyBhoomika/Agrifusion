@@ -1,8 +1,22 @@
 // src/app.js
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+
+// ------------------------------
+// ROUTE IMPORTS (Notice the .js extensions)
+// ------------------------------
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js"; 
+import taskRoutes from "./routes/task.routes.js";
+import proofRoutes from "./routes/proof.routes.js";
+import videoRoutes from "./routes/video.routes.js";
+import quizRoutes from "./routes/quiz.routes.js";
+import communityRoutes from "./routes/community.routes.js";
+import schemeRoutes from "./routes/scheme.routes.js";
+
+dotenv.config();
 
 const app = express();
 
@@ -21,15 +35,16 @@ mongoose
   });
 
 // ------------------------------
-// ROUTES
+// MOUNT ROUTES
 // ------------------------------
-const authRoutes = require("./routes/auth.routes");
-const userRoutes = require("./routes/user.routes");
-const taskRoutes = require("./routes/task.routes"); // <-- Added Task Routes import
-
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/tasks", taskRoutes); // <-- Added Task Routes mount path
+app.use("/api/tasks", taskRoutes);
+app.use("/api/proofs", proofRoutes);
+app.use("/api/videos", videoRoutes);
+app.use("/api/quiz", quizRoutes);
+app.use("/api/community", communityRoutes);
+app.use("/api/schemes", schemeRoutes);
 
 // ------------------------------
 // HEALTH CHECK
@@ -51,5 +66,5 @@ app.post("/debug-hello", (req, res) => {
 // ------------------------------
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });

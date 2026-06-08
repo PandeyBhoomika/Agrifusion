@@ -1,10 +1,10 @@
 // src/controllers/user.controller.js
 
-// Import your real Mongoose model instead of the fake store
-const User = require("../models/User");
+// IMPORTANT: Use import and add .js
+import User from "../models/User.js";
 
 // Create or update profile
-exports.updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     // Note: Depending on how your JWT middleware is written, 
     // the ID might be under req.user.userId instead of req.user.id.
@@ -17,6 +17,9 @@ exports.updateProfile = async (req, res) => {
       soilType,
       region,
       season,
+      waterAvailability,
+      farmingGoals,
+      skillLevel
     } = req.body;
 
     // Find user in MongoDB
@@ -26,13 +29,17 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update the profile data
+    // Update the profile data - merging whatever exists with the new data
     user.profile = {
-      primaryCrop,
-      farmSize,
-      soilType,
-      region,
-      season,
+      ...user.profile,
+      ...(primaryCrop && { primaryCrop }),
+      ...(farmSize && { farmSize }),
+      ...(soilType && { soilType }),
+      ...(region && { region }),
+      ...(season && { season }),
+      ...(waterAvailability && { waterAvailability }),
+      ...(farmingGoals && { farmingGoals }),
+      ...(skillLevel && { skillLevel }),
     };
 
     // Save the changes to the database
@@ -49,7 +56,7 @@ exports.updateProfile = async (req, res) => {
 };
 
 // Read profile
-exports.getProfile = async (req, res) => {
+export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
 

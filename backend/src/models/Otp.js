@@ -1,10 +1,20 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
 
+// Notice the capital 'O' in OtpSchema here:
 const OtpSchema = new mongoose.Schema({
-  email: { type: String, required: true, index: true },
-  code: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  email: {
+    type: String,
+    required: true,
+  },
+  code: {
+    type: String,
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  }
 });
 
-// We'll check expiry manually using createdAt + OTP_EXPIRY_MINUTES
-module.exports = mongoose.model("Otp", OtpSchema);
+// Notice the capital 'O' matches exactly here:
+export default mongoose.model('Otp', OtpSchema);

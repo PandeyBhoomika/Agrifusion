@@ -1,11 +1,10 @@
-const express = require('express');
-const { getTasks, createTask } = require('../controllers/task.controller');
-// const { protect } = require('../middleware/auth'); // Uncomment if you want tasks protected by login
+import express from 'express';
+import { getTasks, createTask } from '../controllers/task.controller.js';
 
 const router = express.Router();
 
 router.route('/')
-    .get(getTasks)
-    .post(createTask); // In a real app, this POST should be protected for Admins only
+  .get(getTasks)
+  .post(createTask);
 
-module.exports = router;
+export default router;

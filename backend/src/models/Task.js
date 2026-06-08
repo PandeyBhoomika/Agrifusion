@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const taskSchema = new mongoose.Schema(
     {
@@ -39,4 +39,5 @@ const taskSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-module.exports = mongoose.model('Task', taskSchema);
+// Use ONLY export default (ES Modules)
+export default mongoose.model('Task', taskSchema);

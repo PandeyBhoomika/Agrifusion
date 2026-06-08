@@ -1,15 +1,17 @@
-const express = require("express");
+import express from "express";
+// IMPORTANT: Notice the .js extension at the end of the file path!
+import { sendOtp, verifyOtp, login } from "../controllers/auth.controller.js";
+
 const router = express.Router();
 
-const authController = require("../controllers/auth.controller");
-
 // SEND OTP
-router.post("/send-otp", authController.sendOtp);
+router.post("/send-otp", sendOtp);
 
 // VERIFY OTP
-router.post("/verify-otp", authController.verifyOtp);
+router.post("/verify-otp", verifyOtp);
 
 // LOGIN
-router.post("/login", authController.login);
+router.post("/login", login);
 
-module.exports = router;
+// Changed from module.exports to export default
+export default router;

@@ -1,15 +1,15 @@
-// src/routes/user.routes.js
+import express from "express";
+// IMPORTANT: Add the .js extension for local files!
+import { auth } from "../middleware/auth.js"; // Note: Adjust this import based on how your auth middleware exports
+import { updateProfile, getProfile } from "../controllers/user.controller.js";
 
-const express = require("express");
 const router = express.Router();
 
-const auth = require("../middleware/auth");
-const userController = require("../controllers/user.controller");
-
 // Save/update profile
-router.post("/profile", auth, userController.updateProfile);
+router.post("/profile", auth, updateProfile);
 
 // Get profile
-router.get("/profile", auth, userController.getProfile);
+router.get("/profile", auth, getProfile);
 
-module.exports = router;
+// Changed from module.exports to export default
+export default router;

@@ -1,7 +1,8 @@
-const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
-const User = require("../models/User");
-const Otp = require("../models/Otp");
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+// IMPORTANT: Notice the .js extensions here
+import User from "../models/User.js";
+import Otp from "../models/Otp.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
@@ -20,14 +21,13 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-
 /* -------------------- HELPERS -------------------- */
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
 /* -------------------- SEND OTP -------------------- */
 // POST /api/auth/send-otp
-exports.sendOtp = async (req, res) => {
+export const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -79,7 +79,7 @@ exports.sendOtp = async (req, res) => {
 
 /* -------------------- VERIFY OTP -------------------- */
 // POST /api/auth/verify-otp
-exports.verifyOtp = async (req, res) => {
+export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
@@ -153,7 +153,7 @@ exports.verifyOtp = async (req, res) => {
 
 /* -------------------- LOGIN -------------------- */
 // POST /api/auth/login
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 

@@ -1,5 +1,6 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+// Change these top two lines:
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const UserSchema = new mongoose.Schema(
   {
@@ -82,4 +83,5 @@ UserSchema.methods.toJSON = function () {
   return user;
 };
 
-module.exports = mongoose.model("User", UserSchema);
+// Change the bottom line to this:
+export default mongoose.model("User", UserSchema);

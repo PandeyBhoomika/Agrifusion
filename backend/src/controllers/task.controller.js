@@ -1,7 +1,7 @@
-const Task = require('../models/Task');
+import Task from '../models/Task.js'; // Note the .js extension!
 
 // Get all active tasks
-exports.getTasks = async (req, res) => {
+export const getTasks = async (req, res) => {
     try {
         const tasks = await Task.find({ isActive: true }).sort({ createdAt: -1 });
         res.status(200).json({ success: true, count: tasks.length, data: tasks });
@@ -12,7 +12,7 @@ exports.getTasks = async (req, res) => {
 };
 
 // Create a new task (Admin only - keeping it simple for now)
-exports.createTask = async (req, res) => {
+export const createTask = async (req, res) => {
     try {
         const task = await Task.create(req.body);
         res.status(201).json({ success: true, data: task });
