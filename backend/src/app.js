@@ -25,9 +25,11 @@ mongoose
 // ------------------------------
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
+const taskRoutes = require("./routes/task.routes"); // <-- Added Task Routes import
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/tasks", taskRoutes); // <-- Added Task Routes mount path
 
 // ------------------------------
 // HEALTH CHECK
