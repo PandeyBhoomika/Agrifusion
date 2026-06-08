@@ -2,6 +2,8 @@ import { View, Text, TextInput, Button } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { verifyOtp } from "../services/authService";
 import { useState } from "react";
+// ✅ IMPORT ADDED HERE
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function OtpVerification() {
   const router = useRouter();
@@ -20,8 +22,17 @@ export default function OtpVerification() {
       return;
     }
 
-    // If new user → go to dashboard or signup completion
-    router.replace("/dashboard");
+    // ✅ FIX: Save token and user data to local storage
+    try {
+      await AsyncStorage.setItem('authToken', res.token);
+      await AsyncStorage.setItem('user', JSON.stringify(res.user));
+      
+      // ✅ FIX: Navigate based on whether they are a new or returning user
+      router.replace(res.isNewUser ? '/farm-profile' : '/(tabs)/dashboard');
+    } catch (e) {
+      console.error("Failed to save auth data:", e);
+      setError("Failed to save login session.");
+    }
   };
 
   return (

@@ -1,13 +1,35 @@
 import { Stack, useRouter } from "expo-router";
-import { useEffect } from "react";
+// ✅ IMPORT ADDED: useState
+import { useEffect, useState } from "react";
 import { View, ActivityIndicator, Text } from "react-native";
+// ✅ IMPORT ADDED: AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
-  // TODO: Replace with real check later
-  const isAuthenticated = true;
+  const router = useRouter();
+  
+  // ✅ FIX: Use state to track auth (null means it is currently checking)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
-  if (!isAuthenticated) {
-    return <Text>Please log in to access this content.</Text>;
+  useEffect(() => {
+    // ✅ FIX: Check real storage for the token
+    AsyncStorage.getItem('authToken').then(token => {
+      setIsAuthenticated(!!token);
+      
+      // If no token is found, kick them to the login/auth screen
+      if (!token) {
+        router.replace('/auth');
+      }
+    });
+  }, []);
+
+  // Show a loading spinner while checking storage to prevent screen flashing
+  if (isAuthenticated === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
   return <>{children}</>;
@@ -28,8 +50,6 @@ export default function RootLayout() {
         <Stack.Screen name="otp-verification" options={{ headerShown: false }} />
         <Stack.Screen name="farm-profile" options={{ headerShown: false }} />
         <Stack.Screen name="rewards" options={{ headerShown: false }} />
-
-
         <Stack.Screen name="quiz" options={{ headerShown: false }} />
       </Stack>
     </RouteGuard>
