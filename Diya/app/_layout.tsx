@@ -16,7 +16,8 @@ export default function RootLayout() {
       {/* ── PROTECTED SCREENS ── */}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="farm-profile" options={{ headerShown: false }} />
-      <Stack.Screen name="rewards" options={{ headerShown: false }} />
+      <Stack.Screen name="rewards/index" options={{ headerShown: false }} />
+      <Stack.Screen name="schemes" options={{ headerShown: false }} />
       <Stack.Screen name="quiz" options={{ headerShown: false }} />
     </Stack>
   );

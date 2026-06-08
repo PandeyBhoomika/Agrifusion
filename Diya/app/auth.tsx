@@ -1,6 +1,4 @@
-
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   SafeAreaView,
   View,
@@ -13,11 +11,63 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import Reanimated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+
+// Keep your existing service imports
 import { sendOtp } from "../services/authService";
 import { fetchIndianStates } from "../services/stateService";
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+// --- PARTICLE COMPONENT (from Splash Screen rules) ---
+const Particle = ({ particle }: { particle: any }) => {
+  const animY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation;
+    const timeout = setTimeout(() => {
+      loop = Animated.loop(
+        Animated.timing(animY, {
+          toValue: -(screenHeight * 0.8),
+          duration: particle.duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      loop.start();
+    }, particle.delay);
+
+    return () => {
+      clearTimeout(timeout);
+      if (loop) loop.stop();
+    };
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        {
+          left: particle.x,
+          top: particle.y,
+          width: particle.size,
+          height: particle.size,
+          borderRadius: particle.size / 2,
+          backgroundColor: particle.color,
+          opacity: particle.opacity,
+          transform: [{ translateY: animY }],
+        },
+      ]}
+    />
+  );
+};
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -27,6 +77,7 @@ export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [indianStates, setIndianStates] = useState<string[]>([]);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -35,6 +86,20 @@ export default function AuthScreen() {
     state: "",
     password: "",
   });
+
+  // --- PARTICLES GENERATION ---
+  const particles = useMemo(() => {
+    return Array.from({ length: 15 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * screenWidth,
+      y: screenHeight * 0.5 + Math.random() * (screenHeight * 0.5),
+      size: Math.random() * 6 + 2,
+      opacity: Math.random() * 0.25 + 0.1,
+      color: ["#22c55e", "#4ade80", "#86efac"][Math.floor(Math.random() * 3)],
+      duration: 5000 + Math.random() * 4000,
+      delay: Math.random() * 2000,
+    }));
+  }, []);
 
   // Fetch all states
   useEffect(() => {
@@ -45,20 +110,22 @@ export default function AuthScreen() {
     loadStates();
   }, []);
 
-  const handleInputChange = (field: string, value: string) =>
+  const handleInputChange = (field: string, value: string) => {
+    setErrorMessage("");
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   // -------------------------------
-  // SEND OTP (Email)
+  // SEND OTP (Sign Up Logic)
   // -------------------------------
   const handleSendOtp = async () => {
     if (!formData.email.trim() || !formData.fullName.trim() || !formData.phone.trim() || !formData.state.trim() || !formData.password.trim()) {
-      Alert.alert("Validation Error", "All fields are required");
+      setErrorMessage("All fields are required");
       return;
     }
 
     if (formData.phone.length !== 10 || !/^\d+$/.test(formData.phone)) {
-      Alert.alert("Validation Error", "Please enter a valid 10-digit phone number");
+      setErrorMessage("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -70,7 +137,6 @@ export default function AuthScreen() {
 
       if (response.success) {
         Alert.alert("Success", "OTP sent to your email!");
-
         router.push({
           pathname: "/otp-verification",
           params: {
@@ -84,132 +150,185 @@ export default function AuthScreen() {
       } else {
         const msg = response.error || "Failed to send OTP";
         setErrorMessage(msg);
-        Alert.alert("Error", msg);
       }
     } catch (error) {
       console.error("Send OTP Error:", error);
-      Alert.alert("Error", "Unexpected error occurred while sending OTP");
+      setErrorMessage("Unexpected error occurred while sending OTP");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // -------------------------------
+  // MOCK LOGIN LOGIC
+  // -------------------------------
+  const handleLogin = () => {
+    if (!formData.email.trim() || !formData.password.trim()) {
+      setErrorMessage("Email and Password are required");
+      return;
+    }
+    Alert.alert("Login", "Connect your Login API endpoint here!");
+  };
+
+  const onSubmit = isLogin ? handleLogin : handleSendOtp;
+
   return (
-    <LinearGradient
-      colors={["#FAF3E0", "#DFF2D8"]}
-      style={styles.gradient}
-    >
+    <LinearGradient colors={["#021F0F", "#053B24", "#0A5C38"]} style={styles.gradient}>
+      {/* Floating Particles Background */}
+      {particles.map((p) => (
+        <Particle key={p.id} particle={p} />
+      ))}
+
       <SafeAreaView style={styles.safe}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.card}>
-              <Text style={styles.header}>Join AgriFusion</Text>
-              <Text style={styles.sub}>Create your account to get started</Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
-              {/* Full Name */}
-              <View style={styles.field}>
-                <Text style={styles.label}>Full Name</Text>
-                <TextInput
-                  value={formData.fullName}
-                  onChangeText={(t) => handleInputChange("fullName", t)}
-                  placeholder="Enter your full name"
-                  style={styles.input}
-                />
+            {/* --- SMALL LOGO / HEADER --- */}
+            <Reanimated.View entering={FadeInDown.delay(100).duration(500)} style={styles.logoContainer}>
+              <View style={styles.logoGlow}>
+                <Text style={styles.logoEmoji}>🌾</Text>
               </View>
+              <Text style={styles.header}>AgriFusion</Text>
+              <Text style={styles.sub}>Empowering Farmers Through Technology</Text>
+            </Reanimated.View>
 
-              {/* Email */}
+            {/* --- PILL TOGGLE (Login / Sign Up) --- */}
+            <Reanimated.View entering={FadeInDown.delay(200).duration(500)} style={styles.toggleContainer}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, isLogin && styles.toggleBtnActive]}
+                onPress={() => { setIsLogin(true); setErrorMessage(""); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, !isLogin && styles.toggleBtnActive]}
+                onPress={() => { setIsLogin(false); setErrorMessage(""); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toggleText, !isLogin && styles.toggleTextActive]}>Sign Up</Text>
+              </TouchableOpacity>
+            </Reanimated.View>
+
+            {/* --- FORM FIELDS --- */}
+            <Reanimated.View entering={FadeInUp.delay(300).duration(500)} style={styles.formContainer}>
+
+              {!isLogin && (
+                <View style={styles.field}>
+                  <Text style={styles.label}>Full Name</Text>
+                  <TextInput
+                    value={formData.fullName}
+                    onChangeText={(t) => handleInputChange("fullName", t)}
+                    placeholder="Enter your full name"
+                    placeholderTextColor="rgba(187,247,208,0.4)"
+                    onFocus={() => setFocusedField("fullName")}
+                    onBlur={() => setFocusedField(null)}
+                    style={[styles.input, focusedField === "fullName" && styles.inputFocused]}
+                  />
+                </View>
+              )}
+
               <View style={styles.field}>
                 <Text style={styles.label}>Email Address</Text>
                 <TextInput
                   value={formData.email}
                   onChangeText={(t) => handleInputChange("email", t)}
                   placeholder="Enter your email"
+                  placeholderTextColor="rgba(187,247,208,0.4)"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  style={styles.input}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  style={[styles.input, focusedField === "email" && styles.inputFocused]}
                 />
               </View>
 
-              {/* Phone Number */}
-              <View style={styles.field}>
-                <Text style={styles.label}>Phone Number</Text>
-                <TextInput
-                  value={formData.phone}
-                  onChangeText={(t) => handleInputChange("phone", t)}
-                  placeholder="Enter 10-digit phone number"
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  style={styles.input}
-                />
-              </View>
+              {!isLogin && (
+                <>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>Phone Number</Text>
+                    <TextInput
+                      value={formData.phone}
+                      onChangeText={(t) => handleInputChange("phone", t)}
+                      placeholder="10-digit phone number"
+                      placeholderTextColor="rgba(187,247,208,0.4)"
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      onFocus={() => setFocusedField("phone")}
+                      onBlur={() => setFocusedField(null)}
+                      style={[styles.input, focusedField === "phone" && styles.inputFocused]}
+                    />
+                  </View>
 
-              {/* State */}
-              <View style={styles.field}>
-                <Text style={styles.label}>State</Text>
-                <TextInput
-                  value={formData.state}
-                  onChangeText={(t) => handleInputChange("state", t)}
-                  placeholder="Type or select your state"
-                  style={styles.input}
-                />
-                <Text style={styles.hint}>Example: {indianStates[0]}</Text>
-              </View>
+                  <View style={styles.field}>
+                    <Text style={styles.label}>State</Text>
+                    <TextInput
+                      value={formData.state}
+                      onChangeText={(t) => handleInputChange("state", t)}
+                      placeholder="Type your state"
+                      placeholderTextColor="rgba(187,247,208,0.4)"
+                      onFocus={() => setFocusedField("state")}
+                      onBlur={() => setFocusedField(null)}
+                      style={[styles.input, focusedField === "state" && styles.inputFocused]}
+                    />
+                    <Text style={styles.hint}>Example: {indianStates[0] || "Maharashtra"}</Text>
+                  </View>
+                </>
+              )}
 
-              {/* Password */}
               <View style={styles.field}>
                 <Text style={styles.label}>Password</Text>
-                <View style={styles.row}>
+                <View style={[styles.inputPasswordRow, focusedField === "password" && styles.inputFocused]}>
                   <TextInput
                     value={formData.password}
                     onChangeText={(t) => handleInputChange("password", t)}
                     placeholder="Enter your password"
+                    placeholderTextColor="rgba(187,247,208,0.4)"
                     secureTextEntry={!showPassword}
-                    style={[styles.input, { flex: 1 }]}
+                    onFocus={() => setFocusedField("password")}
+                    onBlur={() => setFocusedField(null)}
+                    style={styles.inputPassword}
                   />
-                  <TouchableOpacity
-                    style={styles.eye}
-                    onPress={() => setShowPassword((s) => !s)}
-                  >
-                    <Text>{showPassword ? "Hide" : "Show"}</Text>
+                  <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword((s) => !s)}>
+                    <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#86efac" />
                   </TouchableOpacity>
                 </View>
               </View>
 
               {/* Error Message */}
               {errorMessage ? (
-                <View style={styles.errorBox}>
+                <Reanimated.View entering={ZoomIn.duration(300)} style={styles.errorBox}>
+                  <Ionicons name="alert-circle" size={18} color="#fca5a5" />
                   <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
+                </Reanimated.View>
               ) : null}
 
               {/* Submit Button */}
               <TouchableOpacity
-                style={[styles.submit, isLoading && styles.disabled]}
-                onPress={handleSendOtp}
+                style={[styles.submitWrapper, isLoading && styles.disabled]}
+                onPress={onSubmit}
                 disabled={isLoading}
+                activeOpacity={0.8}
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitText}>Continue to Verify</Text>
-                )}
+                <LinearGradient
+                  colors={["#22c55e", "#16a34a"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitGradient}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.submitText}>{isLogin ? "Login to Dashboard" : "Continue to Verify"}</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
 
               <Text style={styles.disclaimer}>
-                By signing up, you agree to our Terms and Privacy Policy
+                By proceeding, you agree to our Terms and Privacy Policy
               </Text>
+            </Reanimated.View>
 
-              {/* Login Link */}
-              <View style={styles.loginLinkContainer}>
-                <Text style={styles.loginLinkText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.push("/login")}>
-                  <Text style={styles.loginLink}>Login</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -219,93 +338,44 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
+  particle: { position: "absolute" },
   safe: { flex: 1 },
-  container: { flexGrow: 1, justifyContent: "center", padding: 24 },
-  card: {
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: "#D1FAE5",
-    shadowColor: "#10B981",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  header: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#166534",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  sub: {
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: 24,
-    fontSize: 15,
-  },
-  field: { marginBottom: 16 },
-  label: { color: "#166534", marginBottom: 8, fontWeight: "700" },
-  input: {
-    height: 50,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    borderWidth: 2,
-    borderColor: "#D1FAE5",
-  },
-  hint: { color: "#9CA3AF", fontSize: 13, marginTop: 6 },
-  row: { flexDirection: "row", alignItems: "center" },
-  eye: {
-    padding: 10,
-    marginLeft: 8,
-    backgroundColor: "#ECFDF5",
-    borderRadius: 8,
-  },
-  errorBox: {
-    backgroundColor: "#FEE2E2",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: "#FCA5A5",
-    marginBottom: 16,
-  },
-  errorText: { color: "#DC2626", textAlign: "center" },
-  submit: {
-    backgroundColor: "#10B981",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 16,
-  },
+  container: { flexGrow: 1, justifyContent: "center", padding: 24, paddingBottom: 60 },
+
+  /* HEADER / LOGO */
+  logoContainer: { alignItems: "center", marginBottom: 30, marginTop: 20 },
+  logoGlow: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(34,197,94,0.15)", borderWidth: 1, borderColor: "rgba(34,197,94,0.4)", alignItems: "center", justifyContent: "center", marginBottom: 12, shadowColor: "#22c55e", shadowOpacity: 0.5, shadowRadius: 15, elevation: 10 },
+  logoEmoji: { fontSize: 32 },
+  header: { fontSize: 28, fontWeight: "900", color: "#ECFDF5", letterSpacing: 0.5, marginBottom: 4 },
+  sub: { color: "#BBF7D0", fontSize: 13, fontWeight: "500", opacity: 0.8 },
+
+  /* PILL TOGGLE */
+  toggleContainer: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 999, padding: 4, marginBottom: 30, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  toggleBtn: { flex: 1, paddingVertical: 12, borderRadius: 999, alignItems: "center" },
+  toggleBtnActive: { backgroundColor: "#22c55e", shadowColor: "#22c55e", shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+  toggleText: { color: "#BBF7D0", fontSize: 14, fontWeight: "600" },
+  toggleTextActive: { color: "#021F0F", fontWeight: "800" },
+
+  /* FORM FIELDS */
+  formContainer: { width: "100%" },
+  field: { marginBottom: 18 },
+  label: { color: "#ECFDF5", fontSize: 13, fontWeight: "600", marginBottom: 8, marginLeft: 4 },
+  input: { height: 54, backgroundColor: "rgba(0,0,0,0.25)", borderRadius: 14, paddingHorizontal: 16, color: "#ffffff", borderWidth: 1, borderColor: "rgba(34,197,94,0.15)", fontSize: 15 },
+  inputFocused: { borderColor: "#22c55e", backgroundColor: "rgba(0,0,0,0.4)" },
+  inputPasswordRow: { flexDirection: "row", alignItems: "center", height: 54, backgroundColor: "rgba(0,0,0,0.25)", borderRadius: 14, paddingHorizontal: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.15)" },
+  inputPassword: { flex: 1, color: "#ffffff", fontSize: 15 },
+  eyeBtn: { padding: 4 },
+  hint: { color: "rgba(187,247,208,0.5)", fontSize: 12, marginTop: 6, marginLeft: 4 },
+
+  /* ERROR MESSAGES */
+  errorBox: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "rgba(239,68,68,0.3)", marginBottom: 18 },
+  errorText: { color: "#fca5a5", fontSize: 13, fontWeight: "500", marginLeft: 8 },
+
+  /* SUBMIT BUTTON */
+  submitWrapper: { borderRadius: 16, overflow: "hidden", marginTop: 10, shadowColor: "#22c55e", shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  submitGradient: { paddingVertical: 18, alignItems: "center", justifyContent: "center" },
   disabled: { opacity: 0.6 },
-  submitText: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  loginLinkContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  loginLinkText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  loginLink: {
-    fontSize: 14,
-    color: "#16A34A",
-    fontWeight: "700",
-  },
-  foot: {
-    textAlign: "center",
-    color: "#9CA3AF",
-    fontSize: 12,
-    marginTop: 32,
-  },
-  disclaimer: {
-    textAlign: "center",
-    color: "#9CA3AF",
-    fontSize: 12,
-    marginTop: 16,
-  },
+  submitText: { color: "#ffffff", fontWeight: "800", fontSize: 16, letterSpacing: 0.5 },
+
+  disclaimer: { textAlign: "center", color: "rgba(187,247,208,0.5)", fontSize: 11, marginTop: 20 },
 });

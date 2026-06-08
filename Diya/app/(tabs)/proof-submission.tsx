@@ -41,7 +41,7 @@ export default function ProofSubmissionScreen() {
 
       const rec = new Audio.Recording();
       await rec.prepareToRecordAsync(
-        Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
       await rec.startAsync();
 

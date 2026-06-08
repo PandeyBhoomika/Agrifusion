@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,11 @@ import {
   RefreshControl,
   SafeAreaView,
   ActivityIndicator,
-  Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import {
   AntDesign,
   Feather,
@@ -20,13 +22,11 @@ import {
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import Reanimated, { FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 
 // ================= WEATHER API CONFIG =================
-// FIX: Move API key to .env file as EXPO_PUBLIC_WEATHER_API_KEY
-// In your Diya/.env file add:
-//   EXPO_PUBLIC_WEATHER_API_KEY=7c6c37dc393f48f3bc2120650250812
-const WEATHER_API_KEY =
-  process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
+const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
 
 interface WeatherData {
   temp: number;
@@ -50,7 +50,6 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
     const windKph: number = data.current.wind_kph;
     const temp: number = data.current.temp_c;
 
-    // Simple score: ideal temp 20–30, humidity 50–70, wind < 20
     const tempScore = temp >= 20 && temp <= 30 ? 4 : temp >= 15 && temp <= 35 ? 3 : 2;
     const humScore = humidity >= 50 && humidity <= 70 ? 3 : 2;
     const windScore = windKph < 20 ? 3 : 2;
@@ -73,7 +72,6 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
 // ======================================================
 
 export default function PersonalizedDashboard() {
-  // FIX: Replace all prop-based navigation with useRouter
   const router = useRouter();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -81,17 +79,39 @@ export default function PersonalizedDashboard() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
 
-  // These would come from your backend/AsyncStorage in a real build
+  // Mocked backend values
   const progressValue = 72;
   const level = 4;
   const todaysXP = 34;
   const streakDays = 3;
 
-  // Tick clock every minute
+  // Animations
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  // Tick clock
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Weather icon continuous rotation
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 8000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [rotateAnim]);
+
+  const rotation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // Fetch real weather on mount
   useEffect(() => {
@@ -103,7 +123,6 @@ export default function PersonalizedDashboard() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        // Permission denied — use fallback hardcoded weather silently
         setWeather(null);
         setWeatherLoading(false);
         return;
@@ -125,900 +144,379 @@ export default function PersonalizedDashboard() {
     setTimeout(() => setRefreshing(false), 800);
   }, []);
 
-  // FIX: All navigation now uses router.push instead of dead prop callbacks
+  // Navigation handlers
   const goToTasks = () => router.push('/(tabs)/tasks');
-  const goToProofSubmit = () => router.push('/(tabs)/proof-submission');
+  const goToProofSubmit = () => router.push('/proof-submission');
   const goToRewards = () => router.push('/rewards');
   const goToLearningHub = () => router.push('/(tabs)/learninghub');
   const goToCommunity = () => router.push('/(tabs)/communitydashboard');
   const goToGovSchemes = () => router.push('/schemes');
   const goToVirtualFarm = () => router.push('/(tabs)/virtualfarm');
 
-  // Derived weather display values (fallback when no real data)
+  // Derived display values
   const displayTemp = weather ? `${weather.temp}°C` : '28°C';
-  const displayCondition = weather ? weather.condition : 'Clear · Humid';
-  const displayFeelsLike = weather ? `Feels like ${weather.feelsLike}°C` : 'Feels like 30°C';
+  const displayCondition = weather ? weather.condition : 'Partly Cloudy';
+  const displayFeelsLike = weather ? `Feels ${weather.feelsLike}° · Mild wind` : 'Feels 30° · Mild wind';
   const displayHumidity = weather ? `${weather.humidity}%` : '65%';
-  const displayWind = weather ? `${weather.windKph} km/h` : '8 km/h';
+  const displayWind = weather ? `${weather.windKph}km/h` : '8km/h';
   const displayRain = weather ? `${weather.rainChance}%` : '10%';
   const displayLocation = weather ? weather.locationName : 'Your Farm';
-  const displayScore = weather ? `${weather.score} / 10` : '8.4 / 10';
+  const displayScore = weather ? `${weather.score}/10` : '8.4/10';
+
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+
+  // Circular Progress Math
+  const radius = 65;
+  const strokeWidth = 10;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (circumference * progressValue) / 100;
 
   return (
-    <LinearGradient
-      colors={['#d4efdd', '#c0e5ce', '#b0dcc2']}
-      style={{ flex: 1 }}
-    >
+    <LinearGradient colors={['#021F0F', '#042818', '#053B24']} style={styles.mainContainer}>
+      <StatusBar style="light" backgroundColor="#021F0F" />
       <SafeAreaView style={{ flex: 1 }}>
-        {/* ---------------- HEADER ---------------- */}
-        <View style={styles.header}>
-          {/* FIX: Back button navigates properly; on tab root it does nothing gracefully */}
-          <TouchableOpacity onPress={() => router.canGoBack() && router.back()}>
-            <Text style={styles.backBtn}>←</Text>
-          </TouchableOpacity>
 
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>My Farm Dashboard</Text>
-            <Text style={styles.headerTime}>
-              {now.toLocaleDateString('en-IN', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </Text>
+        {/* --- CUSTOM DARK HEADER --- */}
+        <Reanimated.View entering={FadeInDown.duration(500)} style={styles.header}>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.greetingText}>{greeting}, 🌾</Text>
+              <Text style={styles.userName}>Bhoomika</Text>
+              <Text style={styles.dateText}>
+                {now.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </Text>
+            </View>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarCircle}>
+                <Text style={{ fontSize: 24 }}>👨‍🌾</Text>
+              </View>
+              <View style={styles.levelBadge}>
+                <Text style={styles.levelBadgeText}>Lv.{level}</Text>
+              </View>
+            </View>
           </View>
 
-          <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
-            <Feather name="refresh-cw" size={20} color="#1f3b2b" />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.headerBottomRow}>
+            <View style={styles.headerXpTrack}>
+              <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: '40%' }]} />
+            </View>
+            <Text style={styles.headerXpLabel}>180 XP to Level {level + 1}</Text>
+          </View>
+        </Reanimated.View>
 
         <ScrollView
-          contentContainerStyle={styles.container}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22c55e" />}
         >
-          {/* ---------------- WEATHER BAR ---------------- */}
-          <View style={styles.weatherCard}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.weatherHeaderRow}>
-                <View style={styles.weatherLocationRow}>
-                  <Ionicons name="location-outline" size={16} color="#1f3b2b" />
-                  <Text style={styles.weatherLocationText}>{displayLocation}</Text>
-                </View>
-                <View style={styles.weatherChip}>
-                  <Feather name="zap" size={14} color="#14532d" />
-                  <Text style={styles.weatherChipText}>Good for Irrigation</Text>
-                </View>
-              </View>
-
-              {weatherLoading ? (
-                <View style={{ paddingVertical: 12 }}>
-                  <ActivityIndicator size="small" color="#14532d" />
-                </View>
-              ) : (
-                <>
-                  <View style={styles.weatherMainRow}>
-                    <View>
-                      <Text style={styles.weatherTemp}>{displayTemp}</Text>
-                      <Text style={styles.weatherSubtitle}>{displayCondition}</Text>
-                      <Text style={styles.weatherFeelsLike}>
-                        {displayFeelsLike} • Mild wind
-                      </Text>
-                    </View>
+          {/* --- HERO WEATHER CARD --- */}
+          <Reanimated.View entering={FadeInUp.delay(100).duration(400)}>
+            <LinearGradient colors={['#0F5E35', '#0A4228', '#063020']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.weatherHero}>
+              <View style={styles.weatherTopRow}>
+                <View>
+                  <View style={styles.locationRow}>
+                    <Ionicons name="location" size={14} color="#86efac" />
+                    <Text style={styles.locationText}>{displayLocation}</Text>
                   </View>
+                  <Text style={styles.heroTemp}>{weatherLoading ? '--' : displayTemp}</Text>
+                  <Text style={styles.heroCondition}>{displayCondition}</Text>
+                  <Text style={styles.heroFeelsLike}>{displayFeelsLike}</Text>
+                </View>
 
-                  <View style={styles.weatherStatsRow}>
-                    <View style={styles.weatherStatPill}>
-                      <Feather name="droplet" size={14} color="#0f766e" />
-                      <Text style={styles.weatherStatText}>{displayHumidity} Humidity</Text>
-                    </View>
-                    <View style={styles.weatherStatPill}>
-                      <Feather name="wind" size={14} color="#0f766e" />
-                      <Text style={styles.weatherStatText}>{displayWind} Wind</Text>
-                    </View>
-                    <View style={styles.weatherStatPill}>
-                      <Ionicons name="rainy-outline" size={14} color="#0f766e" />
-                      <Text style={styles.weatherStatText}>{displayRain} Rain</Text>
-                    </View>
-                    <View style={styles.weatherStatPill}>
-                      <Ionicons name="leaf-outline" size={14} color="#0f766e" />
-                      <Text style={styles.weatherStatText}>Soil OK</Text>
-                    </View>
+                <View style={styles.weatherHeroRight}>
+                  <View style={styles.irrigationChip}>
+                    <Feather name="zap" size={12} color="#053B24" />
+                    <Text style={styles.irrigationChipText}>Good for Irrigation</Text>
                   </View>
-                </>
-              )}
-            </View>
-
-            <View style={styles.weatherRight}>
-              <Ionicons name="sunny-outline" size={40} color="#facc15" />
-              <View style={styles.weatherScorePill}>
-                <Text style={styles.weatherScoreLabel}>Today Score</Text>
-                <Text style={styles.weatherScoreValue}>{displayScore}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ---------------- DAILY STREAK ---------------- */}
-          <View style={styles.streakCard}>
-            <View style={styles.streakLeft}>
-              <Text style={styles.streakEmoji}>🔥</Text>
-              <View>
-                <Text style={styles.streakTitle}>
-                  {streakDays}-day sustainable streak
-                </Text>
-                <Text style={styles.streakSubtitle}>
-                  Complete 1 task today to keep the fire alive!
-                </Text>
-              </View>
-            </View>
-            <View style={styles.streakRight}>
-              <Text style={styles.streakRewardLabel}>Bonus</Text>
-              <Text style={styles.streakRewardValue}>+20 XP</Text>
-            </View>
-          </View>
-
-          {/* ---------------- PROGRESS RING ---------------- */}
-          <View style={styles.progressWrapper}>
-            <View style={styles.progressOuterGlow}>
-              <View style={styles.progressRing}>
-                <View style={styles.progressInnerRing}>
-                  <Text style={styles.progressAvatar}>👨‍🌾</Text>
-                  <Text style={styles.progressValue}>{progressValue}%</Text>
-                  <Text style={styles.progressLabel}>Mission Progress</Text>
-                  <View style={styles.levelPill}>
-                    <Feather name="star" size={12} color="#fbbf24" />
-                    <Text style={styles.levelPillText}>Lv.{level} Eco Farmer</Text>
+                  <Animated.View style={{ transform: [{ rotate: rotation }], marginTop: 10 }}>
+                    <Ionicons name="sunny" size={56} color="#fbbf24" />
+                  </Animated.View>
+                  <View style={styles.farmingScorePill}>
+                    <Text style={styles.scorePillText}>Farming Score {displayScore}</Text>
                   </View>
                 </View>
               </View>
-            </View>
 
-            <View style={styles.xpRow}>
-              <Text style={styles.xpLabel}>Today's XP</Text>
-              <Text style={styles.xpValue}>+{todaysXP} XP</Text>
-            </View>
-            <View style={styles.xpTrack}>
-              <View style={[styles.xpFill, { width: '60%' }]} />
-            </View>
-            <Text style={styles.xpHint}>180 XP more to reach Level 5</Text>
+              <View style={styles.weatherStatBoxes}>
+                <View style={styles.miniStatBox}><Text style={styles.miniStatText}>💧 {displayHumidity}</Text></View>
+                <View style={styles.miniStatBox}><Text style={styles.miniStatText}>🌬️ {displayWind}</Text></View>
+                <View style={styles.miniStatBox}><Text style={styles.miniStatText}>🌧️ {displayRain}</Text></View>
+                <View style={styles.miniStatBox}><Text style={styles.miniStatText}>🌱 Soil OK</Text></View>
+              </View>
+            </LinearGradient>
+          </Reanimated.View>
+
+          {/* --- STREAK & XP ROW --- */}
+          <View style={styles.rowCards}>
+            <Reanimated.View entering={FadeInUp.delay(200).duration(400)} style={styles.halfCardWrapper}>
+              <LinearGradient colors={['#92400e', '#78350f']} style={[styles.halfCard, styles.streakCard]}>
+                <Text style={styles.halfCardEmoji}>🔥</Text>
+                <View>
+                  <Text style={styles.halfCardTitle}>{streakDays} Day Streak</Text>
+                  <Text style={styles.halfCardSubGold}>+20 XP Bonus</Text>
+                </View>
+              </LinearGradient>
+            </Reanimated.View>
+
+            <Reanimated.View entering={FadeInUp.delay(300).duration(400)} style={styles.halfCardWrapper}>
+              <LinearGradient colors={['#14532d', '#0a3d1f']} style={[styles.halfCard, styles.xpCard]}>
+                <Text style={styles.halfCardEmoji}>⚡</Text>
+                <View>
+                  <Text style={styles.halfCardTitle}>+{todaysXP} XP Today</Text>
+                  <View style={styles.miniProgressTrack}>
+                    <View style={[styles.miniProgressFill, { width: '70%' }]} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </Reanimated.View>
           </View>
 
-          {/* ---------------- REWARD BANNER ---------------- */}
-          <View style={styles.rewardBanner}>
-            <View style={styles.rewardLeft}>
-              <AntDesign name="gift" size={20} color="#f97316" />
-              <View style={{ marginLeft: 8 }}>
-                <Text style={styles.rewardTitle}>Great job today! 🎉</Text>
-                <Text style={styles.rewardSubtitle}>
-                  You unlocked new rewards by completing missions.
-                </Text>
+          {/* --- MISSION PROGRESS CIRCLE --- */}
+          <Reanimated.View entering={ZoomIn.delay(400).duration(500)} style={styles.missionCircleContainer}>
+            <View style={styles.outerGlowRing}>
+              <Svg width={150} height={150}>
+                {/* Background Track */}
+                <Circle cx={75} cy={75} r={radius} stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} fill="none" />
+                {/* Progress Fill */}
+                <Circle cx={75} cy={75} r={radius} stroke="#22c55e" strokeWidth={strokeWidth} fill="none"
+                  strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+                  rotation="-90" origin="75, 75"
+                />
+              </Svg>
+              <View style={styles.circleInnerContent}>
+                <Text style={{ fontSize: 28 }}>👨‍🌾</Text>
+                <Text style={styles.circlePercentage}>{progressValue}%</Text>
+                <Text style={styles.circleLabel}>Mission Progress</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.rewardButton} onPress={goToRewards}>
-              <Text style={styles.rewardButtonText}>View</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.levelBadgeAmber}>
+              <Text style={styles.levelBadgeAmberText}>🌟 Lv.{level} Eco Farmer</Text>
+            </View>
+          </Reanimated.View>
 
-          {/* ---------------- SMART INSIGHTS ---------------- */}
-          <View style={styles.insightsCard}>
-            <Text style={styles.sectionTitle}>Smart Insights</Text>
-
+          {/* --- SMART INSIGHTS --- */}
+          <Reanimated.View entering={FadeInUp.delay(500).duration(400)} style={styles.glassCard}>
+            <Text style={styles.sectionTitle}>Smart Insights 🧠</Text>
             <View style={styles.insightRow}>
-              <View style={styles.insightIconBox}>
-                <Feather name="activity" size={18} color="#14532d" />
-              </View>
-              <View style={styles.insightTextWrap}>
-                <Text style={styles.insightText}>
-                  Crop health is stable and improving 📈
-                </Text>
-              </View>
-              <View style={[styles.trendChip, styles.trendPositive]}>
-                <Feather name="arrow-up-right" size={12} color="#166534" />
-                <Text style={styles.trendText}>+6%</Text>
-              </View>
+              <View style={styles.insightIcon}><Feather name="trending-up" size={16} color="#86efac" /></View>
+              <Text style={styles.insightText}>Crop health stable and improving</Text>
+              <View style={styles.chipGreen}><Text style={styles.chipGreenText}>+6%</Text></View>
             </View>
-
             <View style={styles.insightRow}>
-              <View style={styles.insightIconBox}>
-                <Feather name="droplet" size={18} color="#14532d" />
-              </View>
-              <View style={styles.insightTextWrap}>
-                <Text style={styles.insightText}>
-                  Water usage 12% better than last week 💧
-                </Text>
-              </View>
-              <View style={[styles.trendChip, styles.trendPositive]}>
-                <Feather name="arrow-down-right" size={12} color="#166534" />
-                <Text style={styles.trendText}>-12%</Text>
-              </View>
+              <View style={styles.insightIcon}><Feather name="droplet" size={16} color="#86efac" /></View>
+              <Text style={styles.insightText}>Water usage 12% better than last week</Text>
+              <View style={styles.chipGreen}><Text style={styles.chipGreenText}>-12%</Text></View>
             </View>
-
             <View style={styles.insightRow}>
-              <View style={styles.insightIconBox}>
-                <Feather name="award" size={18} color="#14532d" />
-              </View>
-              <View style={styles.insightTextWrap}>
-                <Text style={styles.insightText}>
-                  2 new rewards unlocked – keep going! 🏅
-                </Text>
-              </View>
-              <View style={[styles.trendChip, styles.trendNeutral]}>
-                <Text style={styles.trendText}>Rewards</Text>
-              </View>
+              <View style={styles.insightIcon}><Feather name="award" size={16} color="#fde68a" /></View>
+              <Text style={styles.insightText}>2 new rewards unlocked!</Text>
+              <View style={styles.chipAmber}><Text style={styles.chipAmberText}>New</Text></View>
             </View>
-          </View>
+          </Reanimated.View>
 
-          {/* ---------------- FARM HEALTH SNAPSHOT ---------------- */}
-          <View style={styles.healthCard}>
-            <Text style={styles.sectionTitle}>Farm Health Snapshot</Text>
-            <View style={styles.healthRow}>
+          {/* --- FARM HEALTH SNAPSHOT --- */}
+          <Reanimated.View entering={FadeInUp.delay(600).duration(400)} style={styles.glassCard}>
+            <Text style={styles.sectionTitle}>Farm Health 🌿</Text>
+            <View style={styles.healthGrid}>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🌱 Soil</Text>
-                <View style={styles.healthBarTrack}>
-                  <View style={[styles.healthBarFill, { width: '82%' }]} />
-                </View>
-                <Text style={styles.healthValue}>82 · Healthy</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '82%', backgroundColor: '#22c55e' }]} /></View>
+                <Text style={styles.healthValue}>82% · Healthy</Text>
               </View>
-
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>💧 Water</Text>
-                <View style={styles.healthBarTrack}>
-                  <View style={[styles.healthBarFill, { width: '74%' }]} />
-                </View>
-                <Text style={styles.healthValue}>74 · Efficient</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '74%', backgroundColor: '#3b82f6' }]} /></View>
+                <Text style={styles.healthValue}>74% · Efficient</Text>
+              </View>
+              <View style={styles.healthItem}>
+                <Text style={styles.healthLabel}>🐛 Pest</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '38%', backgroundColor: '#f97316' }]} /></View>
+                <Text style={styles.healthValue}>38% · Low Risk</Text>
+              </View>
+              <View style={styles.healthItem}>
+                <Text style={styles.healthLabel}>☀️ Sun</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '68%', backgroundColor: '#fbbf24' }]} /></View>
+                <Text style={styles.healthValue}>68% · Good</Text>
               </View>
             </View>
+          </Reanimated.View>
 
-            <View style={styles.healthRow}>
-              <View style={styles.healthItem}>
-                <Text style={styles.healthLabel}>🐛 Pest Risk</Text>
-                <View style={styles.healthBarTrack}>
-                  <View style={[styles.healthBarFillWarning, { width: '38%' }]} />
-                </View>
-                <Text style={styles.healthValueWarning}>Low–Medium</Text>
-              </View>
+          {/* --- TOOLS GRID --- */}
+          <Reanimated.View entering={FadeInUp.delay(700).duration(400)}>
+            <Text style={[styles.sectionTitle, { marginLeft: 4, marginTop: 10 }]}>Your Tools ⚒️</Text>
+            <View style={styles.toolsGrid}>
 
-              <View style={styles.healthItem}>
-                <Text style={styles.healthLabel}>☀ Sunlight</Text>
-                <View style={styles.healthBarTrack}>
-                  <View style={[styles.healthBarFill, { width: '68%' }]} />
+              <TouchableOpacity style={styles.toolCard} onPress={goToTasks} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+                    <Feather name="check-circle" size={20} color="#ef4444" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(239,68,68,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#fca5a5' }]}>3 pending</Text></View>
                 </View>
-                <Text style={styles.healthValue}>Good</Text>
-              </View>
+                <Text style={styles.toolTitle}>Tasks</Text>
+                <Text style={styles.toolSubtitle}>Daily missions</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToProofSubmit} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(134,239,172,0.15)' }]}>
+                    <MaterialIcons name="photo-camera" size={20} color="#86efac" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}><Text style={styles.toolBadgeText}>Field Photos</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Submit Proof</Text>
+                <Text style={styles.toolSubtitle}>Upload images</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToRewards} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(251,191,36,0.15)' }]}>
+                    <AntDesign name="gift" size={20} color="#fbbf24" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(251,191,36,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#fde68a' }]}>+34 XP</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Rewards</Text>
+                <Text style={styles.toolSubtitle}>Unlock badges</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToVirtualFarm} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(167,243,208,0.15)' }]}>
+                    <Feather name="map" size={20} color="#6ee7b7" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}><Text style={styles.toolBadgeText}>Overview</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Virtual Farm</Text>
+                <Text style={styles.toolSubtitle}>Crop status</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToLearningHub} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+                    <FontAwesome5 name="play" size={16} color="#60a5fa" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(59,130,246,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#bfdbfe' }]}>New</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Learning Hub</Text>
+                <Text style={styles.toolSubtitle}>Watch & learn</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToCommunity} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
+                    <Ionicons name="people" size={20} color="#4ade80" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(34,197,94,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#86efac' }]}>Live</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Community</Text>
+                <Text style={styles.toolSubtitle}>Ask experts</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.toolCard, { width: '100%' }]} onPress={goToGovSchemes} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                    <Ionicons name="document-text" size={20} color="#ffffff" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}><Text style={styles.toolBadgeText}>3 eligible</Text></View>
+                </View>
+                <Text style={styles.toolTitle}>Gov Schemes</Text>
+                <Text style={styles.toolSubtitle}>Find subsidies and financial support</Text>
+              </TouchableOpacity>
+
             </View>
-          </View>
+          </Reanimated.View>
 
-          {/* ---------------- WIDGET GRID ---------------- */}
-          <Text style={styles.sectionTitle}>Your Tools</Text>
-
-          <View style={styles.widgetGrid}>
-            {/* TASKS */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToTasks}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <Feather name="check-circle" size={26} color="#14532d" />
-                </View>
-                <View style={styles.widgetBadge}>
-                  <Text style={styles.widgetBadgeText}>3 pending</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Tasks</Text>
-              <Text style={styles.widgetSubtitle}>Finish today's missions</Text>
-              <View style={styles.widgetProgressTrack}>
-                <View style={[styles.widgetProgressFill, { width: '60%' }]} />
-              </View>
-            </TouchableOpacity>
-
-            {/* PROOF SUBMISSION */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToProofSubmit}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <MaterialIcons name="assignment" size={26} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeNeutral]}>
-                  <Text style={styles.widgetBadgeText}>Field Photos</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Proof Submission</Text>
-              <Text style={styles.widgetSubtitle}>Upload and submit proofs</Text>
-              <View style={styles.widgetProgressTrack}>
-                <View style={[styles.widgetProgressFill, { width: '30%' }]} />
-              </View>
-            </TouchableOpacity>
-
-            {/* REWARDS */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToRewards}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <AntDesign name="gift" size={26} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeHighlight]}>
-                  <Text style={styles.widgetBadgeText}>+34 XP</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Rewards</Text>
-              <Text style={styles.widgetSubtitle}>Claim coins & badges</Text>
-              <View style={styles.widgetProgressTrack}>
-                <View style={[styles.widgetProgressFill, { width: '45%' }]} />
-              </View>
-            </TouchableOpacity>
-
-            {/* VIRTUAL FARM — FIX: was missing/dead, now navigates */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToVirtualFarm}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <Feather name="bar-chart-2" size={26} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeNeutral]}>
-                  <Text style={styles.widgetBadgeText}>Overview</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Virtual Farm</Text>
-              <Text style={styles.widgetSubtitle}>Trends & analytics</Text>
-              <View style={styles.widgetMiniRow}>
-                <Text style={styles.widgetMiniStat}>▲ 8% better week</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* LEARNING HUB */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToLearningHub}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <FontAwesome5 name="book-open" size={22} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeNew]}>
-                  <Text style={styles.widgetBadgeText}>New</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Learning Hub</Text>
-              <Text style={styles.widgetSubtitle}>Watch & practice</Text>
-              <View style={styles.widgetMiniRow}>
-                <Text style={styles.widgetMiniStat}>2 new videos</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* COMMUNITY */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToCommunity}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <Ionicons name="people-circle-outline" size={28} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeNeutral]}>
-                  <Text style={styles.widgetBadgeText}>Live</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Community</Text>
-              <Text style={styles.widgetSubtitle}>Ask & help farmers</Text>
-              <View style={styles.widgetMiniRow}>
-                <Text style={styles.widgetMiniStat}>5 new posts</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* GOVERNMENT SCHEMES */}
-            <TouchableOpacity style={styles.widgetCard} onPress={goToGovSchemes}>
-              <View style={styles.widgetTopRow}>
-                <View style={styles.widgetIconContainer}>
-                  <Ionicons name="library-outline" size={26} color="#14532d" />
-                </View>
-                <View style={[styles.widgetBadge, styles.widgetBadgeNeutral]}>
-                  <Text style={styles.widgetBadgeText}>Schemes</Text>
-                </View>
-              </View>
-              <Text style={styles.widgetTitle}>Gov Schemes</Text>
-              <Text style={styles.widgetSubtitle}>Know your benefits</Text>
-              <View style={styles.widgetMiniRow}>
-                <Text style={styles.widgetMiniStat}>3 eligible schemes</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 120 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-/* ----------------------------------------------------------
-                        STYLES
-   (unchanged from original — only logic was fixed above)
------------------------------------------------------------ */
-
 const styles = StyleSheet.create({
-  header: {
-    padding: 14,
-    paddingTop: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backBtn: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1f3b2b',
-  },
-  headerCenter: { alignItems: 'center' },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#122620',
-    letterSpacing: -0.3,
-  },
-  headerTime: {
-    fontSize: 12,
-    color: '#375949',
-    marginTop: 2,
-  },
+  mainContainer: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 100 }, // Clearance for custom tab bar
 
-  container: { paddingHorizontal: 18, paddingBottom: 60 },
+  /* HEADER */
+  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  greetingText: { fontSize: 16, color: '#bbf7d0', fontWeight: '600' },
+  userName: { fontSize: 26, color: '#ffffff', fontWeight: '800', marginTop: 2, letterSpacing: -0.5 },
+  dateText: { fontSize: 12, color: '#86efac', marginTop: 4, opacity: 0.8 },
+  avatarContainer: { alignItems: 'center', justifyContent: 'center' },
+  avatarCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#053B24', borderWidth: 2, borderColor: '#22c55e', alignItems: 'center', justifyContent: 'center' },
+  levelBadge: { position: 'absolute', bottom: -6, backgroundColor: '#d97706', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: '#fde68a' },
+  levelBadgeText: { color: '#fffbeb', fontSize: 10, fontWeight: '900' },
+  headerBottomRow: { marginTop: 16 },
+  headerXpTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2 },
+  headerXpFill: { height: 4, borderRadius: 2 },
+  headerXpLabel: { fontSize: 10, color: '#bbf7d0', alignSelf: 'flex-end', marginTop: 6, fontWeight: '600' },
 
-  /* WEATHER */
-  weatherCard: {
-    backgroundColor: '#e5f6ea',
-    padding: 16,
-    borderRadius: 20,
-    flexDirection: 'row',
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  weatherHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  weatherLocationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  weatherLocationText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1f3b2b',
-    marginLeft: 4,
-  },
-  weatherChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#bbf7d0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  weatherChipText: {
-    fontSize: 11,
-    color: '#14532d',
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  weatherMainRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: 4,
-  },
-  weatherTemp: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#1f3b2b',
-  },
-  weatherSubtitle: {
-    color: '#355647',
-    fontSize: 13,
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  weatherFeelsLike: {
-    color: '#4b6b58',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  weatherStatsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-    gap: 6,
-  },
-  weatherStatPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d9fbe8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  weatherStatText: {
-    fontSize: 10,
-    color: '#134e4a',
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  weatherRight: {
-    marginLeft: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  weatherScorePill: {
-    marginTop: 6,
-    backgroundColor: '#fef9c3',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  weatherScoreLabel: {
-    fontSize: 10,
-    color: '#854d0e',
-    fontWeight: '600',
-  },
-  weatherScoreValue: {
-    fontSize: 12,
-    color: '#854d0e',
-    fontWeight: '800',
-  },
+  /* WEATHER HERO */
+  weatherHero: { borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(74,222,128,0.2)', marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 },
+  weatherTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  locationText: { color: '#86efac', fontSize: 13, fontWeight: '600', marginLeft: 4 },
+  heroTemp: { fontSize: 52, fontWeight: '900', color: '#ffffff', lineHeight: 60 },
+  heroCondition: { fontSize: 15, color: '#86efac', fontWeight: '600' },
+  heroFeelsLike: { fontSize: 12, color: '#6b9e7a', marginTop: 4 },
+  weatherHeroRight: { alignItems: 'flex-end' },
+  irrigationChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#22c55e', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 4 },
+  irrigationChipText: { color: '#021F0F', fontSize: 10, fontWeight: '800', marginLeft: 4 },
+  farmingScorePill: { marginTop: 12, backgroundColor: 'rgba(251,191,36,0.15)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  scorePillText: { color: '#fde68a', fontSize: 11, fontWeight: '700' },
+  weatherStatBoxes: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+  miniStatBox: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  miniStatText: { color: '#e2e8f0', fontSize: 11, fontWeight: '600' },
 
-  /* STREAK */
-  streakCard: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 18,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    borderWidth: 1.5,
-    borderColor: '#fde68a',
-  },
-  streakLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  streakEmoji: { fontSize: 26, marginRight: 8 },
-  streakTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400e',
-  },
-  streakSubtitle: {
-    fontSize: 11,
-    color: '#b45309',
-    marginTop: 2,
-  },
-  streakRight: {
-    alignItems: 'flex-end',
-  },
-  streakRewardLabel: {
-    fontSize: 10,
-    color: '#b45309',
-    fontWeight: '600',
-  },
-  streakRewardValue: {
-    fontSize: 14,
-    color: '#92400e',
-    fontWeight: '800',
-  },
+  /* ROW CARDS */
+  rowCards: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  halfCardWrapper: { width: '48%' },
+  halfCard: { height: 90, borderRadius: 20, padding: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 4 },
+  streakCard: { borderColor: 'rgba(251,191,36,0.3)' },
+  xpCard: { borderColor: 'rgba(34,197,94,0.3)' },
+  halfCardEmoji: { fontSize: 32, marginRight: 10 },
+  halfCardTitle: { fontSize: 14, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
+  halfCardSubGold: { fontSize: 12, fontWeight: '700', color: '#fbbf24' },
+  miniProgressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, width: 60 },
+  miniProgressFill: { height: 4, backgroundColor: '#22c55e', borderRadius: 2 },
 
-  /* PROGRESS */
-  progressWrapper: { alignItems: 'center', marginBottom: 18 },
-  progressOuterGlow: {
-    padding: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(22,163,74,0.08)',
-  },
-  progressRing: {
-    height: 150,
-    width: 150,
-    borderRadius: 75,
-    backgroundColor: '#e2f3e8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 8,
-    borderColor: '#bbf7d0',
-  },
-  progressInnerRing: {
-    height: 115,
-    width: 115,
-    borderRadius: 58,
-    backgroundColor: '#f9fff9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressAvatar: {
-    fontSize: 26,
-    marginBottom: 4,
-  },
-  progressValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#14532d',
-  },
-  progressLabel: {
-    color: '#406650',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  levelPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginTop: 6,
-  },
-  levelPillText: {
-    fontSize: 11,
-    color: '#166534',
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  xpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '80%',
-    marginTop: 10,
-  },
-  xpLabel: {
-    fontSize: 12,
-    color: '#355647',
-    fontWeight: '600',
-  },
-  xpValue: {
-    fontSize: 13,
-    color: '#166534',
-    fontWeight: '800',
-  },
-  xpTrack: {
-    width: '80%',
-    height: 8,
-    backgroundColor: '#dbeee2',
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 4,
-  },
-  xpFill: {
-    height: 8,
-    backgroundColor: '#22c55e',
-    borderRadius: 999,
-  },
-  xpHint: {
-    fontSize: 11,
-    color: '#4b6b58',
-    marginTop: 4,
-  },
+  /* MISSION CIRCLE */
+  missionCircleContainer: { alignItems: 'center', marginBottom: 24, paddingVertical: 10 },
+  outerGlowRing: { width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(34,197,94,0.08)', alignItems: 'center', justifyContent: 'center' },
+  circleInnerContent: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  circlePercentage: { fontSize: 26, fontWeight: '900', color: '#ffffff', marginTop: 4 },
+  circleLabel: { fontSize: 11, color: '#86efac', fontWeight: '600' },
+  levelBadgeAmber: { backgroundColor: '#d97706', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, marginTop: -15, borderWidth: 2, borderColor: '#053B24' },
+  levelBadgeAmberText: { color: '#fffbeb', fontSize: 11, fontWeight: '800' },
 
-  /* REWARD BANNER */
-  rewardBanner: {
-    backgroundColor: '#fffbeb',
-    borderRadius: 16,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: '#fef3c7',
-  },
-  rewardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  rewardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#92400e',
-  },
-  rewardSubtitle: {
-    fontSize: 11,
-    color: '#b45309',
-    marginTop: 2,
-  },
-  rewardButton: {
-    backgroundColor: '#f97316',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  rewardButtonText: {
-    color: '#fff7ed',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  /* GLASS CARDS */
+  glassCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', marginBottom: 16 },
 
   /* INSIGHTS */
-  insightsCard: {
-    backgroundColor: '#e4f6ea',
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#163526',
-    marginBottom: 10,
-    letterSpacing: -0.2,
-  },
-  insightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  insightIconBox: {
-    backgroundColor: '#d3edda',
-    padding: 8,
-    borderRadius: 12,
-    marginRight: 10,
-  },
-  insightTextWrap: { flex: 1 },
-  insightText: {
-    fontSize: 13,
-    color: '#234638',
-    fontWeight: '500',
-  },
-  trendChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  trendPositive: {
-    backgroundColor: '#bbf7d0',
-  },
-  trendNeutral: {
-    backgroundColor: '#fed7aa',
-  },
-  trendText: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 4,
-    color: '#14532d',
-  },
+  insightRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  insightIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  insightText: { flex: 1, color: '#ffffff', fontSize: 13, fontWeight: '500' },
+  chipGreen: { backgroundColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  chipGreenText: { color: '#4ade80', fontSize: 11, fontWeight: '700' },
+  chipAmber: { backgroundColor: 'rgba(245,158,11,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  chipAmberText: { color: '#fde68a', fontSize: 11, fontWeight: '700' },
 
-  /* FARM HEALTH */
-  healthCard: {
-    backgroundColor: '#e7f5ec',
-    padding: 14,
-    borderRadius: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  healthRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 8,
-  },
-  healthItem: {
-    flex: 1,
-  },
-  healthLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1f3b2b',
-    marginBottom: 4,
-  },
-  healthBarTrack: {
-    height: 7,
-    backgroundColor: '#d7e9dd',
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  healthBarFill: {
-    height: 7,
-    backgroundColor: '#16a34a',
-    borderRadius: 999,
-  },
-  healthBarFillWarning: {
-    height: 7,
-    backgroundColor: '#f97316',
-    borderRadius: 999,
-  },
-  healthValue: {
-    fontSize: 11,
-    color: '#234638',
-    marginTop: 2,
-  },
-  healthValueWarning: {
-    fontSize: 11,
-    color: '#9a3412',
-    marginTop: 2,
-    fontWeight: '600',
-  },
+  /* HEALTH GRID */
+  healthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  healthItem: { width: '48%', backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 16, marginBottom: 12 },
+  healthLabel: { color: '#e2e8f0', fontSize: 13, fontWeight: '600', marginBottom: 8 },
+  healthBarTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, marginBottom: 6 },
+  healthBarFill: { height: 6, borderRadius: 3 },
+  healthValue: { color: '#94a3b8', fontSize: 11, fontWeight: '500' },
 
-  /* WIDGET GRID */
-  widgetGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  widgetCard: {
-    width: '48%',
-    backgroundColor: '#f1fbf4',
-    padding: 14,
-    borderRadius: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-    borderWidth: 1.2,
-    borderColor: '#d7f0df',
-  },
-  widgetTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  widgetIconContainer: {
-    backgroundColor: '#d9f5df',
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  widgetBadge: {
-    backgroundColor: '#bbf7d0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  widgetBadgeHighlight: {
-    backgroundColor: '#fed7aa',
-  },
-  widgetBadgeNeutral: {
-    backgroundColor: '#e5e7eb',
-  },
-  widgetBadgeNew: {
-    backgroundColor: '#bfdbfe',
-  },
-  widgetBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  widgetTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1f3b2b',
-  },
-  widgetSubtitle: {
-    fontSize: 12,
-    color: '#406650',
-    marginTop: 2,
-  },
-  widgetProgressTrack: {
-    height: 6,
-    backgroundColor: '#d9e8de',
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  widgetProgressFill: {
-    height: 6,
-    backgroundColor: '#16a34a',
-    borderRadius: 999,
-  },
-  widgetMiniRow: {
-    marginTop: 8,
-  },
-  widgetMiniStat: {
-    fontSize: 11,
-    color: '#14532d',
-    fontWeight: '600',
-  },
+  /* TOOLS GRID */
+  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  toolCard: { width: '48%', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  toolHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  toolIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  toolBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  toolBadgeText: { fontSize: 10, fontWeight: '700', color: '#e2e8f0' },
+  toolTitle: { color: '#ffffff', fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  toolSubtitle: { color: '#94a3b8', fontSize: 12 },
 });

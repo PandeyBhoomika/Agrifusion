@@ -26,7 +26,7 @@ export default function LoginScreen() {
     // Save login state
     await AsyncStorage.setItem("loggedIn", "true");
 
-    router.replace("/(tabs)");
+    router.replace("/dashboard");
   };
 
   return (

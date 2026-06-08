@@ -1,8 +1,8 @@
+import "dotenv/config";
 // src/app.js
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 
 // ------------------------------
 // ROUTE IMPORTS (Notice the .js extensions)
@@ -15,8 +15,6 @@ import videoRoutes from "./routes/video.routes.js";
 import quizRoutes from "./routes/quiz.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import schemeRoutes from "./routes/scheme.routes.js";
-
-dotenv.config();
 
 const app = express();
 

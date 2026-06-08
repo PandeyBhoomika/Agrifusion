@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -7,9 +7,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated as RNAnimated,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import ReAnimated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeInDown, ZoomIn } from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
+import { Feather, FontAwesome5 } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 
 /* ---------------------- MOCK DATA ---------------------- */
 const MOCK_DATA = {
@@ -26,47 +30,19 @@ const MOCK_DATA = {
 const badges = [
   { id: "b1", name: "Water Saver", status: "unlocked", icon: "💧" },
   { id: "b2", name: "Soil Guardian", status: "unlocked", icon: "🛡️" },
-  { id: "b3", name: "Organic Hero", status: "locked", icon: "🌱" },
-  { id: "b4", name: "Carbon Smart", status: "locked", icon: "♻️" },
+  { id: "b3", name: "Pest Control", status: "unlocked", icon: "🐛" },
+  { id: "b4", name: "Organic Hero", status: "locked", icon: "🌱" },
+  { id: "b5", name: "Carbon Smart", status: "locked", icon: "♻️" },
+  { id: "b6", name: "Harvest King", status: "locked", icon: "🧺" },
 ];
 
-const roadmap = [
-  { id: "r1", label: "Unlock Mulching Badge", xp: 200 },
-  { id: "r2", label: "100 Green Coins", xp: 400 },
-  { id: "r3", label: "Water Saver Badge", xp: 650 },
-  { id: "r4", label: "Free Spin Token", xp: 900 },
-  { id: "r5", label: "Organic Champ Tier", xp: 1200 },
+const recentActivity = [
+  { id: "ra1", action: "Harvested Tomatoes", xp: "+50 XP", coins: "+10", time: "2h ago" },
+  { id: "ra2", action: "Water Conservation", xp: "+20 XP", coins: "+5", time: "5h ago" },
+  { id: "ra3", action: "Daily Login Streak", xp: "+15 XP", coins: "+0", time: "1d ago" },
 ];
 
-const schemes = [
-  { id: "s1", name: "Organic Farming Incentive", progress: 40 },
-  { id: "s2", name: "Water Conservation Points", progress: 70 },
-  { id: "s3", name: "Drip Irrigation Subsidy", progress: 100 },
-];
-
-const boosters = [
-  { id: "bo1", name: "XP ×2 Booster", desc: "2x XP for next 1 hour" },
-  { id: "bo2", name: "Coin Boost", desc: "+30% coins today" },
-  { id: "bo3", name: "Streak Shield", desc: "Protects 1 missed day" },
-];
-
-const nextRewards = [
-  {
-    id: "nr1",
-    task: "Do mulching on 1 plot",
-    reward: "+10 XP • +5 Green Coins",
-  },
-  {
-    id: "nr2",
-    task: "Use organic pesticide once",
-    reward: "+15 XP • Badge progress +5%",
-  },
-  {
-    id: "nr3",
-    task: "Log today’s irrigation",
-    reward: "+5 XP • Water Saver progress",
-  },
-];
+const { width } = Dimensions.get("window");
 
 /* ================================================================
    REWARDS SCREEN
@@ -74,6 +50,7 @@ const nextRewards = [
 
 export default function RewardsScreen() {
   const [chestClaimed, setChestClaimed] = useState(false);
+  const [coinsDisplay, setCoinsDisplay] = useState(MOCK_DATA.greenCoins);
 
   // Confetti animation (emoji falling)
   const [confetti] = useState(new RNAnimated.Value(0));
@@ -90,8 +67,16 @@ export default function RewardsScreen() {
   const handleClaimChest = () => {
     if (chestClaimed) return;
     setChestClaimed(true);
+    setCoinsDisplay(prev => prev + 50); // Animate coin change
     triggerConfetti();
   };
+
+  /* ---------------------- Circular Math ---------------------- */
+  const radius = 80;
+  const strokeWidth = 14;
+  const circumference = 2 * Math.PI * radius;
+  const progressPercent = MOCK_DATA.xp / MOCK_DATA.xpToNext;
+  const strokeDashoffset = circumference - circumference * progressPercent;
 
   /* ---------------------- Confetti Style ---------------------- */
   const confettiTranslateY = confetti.interpolate({
@@ -100,8 +85,10 @@ export default function RewardsScreen() {
   });
 
   return (
-    <LinearGradient colors={["#E7F8ED", "#D4F3DF"]} style={{ flex: 1 }}>
+    <LinearGradient colors={["#021F0F", "#042818", "#053B24"]} style={styles.mainContainer}>
+      <StatusBar style="light" backgroundColor="#021F0F" />
       <SafeAreaView style={styles.safe}>
+
         {/* EMOJI CONFETTI */}
         <RNAnimated.Text
           style={[
@@ -109,196 +96,136 @@ export default function RewardsScreen() {
             { transform: [{ translateY: confettiTranslateY }] },
           ]}
         >
-          🎉
+          🎉🪙✨
         </RNAnimated.Text>
+
+        {/* --- HEADER --- */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+          <Text style={styles.headerTitle}>Your Rewards 🏆</Text>
+          <Text style={styles.headerSubtitle}>Level up and earn green coins</Text>
+        </Animated.View>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
-          {/* ---------------- XP RING ---------------- */}
-          <ReAnimated.View entering={FadeInUp} style={styles.xpSection}>
-            <View style={styles.xpRingWrap}>
-              <View style={styles.xpCircle}>
-                <Text style={styles.levelText}>Lv {MOCK_DATA.level}</Text>
-                <Text style={styles.xpText}>
-                  {MOCK_DATA.xp} / {MOCK_DATA.xpToNext} XP
-                </Text>
-                <Text style={styles.tierText}>{MOCK_DATA.rankTier}</Text>
+          {/* ---------------- LEVEL & XP RING ---------------- */}
+          <Animated.View entering={ZoomIn.delay(100).duration(500)} style={styles.ringSection}>
+            <View style={styles.ringContainer}>
+              <Svg width={200} height={200}>
+                {/* Background Track */}
+                <Circle
+                  cx={100} cy={100} r={radius}
+                  stroke="rgba(251, 191, 36, 0.1)" // Faded amber
+                  strokeWidth={strokeWidth} fill="none"
+                />
+                {/* Amber/Gold Progress Ring */}
+                <Circle
+                  cx={100} cy={100} r={radius}
+                  stroke="#fbbf24" // Solid gold/amber
+                  strokeWidth={strokeWidth} fill="none"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  rotation="-90" origin="100, 100"
+                />
+              </Svg>
+              <View style={styles.ringInner}>
+                <Text style={styles.levelNumber}>Lv {MOCK_DATA.level}</Text>
+                <Text style={styles.xpFraction}>{MOCK_DATA.xp} / {MOCK_DATA.xpToNext}</Text>
+                <Text style={styles.xpLabel}>XP Earned</Text>
               </View>
             </View>
-          </ReAnimated.View>
-
-          {/* ---------------- COINS & CARBON ---------------- */}
-          <View style={styles.row}>
-            <View style={styles.infoCard}>
-              <Text style={styles.cardLabel}>Green Coins</Text>
-              <Text style={styles.cardValue}>🪙 {MOCK_DATA.greenCoins}</Text>
-              <Text style={styles.cardHint}>Earned from sustainable tasks</Text>
+            <View style={styles.rankPill}>
+              <Text style={styles.rankPillText}>🌟 {MOCK_DATA.rankTier}</Text>
             </View>
+          </Animated.View>
 
-            <View style={styles.infoCard}>
-              <Text style={styles.cardLabel}>Carbon Saved</Text>
-              <Text style={styles.cardValue}>
-                🌱 {MOCK_DATA.carbonCredits.toFixed(1)} kg
-              </Text>
-              <TouchableOpacity style={styles.convertBtn}>
-                <Text style={styles.convertText}>Convert → Coins</Text>
+          {/* ---------------- BIG COINS DISPLAY ---------------- */}
+          <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.coinsCard}>
+            <LinearGradient colors={["#92400e", "#78350f"]} style={styles.coinsGradient}>
+              <View style={styles.coinsLeft}>
+                <Text style={styles.coinsLabel}>Total Green Coins</Text>
+                <Text style={styles.coinsValue}>🪙 {coinsDisplay}</Text>
+              </View>
+              <TouchableOpacity style={styles.redeemBtn} activeOpacity={0.8}>
+                <Text style={styles.redeemBtnText}>Redeem</Text>
               </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ---------------- RANK CARD ---------------- */}
-          <View style={styles.rankCard}>
-            <View style={styles.rankHeader}>
-              <Text style={styles.rankTitle}>Farmer Rank</Text>
-              <Text style={styles.rankTier}>{MOCK_DATA.rankTier}</Text>
-            </View>
-
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${MOCK_DATA.rankProgress}%` },
-                ]}
-              />
-            </View>
-
-            <Text style={styles.rankHint}>
-              {MOCK_DATA.rankProgress}% progress to Gold Tier
-            </Text>
-          </View>
+            </LinearGradient>
+          </Animated.View>
 
           {/* ---------------- DAILY CHEST ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Daily Reward Chest</Text>
-
+          <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.chestSection}>
             <TouchableOpacity
-              activeOpacity={0.9}
+              activeOpacity={0.85}
               onPress={handleClaimChest}
-              style={styles.chestWrap}
+              style={[styles.glassCard, styles.chestCard]}
             >
               <Text style={styles.chestEmoji}>
                 {chestClaimed ? "🧰" : "🎁"}
               </Text>
-
-              <Text style={styles.chestText}>
-                {chestClaimed ? "Reward Claimed 🎉" : "Tap to open chest"}
-              </Text>
-
-              {chestClaimed && (
-                <Text style={styles.chestRewardText}>
-                  +20 XP • +10 Coins • +1 Badge Shard
+              <View style={styles.chestTextWrap}>
+                <Text style={styles.chestTitle}>
+                  {chestClaimed ? "Daily Reward Claimed!" : "Open Daily Chest"}
                 </Text>
-              )}
+                <Text style={styles.chestSubtitle}>
+                  {chestClaimed ? "Come back tomorrow for more." : "Tap to reveal today's bonus!"}
+                </Text>
+                {chestClaimed && (
+                  <View style={styles.chestRewardPill}>
+                    <Text style={styles.chestRewardText}>+50 Coins 🎉</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
-          {/* ---------------- BADGES ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Badges</Text>
+          {/* ---------------- 3-COLUMN BADGES GRID ---------------- */}
+          <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Achievement Badges</Text>
+            <View style={styles.badgesGrid}>
+              {badges.map((b) => {
+                const isUnlocked = b.status === "unlocked";
+                return (
+                  <View key={b.id} style={[styles.badgeItem, !isUnlocked && styles.badgeLocked]}>
+                    <View style={[styles.badgeIconWrap, isUnlocked && styles.badgeIconGlow]}>
+                      <Text style={styles.badgeEmoji}>{b.icon}</Text>
+                    </View>
+                    <Text style={[styles.badgeName, !isUnlocked && styles.badgeNameLocked]} numberOfLines={1}>
+                      {b.name}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Animated.View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {badges.map((b) => (
-                <View
-                  key={b.id}
-                  style={[
-                    styles.badgeCard,
-                    b.status === "locked" && { opacity: 0.5 },
-                  ]}
-                >
-                  <Text style={styles.badgeIcon}>{b.icon}</Text>
-                  <Text style={styles.badgeName}>{b.name}</Text>
-                  <Text
-                    style={[
-                      styles.badgeStatus,
-                      b.status === "unlocked"
-                        ? { color: "#16a34a" }
-                        : { color: "#9ca3af" },
-                    ]}
-                  >
-                    {b.status === "unlocked" ? "Unlocked" : "Locked"}
-                  </Text>
+          {/* ---------------- RECENT ACTIVITY ---------------- */}
+          <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.section}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <View style={styles.glassCard}>
+              {recentActivity.map((activity, index) => (
+                <View key={activity.id}>
+                  <View style={styles.activityRow}>
+                    <View style={styles.activityIcon}>
+                      <Feather name="check-circle" size={18} color="#4ade80" />
+                    </View>
+                    <View style={styles.activityDetails}>
+                      <Text style={styles.activityAction}>{activity.action}</Text>
+                      <Text style={styles.activityTime}>{activity.time}</Text>
+                    </View>
+                    <View style={styles.activityRewards}>
+                      <Text style={styles.activityXp}>{activity.xp}</Text>
+                      <Text style={styles.activityCoins}>🪙 {activity.coins}</Text>
+                    </View>
+                  </View>
+                  {index < recentActivity.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
-            </ScrollView>
-          </View>
+            </View>
+          </Animated.View>
 
-          {/* ---------------- ROADMAP ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Rewards Roadmap</Text>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {roadmap.map((r, idx) => (
-                <View key={r.id} style={styles.roadCard}>
-                  <Text style={styles.roadStep}>Step {idx + 1}</Text>
-                  <Text style={styles.roadLabel}>{r.label}</Text>
-                  <Text style={styles.roadXp}>at {r.xp} XP</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* ---------------- SCHEMES ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Government Schemes</Text>
-
-            {schemes.map((s) => (
-              <View key={s.id} style={styles.schemeCard}>
-                <View style={styles.schemeHeader}>
-                  <Text style={styles.schemeName}>{s.name}</Text>
-                  <Text style={styles.schemePercent}>{s.progress}%</Text>
-                </View>
-
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${s.progress}%` },
-                    ]}
-                  />
-                </View>
-
-                <Text style={styles.schemeHint}>
-                  {s.progress === 100
-                    ? "Eligible ✔ Submit proof to claim"
-                    : "Complete more tasks to reach 100%"}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* ---------------- BOOSTERS ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Boosters</Text>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {boosters.map((b) => (
-                <View key={b.id} style={styles.boosterCard}>
-                  <Text style={styles.boosterTitle}>{b.name}</Text>
-                  <Text style={styles.boosterDesc}>{b.desc}</Text>
-
-                  <TouchableOpacity style={styles.boosterBtn}>
-                    <Text style={styles.boosterBtnText}>Activate</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* ---------------- NEXT REWARDS ---------------- */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Rewards</Text>
-
-            {nextRewards.map((n) => (
-              <View key={n.id} style={styles.nextCard}>
-                <Text style={styles.nextTask}>{n.task}</Text>
-                <Text style={styles.nextReward}>{n.reward}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={{ height: 40 }} />
+          <View style={{ height: 60 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -310,13 +237,18 @@ export default function RewardsScreen() {
 ================================================================ */
 
 const styles = StyleSheet.create({
+  mainContainer: { flex: 1 },
   safe: { flex: 1 },
-
   scroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 25,
+    paddingBottom: 40,
   },
+
+  /* HEADER */
+  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: "#ECFDF5", letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 14, color: "#86efac", marginTop: 4, fontWeight: "500" },
 
   /* CONFETTI */
   confetti: {
@@ -325,207 +257,84 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: "center",
-    fontSize: 50,
+    fontSize: 45,
     zIndex: 20,
   },
 
   /* XP RING */
-  xpSection: { alignItems: "center", marginBottom: 10 },
-  xpRingWrap: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "#D1FAE5",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 8,
-    borderColor: "#BBF7D0",
+  ringSection: { alignItems: "center", marginVertical: 24 },
+  ringContainer: {
+    width: 200, height: 200,
+    alignItems: "center", justifyContent: "center",
   },
-  xpCircle: { alignItems: "center" },
-  levelText: { fontSize: 28, fontWeight: "800", color: "#14532d" },
-  xpText: { fontSize: 13, color: "#166534", marginTop: 4 },
-  tierText: { fontSize: 12, color: "#4b5563", marginTop: 2 },
+  ringInner: { position: "absolute", alignItems: "center" },
+  levelNumber: { fontSize: 36, fontWeight: "900", color: "#ffffff" },
+  xpFraction: { fontSize: 14, fontWeight: "700", color: "#fbbf24", marginTop: 4 },
+  xpLabel: { fontSize: 11, color: "#9ca3af", marginTop: 2, fontWeight: "600", textTransform: "uppercase" },
+  rankPill: {
+    backgroundColor: "#d97706",
+    paddingHorizontal: 16, paddingVertical: 6,
+    borderRadius: 999, marginTop: -15,
+    borderWidth: 2, borderColor: "#053B24",
+    shadowColor: "#fbbf24", shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  rankPillText: { color: "#fffbeb", fontSize: 12, fontWeight: "800" },
 
-  /* INFO CARDS */
-  row: { flexDirection: "row", marginTop: 10 },
-  infoCard: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 18,
-    marginHorizontal: 5,
-    borderWidth: 1.5,
-    borderColor: "#D1FAE5",
-  },
-  cardLabel: { fontSize: 12, color: "#64748b", marginBottom: 4 },
-  cardValue: { fontSize: 18, fontWeight: "800", color: "#166534" },
-  cardHint: { marginTop: 4, fontSize: 11, color: "#6b7280" },
-  convertBtn: {
-    marginTop: 8,
-    backgroundColor: "#BBF7D0",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-  convertText: { fontSize: 11, fontWeight: "700", color: "#166534" },
+  /* COINS CARD */
+  coinsCard: { marginBottom: 24, borderRadius: 20, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  coinsGradient: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20 },
+  coinsLeft: { flex: 1 },
+  coinsLabel: { color: "#fde68a", fontSize: 13, fontWeight: "600", marginBottom: 4 },
+  coinsValue: { color: "#ffffff", fontSize: 32, fontWeight: "900" },
+  redeemBtn: { backgroundColor: "#fbbf24", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
+  redeemBtnText: { color: "#78350f", fontSize: 13, fontWeight: "800" },
 
-  /* RANK */
-  rankCard: {
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 18,
-    marginTop: 18,
-    borderWidth: 1.5,
-    borderColor: "#D1FAE5",
+  /* GLASS CARDS & SECTIONS */
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#ffffff", marginBottom: 14 },
+  glassCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 20, padding: 16,
+    borderWidth: 1, borderColor: "rgba(34,197,94,0.15)",
   },
-  rankHeader: { flexDirection: "row", justifyContent: "space-between" },
-  rankTitle: { fontSize: 14, fontWeight: "700", color: "#14532d" },
-  rankTier: { fontSize: 13, fontWeight: "700", color: "#16a34a" },
-
-  progressTrack: {
-    height: 8,
-    backgroundColor: "#e5f4e9",
-    borderRadius: 999,
-    marginTop: 6,
-  },
-  progressFill: {
-    height: 8,
-    backgroundColor: "#16a34a",
-    borderRadius: 999,
-  },
-  rankHint: { fontSize: 11, marginTop: 4, color: "#6b7280" },
 
   /* CHEST */
-  section: { marginTop: 20 },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#14532d",
-    marginBottom: 10,
-  },
+  chestSection: { marginBottom: 24 },
+  chestCard: { flexDirection: "row", alignItems: "center", paddingVertical: 20 },
+  chestEmoji: { fontSize: 48, marginRight: 16 },
+  chestTextWrap: { flex: 1 },
+  chestTitle: { color: "#ffffff", fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  chestSubtitle: { color: "#86efac", fontSize: 13 },
+  chestRewardPill: { backgroundColor: "rgba(251,191,36,0.2)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 },
+  chestRewardText: { color: "#fde68a", fontSize: 11, fontWeight: "700" },
 
-  chestWrap: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#FDE68A",
+  /* BADGES 3-COLUMN GRID */
+  badgesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  badgeItem: { width: "31%", alignItems: "center", marginBottom: 16 },
+  badgeIconWrap: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    justifyContent: "center", alignItems: "center",
+    marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
   },
-  chestEmoji: { fontSize: 65, marginBottom: 5 },
-  chestText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#854d0e",
+  badgeIconGlow: {
+    backgroundColor: "rgba(34,197,94,0.15)",
+    borderColor: "rgba(74,222,128,0.4)",
+    shadowColor: "#4ade80", shadowOpacity: 0.4, shadowRadius: 10, elevation: 5,
   },
-  chestRewardText: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#166534",
-  },
+  badgeEmoji: { fontSize: 28 },
+  badgeName: { color: "#ffffff", fontSize: 12, fontWeight: "600", textAlign: "center" },
+  badgeLocked: { opacity: 0.4 },
+  badgeNameLocked: { color: "#9ca3af" },
 
-  /* BADGES */
-  badgeCard: {
-    width: 120,
-    height: 140,
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: "#BBF7D0",
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgeIcon: { fontSize: 32 },
-  badgeName: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#14532d",
-    marginTop: 6,
-  },
-  badgeStatus: { fontSize: 11, marginTop: 3 },
-
-  /* ROADMAP */
-  roadCard: {
-    width: 160,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    marginRight: 10,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-  },
-  roadStep: { fontSize: 11, color: "#6b7280" },
-  roadLabel: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#14532d",
-    marginTop: 4,
-  },
-  roadXp: { fontSize: 11, marginTop: 6, color: "#22c55e" },
-
-  /* SCHEMES */
-  schemeCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: "#D1FAE5",
-  },
-  schemeHeader: { flexDirection: "row", justifyContent: "space-between" },
-  schemeName: {
-    fontSize: 13,
-    fontWeight: "700",
-    flex: 1,
-    color: "#14532d",
-  },
-  schemePercent: { fontWeight: "700", color: "#16a34a" },
-  schemeHint: { fontSize: 11, marginTop: 4, color: "#6b7280" },
-
-  /* BOOSTERS */
-  boosterCard: {
-    width: 180,
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 12,
-    marginRight: 10,
-    borderWidth: 1.5,
-    borderColor: "#DBEAFE",
-  },
-  boosterTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1e3a8a",
-  },
-  boosterDesc: {
-    fontSize: 11,
-    color: "#6b7280",
-    marginTop: 4,
-  },
-  boosterBtn: {
-    backgroundColor: "#1d4ed8",
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginTop: 8,
-  },
-  boosterBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
-    textAlign: "center",
-  },
-
-  /* NEXT REWARDS */
-  nextCard: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    marginBottom: 8,
-  },
-  nextTask: { fontSize: 13, fontWeight: "700", color: "#14532d" },
-  nextReward: { marginTop: 4, fontSize: 11, color: "#16a34a" },
+  /* RECENT ACTIVITY */
+  activityRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
+  activityIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(74,222,128,0.1)", justifyContent: "center", alignItems: "center", marginRight: 12 },
+  activityDetails: { flex: 1 },
+  activityAction: { color: "#ffffff", fontSize: 14, fontWeight: "600", marginBottom: 2 },
+  activityTime: { color: "#6b7280", fontSize: 11 },
+  activityRewards: { alignItems: "flex-end" },
+  activityXp: { color: "#d97706", fontSize: 13, fontWeight: "800", marginBottom: 2 },
+  activityCoins: { color: "#fbbf24", fontSize: 12, fontWeight: "700" },
+  divider: { height: 1, backgroundColor: "rgba(255,255,255,0.05)", marginVertical: 4 },
 });

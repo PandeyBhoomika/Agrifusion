@@ -12,9 +12,14 @@ import {
   Platform,
   ActivityIndicator,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
+
 import { fetchAllVideos, getVideoProgress, updateVideoProgress } from '../../services/videoService';
 import { VideoModule } from '../../data/videoMockData';
 
@@ -210,7 +215,7 @@ const gameLevels: GameLevel[] = [
   { id: 2, name: 'Soil Guardian', goal: 'Boost soil fertility above 70%', targetScore: 150, plotCount: 6, seasons: 3 },
 ];
 
-/* ---------- LearningHub component (React Native) ---------- */
+/* ---------- LearningHub component ---------- */
 export default function LearningHub({
   onBack,
   onViewVirtualFarm,
@@ -233,12 +238,17 @@ export default function LearningHub({
   const [shouldSeek, setShouldSeek] = useState(false);
   const playerRef = useRef<any>(null);
   const progressIntervalRef = useRef<any>(null);
+
+  // UI States
   const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes'>('overview');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
   const [simulationStep, setSimulationStep] = useState(0);
   const [simulationScore, setSimulationScore] = useState(0);
   const [simulationComplete, setSimulationComplete] = useState(false);
 
-  // game state
+  // Game state
   const [showCropRotationGame, setShowCropRotationGame] = useState(false);
   const [farmPlots, setFarmPlots] = useState<FarmPlot[]>([]);
   const [selectedCrop, setSelectedCrop] = useState<CropTile | null>(null);
@@ -254,7 +264,7 @@ export default function LearningHub({
     }
   }, [autoDemo, onMiniGames]);
 
-  // Fetch videos on component mount
+  // Fetch videos
   useEffect(() => {
     const loadVideos = async () => {
       setIsLoadingVideos(true);
@@ -265,24 +275,21 @@ export default function LearningHub({
     loadVideos();
   }, []);
 
-  // Load saved progress when video is selected
+  // Load saved progress
   useEffect(() => {
     const loadSavedProgress = async () => {
       if (selectedVideo) {
-        // Clean up previous player
         if (playerRef.current) {
           try {
             playerRef.current.destroy();
-          } catch (e) {
-            // Ignore cleanup errors
-          }
+          } catch (e) { }
           playerRef.current = null;
         }
         if (progressIntervalRef.current) {
           clearInterval(progressIntervalRef.current);
           progressIntervalRef.current = null;
         }
-        
+
         setIsLoadingProgress(true);
         setProgressLoaded(false);
         setPlayerReady(false);
@@ -293,10 +300,8 @@ export default function LearningHub({
             setVideoProgress(savedProgress.progress);
             setCurrentTime(savedProgress.currentTime);
             setVideoDuration(savedProgress.duration);
-            setShouldSeek(true); // Flag to seek when player is ready
-            console.log('Loaded saved progress:', savedProgress);
+            setShouldSeek(true);
           } else {
-            // No saved progress, start from beginning
             setVideoProgress(0);
             setCurrentTime(0);
             setVideoDuration(0);
@@ -311,8 +316,7 @@ export default function LearningHub({
       }
     };
     loadSavedProgress();
-    
-    // Cleanup on unmount
+
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -320,34 +324,18 @@ export default function LearningHub({
     };
   }, [selectedVideo?.id]);
 
-  // Auto-save progress every 5 seconds while video is playing
+  // Auto-save progress
   useEffect(() => {
-    if (!selectedVideo || videoDuration === 0) {
-      console.log('⏸️ Auto-save disabled:', { hasVideo: !!selectedVideo, duration: videoDuration });
-      return;
-    }
+    if (!selectedVideo || videoDuration === 0) return;
 
-    console.log('▶️ Auto-save enabled for:', selectedVideo.id);
     const saveInterval = setInterval(() => {
       if (currentTime > 0) {
-        console.log('💾 Auto-saving progress:', { currentTime, progress: videoProgress, duration: videoDuration });
         const isCompleted = videoProgress >= 100;
-        updateVideoProgress(
-          selectedVideo.id,
-          videoProgress,
-          currentTime,
-          videoDuration,
-          isCompleted
-        );
-      } else {
-        console.log('⏭️ Skipping save, currentTime is 0');
+        updateVideoProgress(selectedVideo.id, videoProgress, currentTime, videoDuration, isCompleted);
       }
-    }, 5000); // Save every 5 seconds
+    }, 5000);
 
-    return () => {
-      console.log('🛑 Clearing auto-save interval');
-      clearInterval(saveInterval);
-    };
+    return () => clearInterval(saveInterval);
   }, [selectedVideo?.id, videoProgress, currentTime, videoDuration]);
 
   const handleModuleSelect = useCallback((module: LearningModule) => {
@@ -356,12 +344,10 @@ export default function LearningHub({
       setSimulationStep(0);
       setSimulationScore(0);
       setSimulationComplete(false);
-      
-      // If it's a video module, find the corresponding video data
+
       if (module.type === 'video') {
         const videoData = videos.find(v => v.category === module.category);
         setSelectedVideo(videoData || null);
-        // Progress will be loaded by the useEffect
       }
     }
   }, [videos]);
@@ -383,13 +369,9 @@ export default function LearningHub({
     const plots: FarmPlot[] = [];
     for (let i = 0; i < levelData.plotCount; i++) {
       plots.push({
-        id: `plot-${i}`,
-        x: i % 3,
-        y: Math.floor(i / 3),
-        currentCrop: null,
+        id: `plot-${i}`, x: i % 3, y: Math.floor(i / 3), currentCrop: null,
         soilHealth: { nitrogen: 50 + Math.random() * 30, phosphorus: 60 + Math.random() * 20, potassium: 55 + Math.random() * 25 },
-        pestPressure: Math.random() * 30,
-        yield: 0,
+        pestPressure: Math.random() * 30, yield: 0,
       });
     }
     setFarmPlots(plots);
@@ -443,769 +425,505 @@ export default function LearningHub({
     setShowCropRotationGame(true);
   }, [initializeGame]);
 
-  /* ---------- UI pieces ---------- */
+  /* ---------- UI Pieces ---------- */
   const renderProgressBar = (value: number) => (
     <View style={styles.progressBarTrack}>
       <View style={[styles.progressBarFill, { width: `${Math.max(0, Math.min(100, value))}%` }]} />
     </View>
   );
 
-  /* ---------- render ---------- */
-  if (selectedModule) {
-    return (
-      <LinearGradient colors={['#FAF3E0', '#DFF2D8']} style={{ flex: 1 }}>
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setSelectedModule(null)} style={styles.headerButton}><Text>← Back</Text></TouchableOpacity>
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={styles.headerTitle}>{selectedModule.title}</Text>
-            <Text style={styles.headerSub}>{selectedModule.duration} • {selectedModule.difficulty}</Text>
-          </View>
-          <View style={{ width: 60 }} />
-        </View>
-
-        <ScrollView contentContainerStyle={styles.content}>
-          {selectedModule.type === 'simulation' && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Simulation Coming Soon</Text>
-              <Text style={styles.cardText}>Interactive farming simulations will be available here.</Text>
-              <TouchableOpacity style={styles.primaryButton} onPress={() => setSelectedModule(null)}>
-                <Text style={styles.primaryButtonText}>Back</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {selectedModule.type === 'video' && selectedVideo && (
-            <View style={styles.card}>
-              {/* Loading state */}
-              {isLoadingProgress && (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <ActivityIndicator size="large" color="#10B981" />
-                  <Text style={{ marginTop: 10, color: '#666' }}>Loading video...</Text>
-                </View>
-              )}
-              
-              {!isLoadingProgress && progressLoaded && (
-                <>
-                  {/* Resume notification */}
-                  {currentTime > 0 && videoProgress > 0 && videoProgress < 100 && (
-                    <View style={{ backgroundColor: '#DBEAFE', padding: 10, borderRadius: 8, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#3B82F6' }}>
-                      <Text style={{ color: '#1E40AF', fontSize: 13, fontWeight: '600' }}>
-                        📺 Resuming from {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} ({videoProgress}%)
-                      </Text>
-                    </View>
-                  )}
-                  
-                  {/* YouTube Video Player with Progress Tracking */}
-                  <View style={styles.videoContainer}>
-                {Platform.OS === 'web' ? (
-                  // For web platform, use iframe with proper YouTube API integration
-                  <iframe
-                    key={selectedVideo.id}
-                    id="youtube-player-iframe"
-                    style={{ width: '100%', height: '100%', border: 'none' }}
-                    src={`https://www.youtube.com/embed/${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}?enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    onLoad={() => {
-                      if (typeof window !== 'undefined' && !playerRef.current) {
-                        // Load YouTube IFrame API
-                        if (!(window as any).YT) {
-                          const tag = document.createElement('script');
-                          tag.src = 'https://www.youtube.com/iframe_api';
-                          const firstScriptTag = document.getElementsByTagName('script')[0];
-                          firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-                        }
-                        
-                        // Wait for API and initialize player
-                        const initPlayer = () => {
-                          const YT = (window as any).YT;
-                          if (YT && YT.Player && !playerRef.current) {
-                            const iframe = document.getElementById('youtube-player-iframe') as HTMLIFrameElement;
-                            playerRef.current = new YT.Player(iframe, {
-                              events: {
-                                'onReady': (event: any) => {
-                                  console.log('Player ready, shouldSeek:', shouldSeek, 'currentTime:', currentTime);
-                                  if (shouldSeek && currentTime > 0) {
-                                    setTimeout(() => {
-                                      console.log('Seeking to:', currentTime);
-                                      event.target.seekTo(currentTime, true);
-                                      setShouldSeek(false);
-                                    }, 500);
-                                  }
-                                  
-                                  // Clear any existing interval
-                                  if (progressIntervalRef.current) {
-                                    clearInterval(progressIntervalRef.current);
-                                  }
-                                  
-                                  // Track progress
-                                  progressIntervalRef.current = setInterval(() => {
-                                    try {
-                                      const current = event.target.getCurrentTime();
-                                      const duration = event.target.getDuration();
-                                      if (duration > 0) {
-                                        setVideoDuration(duration);
-                                        setCurrentTime(current);
-                                        const progress = Math.round((current / duration) * 100);
-                                        setVideoProgress(progress);
-                                      }
-                                    } catch (e) {
-                                      // Ignore errors
-                                    }
-                                  }, 1000);
-                                }
-                              }
-                            });
-                          }
-                        };
-                        
-                        if ((window as any).YT && (window as any).YT.Player) {
-                          initPlayer();
-                        } else {
-                          (window as any).onYouTubeIframeAPIReady = initPlayer;
-                        }
-                      }
-                    }}
-                  />
-                ) : (
-                  // For mobile platforms, use WebView with YouTube IFrame API
-                  WebView && (
-                    <WebView
-                      style={styles.videoPlayer}
-                      javaScriptEnabled={true}
-                      domStorageEnabled={true}
-                      onMessage={(event: any) => {
-                        try {
-                          const data = JSON.parse(event.nativeEvent.data);
-                          if (data.currentTime !== undefined && data.duration !== undefined) {
-                            setCurrentTime(data.currentTime);
-                            setVideoDuration(data.duration);
-                            const progress = Math.round((data.currentTime / data.duration) * 100);
-                            setVideoProgress(progress);
-                          }
-                        } catch (e) {
-                          // Ignore parsing errors
-                        }
-                      }}
-                      source={{
-                        html: `
-                          <!DOCTYPE html>
-                          <html>
-                            <head>
-                              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                              <style>
-                                body { margin: 0; padding: 0; background-color: #000; }
-                                .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
-                                .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-                              </style>
-                              <script src="https://www.youtube.com/iframe_api"></script>
-                            </head>
-                            <body>
-                              <div class="video-container">
-                                <div id="player"></div>
-                              </div>
-                              <script>
-                                var player;
-                                function onYouTubeIframeAPIReady() {
-                                  const videoId = '${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}';
-                                  player = new YT.Player('player', {
-                                    height: '100%',
-                                    width: '100%',
-                                    videoId: videoId,
-                                    events: {
-                                      'onReady': onPlayerReady
-                                    }
-                                  });
-                                }
-                                
-                                function onPlayerReady(event) {
-                                  // Seek to saved position if available
-                                  const savedTime = ${currentTime};
-                                  if (savedTime > 0 && player.seekTo) {
-                                    player.seekTo(savedTime, true);
-                                  }
-                                  
-                                  // Start tracking when player is ready
-                                  setInterval(function() {
-                                    if (player && player.getCurrentTime) {
-                                      const currentTime = player.getCurrentTime();
-                                      const duration = player.getDuration();
-                                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                                        currentTime: currentTime,
-                                        duration: duration
-                                      }));
-                                    }
-                                  }, 1000);
-                                }
-                              </script>
-                            </body>
-                          </html>
-                        `,
-                      }}
-                    />
-                  )
-                )}
-              </View>
-              
-              <View style={{ height: 16 }} />
-              
-              {/* Progress controls */}
-              <View style={{ marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>Video Progress</Text>
-                  <Text style={{ fontSize: 12, color: '#10B981', fontWeight: '600' }}>{videoProgress}%</Text>
-                </View>
-                <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: `${videoProgress}%` }]} />
-                </View>
-                {videoDuration > 0 && (
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                    <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                      {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: '#6B7280' }}>
-                      {Math.floor(videoDuration / 60)}:{Math.floor(videoDuration % 60).toString().padStart(2, '0')}
-                    </Text>
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <View style={[styles.progressButton, videoProgress >= 25 && styles.progressButtonActive]}>
-                    <Text style={[styles.progressButtonText, videoProgress >= 25 && styles.progressButtonTextActive]}>25%</Text>
-                  </View>
-                  <View style={[styles.progressButton, videoProgress >= 50 && styles.progressButtonActive]}>
-                    <Text style={[styles.progressButtonText, videoProgress >= 50 && styles.progressButtonTextActive]}>50%</Text>
-                  </View>
-                  <View style={[styles.progressButton, videoProgress >= 75 && styles.progressButtonActive]}>
-                    <Text style={[styles.progressButtonText, videoProgress >= 75 && styles.progressButtonTextActive]}>75%</Text>
-                  </View>
-                  <View style={[styles.progressButton, videoProgress === 100 && styles.progressButtonActive]}>
-                    <Text style={[styles.progressButtonText, videoProgress === 100 && styles.progressButtonTextActive]}>Complete</Text>
-                  </View>
-                </View>
-                {/* Debug: Manual Save Button */}
-                <TouchableOpacity 
-                  style={{ backgroundColor: '#F59E0B', padding: 8, borderRadius: 6, marginTop: 8 }}
-                  onPress={async () => {
-                    const testTime = 60; // Save at 1 minute for testing
-                    const testProgress = Math.round((testTime / 300) * 100); // Assuming 5 min video
-                    await updateVideoProgress(selectedVideo.id, testProgress, testTime, 300, false);
-                    alert(`Progress saved! Time: ${testTime}s, Progress: ${testProgress}%`);
-                  }}
-                >
-                  <Text style={{ color: 'white', fontSize: 11, textAlign: 'center' }}>🧪 Test Save (60s)</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.cardTitle}>{selectedVideo.title}</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 }}>
-                <Text style={{ color: '#666', fontSize: 12 }}>👤 {selectedVideo.instructor}</Text>
-                <Text style={{ color: '#666', fontSize: 12 }}>⏱️ {selectedVideo.duration}</Text>
-              </View>
-              <Text style={styles.cardText}>{selectedVideo.description}</Text>
-              <View style={{ height: 12 }} />
-              
-              {videoProgress === 100 && (
-                <View style={{ backgroundColor: '#D1FAE5', padding: 12, borderRadius: 8, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: '#10B981' }}>
-                  <Text style={{ color: '#065F46', fontWeight: '600', fontSize: 14 }}>✓ Video Completed!</Text>
-                  <Text style={{ color: '#047857', fontSize: 12, marginTop: 4 }}>You've earned +{selectedVideo.points} points</Text>
-                </View>
-              )}
-              
-              <TouchableOpacity style={styles.primaryButton} onPress={() => { 
-                setSelectedModule(null); 
-                setSelectedVideo(null); 
-                setVideoProgress(0);
-                setVideoDuration(0);
-                setCurrentTime(0);
-                setProgressLoaded(false);
-              }}>
-                <Text style={styles.primaryButtonText}>Back to Videos</Text>
-              </TouchableOpacity>
-                </>
-              )}
-            </View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-      </LinearGradient>
-    );
-  }
-
-  // build filtered modules list once
-  const filteredModules = learningModules.filter((m) =>
+  // Filter Data
+  const baseData = selectedTab === 'videos' ? videos : learningModules.filter((m) =>
     selectedTab === 'overview' ||
     (selectedTab === 'simulations' && m.type === 'simulation') ||
     (selectedTab === 'quizzes' && m.type === 'quiz')
   );
 
-  // For videos tab, use actual video data
-  const displayData = selectedTab === 'videos' ? videos : filteredModules;
+  const displayData = baseData.filter((item: any) =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  // Replace the outer ScrollView + inner FlatList with a single FlatList:
+  /* ---------- RENDER SELECTED VIDEO / MODULE ---------- */
+  if (selectedModule) {
+    return (
+      <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={{ flex: 1 }}>
+        <StatusBar style="dark" backgroundColor="transparent" />
+        <SafeAreaView style={styles.safe}>
+
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+            <TouchableOpacity onPress={() => setSelectedModule(null)} style={styles.headerButton}>
+              <Ionicons name="arrow-back" size={20} color="#14532d" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>{selectedModule.title}</Text>
+              <Text style={styles.headerSub}>{selectedModule.duration} • {selectedModule.difficulty}</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </Animated.View>
+
+          <ScrollView contentContainerStyle={styles.content}>
+            <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+              {selectedModule.type === 'simulation' && (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Simulation Coming Soon</Text>
+                  <Text style={styles.cardText}>Interactive farming simulations will be available here.</Text>
+                  <TouchableOpacity style={styles.primaryButton} onPress={() => setSelectedModule(null)}>
+                    <Text style={styles.primaryButtonText}>Back to Hub</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {selectedModule.type === 'video' && selectedVideo && (
+                <View style={styles.card}>
+                  {isLoadingProgress && (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <ActivityIndicator size="large" color="#22c55e" />
+                      <Text style={{ marginTop: 16, color: '#166534', fontWeight: '600' }}>Loading video...</Text>
+                    </View>
+                  )}
+
+                  {!isLoadingProgress && progressLoaded && (
+                    <>
+                      {/* Resume notification */}
+                      {currentTime > 0 && videoProgress > 0 && videoProgress < 100 && (
+                        <View style={styles.resumePill}>
+                          <Text style={styles.resumePillText}>
+                            📺 Resuming from {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')} ({videoProgress}%)
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* YouTube Video Player */}
+                      <View style={styles.videoContainer}>
+                        {Platform.OS === 'web' ? (
+                          <iframe
+                            key={selectedVideo.id}
+                            id="youtube-player-iframe"
+                            style={{ width: '100%', height: '100%', border: 'none' }}
+                            src={`https://www.youtube.com/embed/${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}?enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            onLoad={() => {
+                              if (typeof window !== 'undefined' && !playerRef.current) {
+                                if (!(window as any).YT) {
+                                  const tag = document.createElement('script');
+                                  tag.src = 'https://www.youtube.com/iframe_api';
+                                  const firstScriptTag = document.getElementsByTagName('script')[0];
+                                  firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+                                }
+                                const initPlayer = () => {
+                                  const YT = (window as any).YT;
+                                  if (YT && YT.Player && !playerRef.current) {
+                                    const iframe = document.getElementById('youtube-player-iframe') as HTMLIFrameElement;
+                                    playerRef.current = new YT.Player(iframe, {
+                                      events: {
+                                        'onReady': (event: any) => {
+                                          if (shouldSeek && currentTime > 0) {
+                                            setTimeout(() => {
+                                              event.target.seekTo(currentTime, true);
+                                              setShouldSeek(false);
+                                            }, 500);
+                                          }
+                                          if (progressIntervalRef.current) {
+                                            clearInterval(progressIntervalRef.current);
+                                          }
+                                          progressIntervalRef.current = setInterval(() => {
+                                            try {
+                                              const current = event.target.getCurrentTime();
+                                              const duration = event.target.getDuration();
+                                              if (duration > 0) {
+                                                setVideoDuration(duration);
+                                                setCurrentTime(current);
+                                                const progress = Math.round((current / duration) * 100);
+                                                setVideoProgress(progress);
+                                              }
+                                            } catch (e) { }
+                                          }, 1000);
+                                        }
+                                      }
+                                    });
+                                  }
+                                };
+                                if ((window as any).YT && (window as any).YT.Player) {
+                                  initPlayer();
+                                } else {
+                                  (window as any).onYouTubeIframeAPIReady = initPlayer;
+                                }
+                              }
+                            }}
+                          />
+                        ) : (
+                          WebView && (
+                            <WebView
+                              style={styles.videoPlayer}
+                              javaScriptEnabled={true}
+                              domStorageEnabled={true}
+                              onMessage={(event: any) => {
+                                try {
+                                  const data = JSON.parse(event.nativeEvent.data);
+                                  if (data.currentTime !== undefined && data.duration !== undefined) {
+                                    setCurrentTime(data.currentTime);
+                                    setVideoDuration(data.duration);
+                                    const progress = Math.round((data.currentTime / data.duration) * 100);
+                                    setVideoProgress(progress);
+                                  }
+                                } catch (e) { }
+                              }}
+                              source={{
+                                html: `
+                                  <!DOCTYPE html>
+                                  <html>
+                                    <head>
+                                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                      <style>
+                                        body { margin: 0; padding: 0; background-color: #000; }
+                                        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
+                                        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+                                      </style>
+                                      <script src="https://www.youtube.com/iframe_api"></script>
+                                    </head>
+                                    <body>
+                                      <div class="video-container">
+                                        <div id="player"></div>
+                                      </div>
+                                      <script>
+                                        var player;
+                                        function onYouTubeIframeAPIReady() {
+                                          const videoId = '${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}';
+                                          player = new YT.Player('player', {
+                                            height: '100%',
+                                            width: '100%',
+                                            videoId: videoId,
+                                            events: {
+                                              'onReady': onPlayerReady
+                                            }
+                                          });
+                                        }
+                                        
+                                        function onPlayerReady(event) {
+                                          const savedTime = ${currentTime};
+                                          if (savedTime > 0 && player.seekTo) {
+                                            player.seekTo(savedTime, true);
+                                          }
+                                          setInterval(function() {
+                                            if (player && player.getCurrentTime) {
+                                              const currentTime = player.getCurrentTime();
+                                              const duration = player.getDuration();
+                                              window.ReactNativeWebView.postMessage(JSON.stringify({
+                                                currentTime: currentTime,
+                                                duration: duration
+                                              }));
+                                            }
+                                          }, 1000);
+                                        }
+                                      </script>
+                                    </body>
+                                  </html>
+                                `,
+                              }}
+                            />
+                          )
+                        )}
+                      </View>
+
+                      {/* Video Data */}
+                      <View style={{ marginTop: 20 }}>
+                        <Text style={styles.cardTitle}>{selectedVideo.title}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 }}>
+                          <Text style={{ color: '#6b7280', fontSize: 13, fontWeight: '500' }}>👤 {selectedVideo.instructor}</Text>
+                          <Text style={{ color: '#166534', fontSize: 13, fontWeight: '700' }}>+{selectedVideo.points} XP</Text>
+                        </View>
+                        <Text style={styles.cardText}>{selectedVideo.description}</Text>
+                      </View>
+
+                      {videoProgress === 100 && (
+                        <View style={styles.completedPill}>
+                          <Text style={styles.completedPillText}>✓ Video Completed! You earned +{selectedVideo.points} XP</Text>
+                        </View>
+                      )}
+
+                    </>
+                  )}
+                </View>
+              )}
+            </Animated.View>
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  /* ---------- MAIN LEARNING HUB RENDER ---------- */
   return (
-    <LinearGradient colors={['#FAF3E0', '#DFF2D8']} style={{ flex: 1 }}>
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={styles.headerTitle}>Learning Hub</Text>
-          <Text style={styles.headerSub}>Learn & grow your farm</Text>
-        </View>
-      </View>
+    <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={{ flex: 1 }}>
+      <StatusBar style="dark" backgroundColor="transparent" />
+      <SafeAreaView style={styles.safe}>
 
-      {isLoadingVideos && selectedTab === 'videos' ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color="#10B981" />
-          <Text style={{ marginTop: 12, color: '#666' }}>Loading videos...</Text>
-        </View>
-      ) : (
+        {/* HEADER */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Learning Hub 📚</Text>
+            <Text style={styles.headerSub}>Master modern farming techniques</Text>
+          </View>
+        </Animated.View>
+
+        {/* LIST / BODY */}
         <FlatList
           data={displayData as any}
-          keyExtractor={(i) => i.id}
-          renderItem={({ item }) => {
-            // Check if item is VideoModule or LearningModule
+          keyExtractor={(item: any) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          ListHeaderComponent={
+            <>
+              {/* SEARCH BAR */}
+              <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#166534" style={{ marginRight: 8 }} />
+                <TextInput
+                  placeholder="Search modules & videos..."
+                  placeholderTextColor="#6b7280"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  style={[styles.searchInput, isSearchFocused && styles.searchInputFocused]}
+                />
+              </Animated.View>
+
+              {/* FEATURED CARD */}
+              <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+                <LinearGradient colors={['#0F7A4A', '#053B24']} style={styles.featuredCard}>
+                  <View style={styles.featuredBadge}><Text style={styles.featuredBadgeText}>Featured</Text></View>
+                  <Text style={styles.featuredTitle}>Master Crop Rotation</Text>
+                  <Text style={styles.featuredSub}>Boost yield by 40% this season. Start the full interactive course today.</Text>
+                  <TouchableOpacity style={styles.featuredBtn} activeOpacity={0.8}>
+                    <Text style={styles.featuredBtnText}>Start Course</Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </Animated.View>
+
+              {/* PROGRESS CARD */}
+              <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.progressCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View>
+                    <Text style={styles.progressTitle}>Level {userProgress.level}</Text>
+                    <Text style={styles.progressSub}>{userProgress.totalPoints} total points</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.progressSub}>Weekly Goal</Text>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#14532d' }}>
+                      {userProgress.weeklyCompleted}/{userProgress.weeklyGoal}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontSize: 12, color: '#166534', fontWeight: '600', marginBottom: 4 }}>Course Completion</Text>
+                  {renderProgressBar((userProgress.completedModules / userProgress.totalModules) * 100)}
+                </View>
+              </Animated.View>
+
+              {/* CATEGORY PILLS (TABS) */}
+              <Animated.View entering={SlideInRight.delay(400).duration(400)}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollContainer}>
+                  {['overview', 'simulations', 'videos', 'quizzes'].map((tab) => (
+                    <TouchableOpacity
+                      key={tab}
+                      style={[styles.tabBtn, selectedTab === tab && styles.tabBtnActive]}
+                      onPress={() => setSelectedTab(tab as any)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.tabBtnText, selectedTab === tab && styles.tabBtnTextActive]}>
+                        {tab === 'overview' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+
+              <View style={{ height: 16 }} />
+            </>
+          }
+
+          renderItem={({ item, index }) => {
             const isVideo = selectedTab === 'videos';
             const videoItem = isVideo ? (item as unknown as VideoModule) : null;
             const moduleItem = !isVideo ? (item as LearningModule) : null;
 
             return (
-              <TouchableOpacity 
-                style={styles.moduleCard} 
-                onPress={() => {
-                  if (isVideo && videoItem) {
-                    setSelectedVideo(videoItem);
-                    setSelectedModule({
-                      id: videoItem.id,
-                      title: videoItem.title,
-                      description: videoItem.description,
-                      duration: videoItem.duration,
-                      difficulty: videoItem.difficulty,
-                      category: videoItem.category,
-                      type: 'video',
-                      thumbnail: videoItem.thumbnail,
-                      completed: videoItem.completed,
-                      progress: videoItem.progress,
-                      points: videoItem.points,
-                      locked: false,
-                    });
-                  } else if (moduleItem) {
-                    handleModuleSelect(moduleItem);
-                  }
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.moduleTitle}>{isVideo ? videoItem?.title : moduleItem?.title}</Text>
-                  <Text style={styles.moduleDesc}>{isVideo ? videoItem?.description : moduleItem?.description}</Text>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                    <Text style={{ fontSize: 12, color: '#666' }}>
-                      {isVideo ? `video • ${videoItem?.duration}` : `${moduleItem?.type} • ${moduleItem?.duration}`}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#10B981' }}>
-                      +{isVideo ? videoItem?.points : moduleItem?.points} pts
-                    </Text>
+              <Animated.View entering={FadeInUp.delay(500 + (index * 100)).duration(400)}>
+                <TouchableOpacity
+                  style={styles.moduleCard}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    if (isVideo && videoItem) {
+                      setSelectedVideo(videoItem);
+                      setSelectedModule({
+                        id: videoItem.id, title: videoItem.title, description: videoItem.description,
+                        duration: videoItem.duration, difficulty: videoItem.difficulty, category: videoItem.category,
+                        type: 'video', thumbnail: videoItem.thumbnail, completed: videoItem.completed,
+                        progress: videoItem.progress, points: videoItem.points, locked: false,
+                      });
+                    } else if (moduleItem) {
+                      handleModuleSelect(moduleItem);
+                    }
+                  }}
+                >
+                  {/* Thumbnail Placeholder (Colored box for now) */}
+                  <View style={styles.cardThumbnail}>
+                    <FontAwesome5 name={isVideo ? 'play' : moduleItem?.type === 'simulation' ? 'gamepad' : 'book'} size={24} color="#16a34a" />
                   </View>
-                  {isVideo && videoItem?.instructor && (
-                    <Text style={{ fontSize: 11, color: '#666', marginTop: 4 }}>👤 {videoItem.instructor}</Text>
-                  )}
-                  <View style={{ marginTop: 8 }}>
-                    {renderProgressBar(isVideo ? videoItem?.progress || 0 : moduleItem?.progress || 0)}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 12 }}
-        // header: progress + tabs
-        ListHeaderComponent={
-          <>
-            <View style={styles.progressCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View>
-                  <Text style={styles.progressTitle}>Level {userProgress.level}</Text>
-                  <Text style={styles.progressSub}>{userProgress.totalPoints} points</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.progressSub}>Weekly</Text>
-                  <Text>{userProgress.weeklyCompleted}/{userProgress.weeklyGoal}</Text>
-                </View>
-              </View>
 
-              <View style={{ marginTop: 12 }}>
-                <Text style={{ fontSize: 12, color: '#333' }}>Completion</Text>
-                {renderProgressBar((userProgress.completedModules / userProgress.totalModules) * 100)}
-              </View>
-            </View>
+                  <View style={{ flex: 1, padding: 16 }}>
+                    <Text style={styles.moduleTitle} numberOfLines={1}>{isVideo ? videoItem?.title : moduleItem?.title}</Text>
+                    <Text style={styles.moduleDesc} numberOfLines={2}>{isVideo ? videoItem?.description : moduleItem?.description}</Text>
 
-            <View style={styles.tabRow}>
-              <TouchableOpacity style={[styles.tabBtn, selectedTab === 'overview' && styles.tabBtnActive]} onPress={() => setSelectedTab('overview')}><Text>All</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.tabBtn, selectedTab === 'simulations' && styles.tabBtnActive]} onPress={() => setSelectedTab('simulations')}><Text>Sims</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.tabBtn, selectedTab === 'videos' && styles.tabBtnActive]} onPress={() => setSelectedTab('videos')}><Text>Videos</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.tabBtn, selectedTab === 'quizzes' && styles.tabBtnActive]} onPress={() => setSelectedTab('quizzes')}><Text>Quizzes</Text></TouchableOpacity>
-            </View>
-
-            <View style={{ height: 8 }} />
-          </>
-        }
-        // footer: mini games + spacing
-        ListFooterComponent={
-          <>
-            <View style={{ height: 24 }} />
-
-            {/* Quiz Center Section - Only show on Quizzes tab */}
-            {selectedTab === 'quizzes' && (
-              <View style={styles.quizCenterSection}>
-                <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#111827' }}>Quiz Center</Text>
-                <TouchableOpacity style={styles.quizCenterCard} onPress={() => router.push('/quiz')}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <View style={styles.quizCenterIcon}>
-                      <Text style={{ fontSize: 28 }}>📝</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                      <View style={styles.moduleMetaPill}>
+                        <Text style={styles.moduleMetaText}>
+                          {isVideo ? `Video • ${videoItem?.duration}` : `${moduleItem?.type} • ${moduleItem?.duration}`}
+                        </Text>
+                      </View>
+                      <Text style={styles.modulePoints}>+{isVideo ? videoItem?.points : moduleItem?.points} XP</Text>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '700', fontSize: 16, color: '#111827' }}>Take a Quiz</Text>
-                      <Text style={{ color: '#6B7280', fontSize: 13, marginTop: 2 }}>Test your knowledge across categories</Text>
+
+                    <View style={{ marginTop: 12 }}>
+                      {renderProgressBar(isVideo ? videoItem?.progress || 0 : moduleItem?.progress || 0)}
                     </View>
-                    <Text style={{ fontSize: 20, color: '#10B981', marginLeft: 8 }}>→</Text>
                   </View>
                 </TouchableOpacity>
-              </View>
-            )}
+              </Animated.View>
+            );
+          }}
 
-            <View style={{ height: 80 }} />
-          </>
-        }
-      />
-      )}
-    </SafeAreaView>
+          ListFooterComponent={
+            <>
+              {selectedTab === 'quizzes' && (
+                <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.quizCenterSection}>
+                  <Text style={styles.sectionTitle}>Quiz Center</Text>
+                  <TouchableOpacity style={styles.quizCenterCard} onPress={() => router.push('/quiz')} activeOpacity={0.8}>
+                    <View style={styles.quizIconWrap}><Text style={{ fontSize: 28 }}>📝</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.quizCenterTitle}>Take a Full Quiz</Text>
+                      <Text style={styles.quizCenterSub}>Test your knowledge across all modules and earn major XP.</Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={24} color="#10B981" />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+              {isLoadingVideos && selectedTab === 'videos' && (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color="#22c55e" />
+                </View>
+              )}
+            </>
+          }
+        />
+      </SafeAreaView>
     </LinearGradient>
   );
 }
 
-/* ---------- styles ---------- */
+/* ---------- STYLES ---------- */
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: 'transparent' },
+  safe: { flex: 1 },
+
+  /* HEADER */
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#14532d', letterSpacing: -0.5 },
+  headerSub: { fontSize: 14, color: '#166534', marginTop: 4, fontWeight: '600' },
+  headerButton: { padding: 10, backgroundColor: '#ffffff', borderRadius: 12, marginRight: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+
+  /* SEARCH BAR */
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'android' ? 12 : 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  headerButton: { 
-    padding: 10,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 10,
-  },
-  headerTitle: { 
-    fontSize: 20, 
-    fontWeight: '800',
-    color: '#1F2937',
-    letterSpacing: -0.5,
-  },
-  headerSub: { 
-    fontSize: 13, 
-    color: '#6B7280',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  content: { padding: 16 },
-
-  progressCard: { 
-    backgroundColor: '#ECFDF5', 
-    padding: 16, 
-    borderRadius: 14, 
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  progressTitle: { 
-    fontSize: 18, 
-    fontWeight: '800',
-    color: '#065F46',
-    letterSpacing: -0.3,
+  searchInput: {
+    flex: 1, height: 50, fontSize: 15, color: '#1f2937', fontWeight: '500',
   },
-  progressSub: { 
-    fontSize: 13, 
-    color: '#047857',
-    fontWeight: '600',
-    marginTop: 2,
-  },
+  searchInputFocused: { borderColor: '#22c55e' }, // Green focus border
 
-  tabRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 16,
-    gap: 10,
+  /* FEATURED CARD */
+  featuredCard: {
+    padding: 20, borderRadius: 24, marginBottom: 16,
+    shadowColor: '#0F7A4A', shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
   },
-  tabBtn: { 
-    flex: 1, 
-    padding: 12, 
-    alignItems: 'center', 
-    borderRadius: 12, 
-    backgroundColor: '#FFFFFF', 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  tabBtnActive: { 
-    backgroundColor: '#ECFDF5', 
-    borderColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
+  featuredBadge: { backgroundColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 12 },
+  featuredBadgeText: { color: '#86efac', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  featuredTitle: { color: '#ffffff', fontSize: 22, fontWeight: '800', marginBottom: 6 },
+  featuredSub: { color: '#bbf7d0', fontSize: 13, lineHeight: 20, marginBottom: 16 },
+  featuredBtn: { backgroundColor: '#22c55e', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, alignSelf: 'flex-start' },
+  featuredBtnText: { color: '#021F0F', fontWeight: '800', fontSize: 14 },
 
-  moduleCard: { 
-    backgroundColor: '#FFFFFF', 
-    padding: 16, 
-    borderRadius: 14, 
-    marginBottom: 12, 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+  /* PROGRESS CARD */
+  progressCard: {
+    backgroundColor: '#ffffff', padding: 16, borderRadius: 20, marginBottom: 16,
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
   },
-  moduleTitle: { 
-    fontSize: 17, 
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -0.3,
-  },
-  moduleDesc: { 
-    color: '#6B7280', 
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
+  progressTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', letterSpacing: -0.3 },
+  progressSub: { fontSize: 12, color: '#6b7280', fontWeight: '600', marginTop: 2 },
 
-  card: { 
-    backgroundColor: '#FFFFFF', 
-    padding: 16, 
-    borderRadius: 14, 
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+  /* CATEGORY PILLS */
+  tabScrollContainer: { flexDirection: 'row', marginBottom: 8 },
+  tabBtn: {
+    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: '#ffffff',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', marginRight: 10,
   },
-  cardTitle: { 
-    fontSize: 18, 
-    fontWeight: '800',
-    color: '#111827',
-    letterSpacing: -0.3,
-  },
-  cardSubtitle: { 
-    fontSize: 16, 
-    fontWeight: '700', 
-    color: '#374151',
-    marginTop: 4,
-  },
-  cardText: { 
-    color: '#6B7280', 
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500',
-  },
+  tabBtnActive: { backgroundColor: '#14532d', borderColor: '#14532d' },
+  tabBtnText: { fontSize: 13, fontWeight: '700', color: '#166534' },
+  tabBtnTextActive: { color: '#ffffff' },
 
-  primaryButton: { 
-    backgroundColor: '#10B981', 
-    padding: 14, 
-    borderRadius: 12, 
-    alignItems: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+  /* MODULE CARDS */
+  moduleCard: {
+    backgroundColor: '#ffffff', borderRadius: 20, flexDirection: 'row', overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
-  primaryButtonText: { 
-    color: '#FFFFFF', 
-    fontWeight: '800',
-    fontSize: 16,
-    letterSpacing: 0.3,
-  },
+  cardThumbnail: { width: 100, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
+  moduleTitle: { fontSize: 16, fontWeight: '800', color: '#1f2937' },
+  moduleDesc: { color: '#6b7280', marginTop: 4, fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  moduleMetaPill: { backgroundColor: '#f3f4f6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  moduleMetaText: { fontSize: 11, color: '#4b5563', fontWeight: '600', textTransform: 'capitalize' },
+  modulePoints: { fontSize: 13, fontWeight: '800', color: '#d97706' },
 
-  progressBarTrack: { 
-    height: 10, 
-    backgroundColor: '#E5E7EB', 
-    borderRadius: 5, 
-    overflow: 'hidden', 
-    marginTop: 8,
-  },
-  progressBarFill: { 
-    height: 10, 
-    backgroundColor: '#10B981',
-    borderRadius: 5,
-  },
+  /* PROGRESS BARS */
+  progressBarTrack: { height: 6, backgroundColor: '#dcfce7', borderRadius: 3, overflow: 'hidden' },
+  progressBarFill: { height: 6, backgroundColor: '#22c55e', borderRadius: 3 },
 
-  progressButton: { 
-    flex: 1, 
-    paddingVertical: 10, 
-    paddingHorizontal: 14, 
-    borderRadius: 10, 
-    borderWidth: 2, 
-    borderColor: '#D1D5DB', 
-    backgroundColor: '#FFFFFF', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  progressButtonActive: { 
-    backgroundColor: '#ECFDF5', 
-    borderColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  progressButtonText: { 
-    fontSize: 13, 
-    color: '#6B7280', 
-    fontWeight: '700',
-  },
-  progressButtonTextActive: { 
-    color: '#047857',
-    fontWeight: '800',
-  },
+  /* VIDEO / DETAILS VIEW */
+  content: { padding: 20, paddingBottom: 100 },
+  card: { backgroundColor: '#ffffff', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' },
+  cardTitle: { fontSize: 20, fontWeight: '800', color: '#14532d' },
+  cardText: { color: '#4b5563', fontSize: 15, lineHeight: 24, marginTop: 8 },
+  primaryButton: { backgroundColor: '#22c55e', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 24 },
+  primaryButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 15 },
+  resumePill: { backgroundColor: '#dcfce7', padding: 12, borderRadius: 12, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#16a34a' },
+  resumePillText: { color: '#166534', fontSize: 13, fontWeight: '700' },
+  completedPill: { backgroundColor: '#fef3c7', padding: 14, borderRadius: 12, marginTop: 16, borderLeftWidth: 4, borderLeftColor: '#d97706' },
+  completedPillText: { color: '#92400e', fontSize: 14, fontWeight: '700' },
 
-  optionButton: { 
-    padding: 14, 
-    borderRadius: 12, 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB', 
-    marginTop: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  optionButtonActive: { 
-    backgroundColor: '#ECFDF5', 
-    borderColor: '#10B981',
-  },
-  optionText: { 
-    color: '#374151',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  optionTextActive: { 
-    color: '#047857', 
-    fontWeight: '800',
-  },
+  videoContainer: { width: '100%', height: 220, backgroundColor: '#021F0F', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#14532d' },
+  videoPlayer: { flex: 1, backgroundColor: '#000' },
 
-  videoPlaceholder: { 
-    width: '100%', 
-    height: 220, 
-    backgroundColor: '#1F2937', 
-    borderRadius: 14, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-  },
-  videoContainer: { 
-    width: '100%', 
-    height: 240, 
-    backgroundColor: '#000', 
-    borderRadius: 14, 
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-  },
-  videoPlayer: { 
-    flex: 1, 
-    backgroundColor: '#000',
-  },
-
-  quizCenterSection: { marginBottom: 16 },
-  quizCenterCard: { 
-    backgroundColor: '#DBEAFE', 
-    padding: 18, 
-    borderRadius: 14, 
-    borderWidth: 2, 
-    borderColor: '#93C5FD',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  quizCenterIcon: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-    borderWidth: 2,
-    borderColor: '#BFDBFE',
-  },
-
-  gameCard: { 
-    backgroundColor: '#FFFFFF', 
-    padding: 16, 
-    borderRadius: 14, 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB', 
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cropRow: { 
-    flexDirection: 'row', 
-    marginBottom: 14,
-    gap: 10,
-  },
-  cropTile: { 
-    alignItems: 'center', 
-    padding: 10, 
-    borderRadius: 12, 
-    backgroundColor: '#FFFFFF', 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB',
-  },
-
-  plotsGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    justifyContent: 'space-between',
-  },
-  plotCell: { 
-    width: '48%', 
-    height: 150, 
-    backgroundColor: '#FFFFFF', 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginBottom: 14, 
-    borderWidth: 2, 
-    borderColor: '#E5E7EB',
-  },
+  /* QUIZ CENTER */
+  quizCenterSection: { marginTop: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', marginBottom: 12 },
+  quizCenterCard: { backgroundColor: '#ffffff', padding: 20, borderRadius: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
+  quizIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  quizCenterTitle: { fontSize: 16, fontWeight: '800', color: '#1f2937' },
+  quizCenterSub: { fontSize: 13, color: '#6b7280', marginTop: 4, lineHeight: 18 },
 });
