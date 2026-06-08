@@ -1,6 +1,5 @@
-// In-memory DB for now
+// In-memory store (legacy reference — not used in production)
+// All data is now persisted via MongoDB/Mongoose models
 
-const users = [];        // { id, mobile, role, points, profile? }
-const otps = {};         // { [mobile]: { code, expiresAt } }
-
-module.exports = { users, otps };
+export const users = [];       // { id, mobile, role, points, profile? }
+export const otps = {};        // { [mobile]: { code, expiresAt } }
