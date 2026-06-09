@@ -1,6 +1,7 @@
 // Video Service - Fetch learning videos from API
 
 import { mockVideos, VideoModule } from '../data/videoMockData';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added AsyncStorage
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
@@ -53,7 +54,7 @@ export const fetchAllVideos = async (): Promise<VideoModule[]> => {
     }
 
     const data = await response.json();
-    
+
     if (data.videos && Array.isArray(data.videos)) {
       return data.videos;
     }
@@ -84,7 +85,7 @@ export const fetchVideosByCategory = async (category: string): Promise<VideoModu
     }
 
     const data = await response.json();
-    
+
     if (data.videos && Array.isArray(data.videos)) {
       return data.videos;
     }
@@ -115,7 +116,7 @@ export const fetchVideoById = async (videoId: string): Promise<VideoModule | nul
     }
 
     const data = await response.json();
-    
+
     if (data.video) {
       return data.video;
     }
@@ -143,18 +144,18 @@ export const updateVideoProgress = async (
   completed: boolean
 ): Promise<boolean> => {
   console.log('📹 updateVideoProgress called:', { videoId, progress, currentTime, duration, completed });
-  
-  // Always save to local storage immediately
-  saveProgressToLocalStorage(videoId, progress, currentTime, duration, completed);
-  
+
+  // ✅ Await the new async storage function
+  await saveProgressToAsyncStorage(videoId, progress, currentTime, duration, completed);
+
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        progress, 
+      body: JSON.stringify({
+        progress,
         currentTime,
         duration,
         completed,
@@ -163,14 +164,14 @@ export const updateVideoProgress = async (
     });
 
     if (!response.ok) {
-      console.warn('⚠️ Failed to update video progress on server, using localStorage');
+      console.warn('⚠️ Failed to update video progress on server, using AsyncStorage');
       return false;
     }
 
     console.log('✅ Progress saved to server:', { videoId, progress, currentTime });
     return true;
   } catch (error) {
-    console.warn('❌ Error updating video progress on server, using localStorage:', error);
+    console.warn('❌ Error updating video progress on server, using AsyncStorage:', error);
     return false;
   }
 };
@@ -180,9 +181,9 @@ export const updateVideoProgress = async (
  * @param videoId - The video ID
  */
 export const getVideoProgress = async (videoId: string): Promise<VideoProgressData | null> => {
-  // First try local storage (faster)
-  const localProgress = getProgressFromLocalStorage(videoId);
-  
+  // ✅ Await the new async storage function
+  const localProgress = await getProgressFromAsyncStorage(videoId);
+
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
       method: 'GET',
@@ -197,7 +198,7 @@ export const getVideoProgress = async (videoId: string): Promise<VideoProgressDa
     }
 
     const data = await response.json();
-    
+
     if (data.progress) {
       console.log('Loaded progress from server:', data.progress);
       return data.progress;
@@ -211,56 +212,48 @@ export const getVideoProgress = async (videoId: string): Promise<VideoProgressDa
 };
 
 /**
- * Save progress to local storage (fallback/offline mode)
+ * Save progress to AsyncStorage (fallback/offline mode)
  */
-const saveProgressToLocalStorage = (
+const saveProgressToAsyncStorage = async (
   videoId: string,
   progress: number,
   currentTime: number,
   duration: number,
   completed: boolean
-): void => {
+): Promise<void> => {
   try {
-    // Check if we're in a browser environment
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const progressData: VideoProgressData = {
-        videoId,
-        progress,
-        currentTime,
-        duration,
-        completed,
-        lastUpdated: new Date().toISOString(),
-      };
-      window.localStorage.setItem(`video_progress_${videoId}`, JSON.stringify(progressData));
-      console.log('✅ Saved to localStorage:', progressData);
-    } else {
-      console.warn('⚠️ localStorage not available');
-    }
+    const progressData: VideoProgressData = {
+      videoId,
+      progress,
+      currentTime,
+      duration,
+      completed,
+      lastUpdated: new Date().toISOString(),
+    };
+    // ✅ Replaced window.localStorage with AsyncStorage
+    await AsyncStorage.setItem(`video_progress_${videoId}`, JSON.stringify(progressData));
+    console.log('✅ Saved to AsyncStorage:', progressData);
   } catch (error) {
-    console.warn('❌ Error saving to local storage:', error);
+    console.warn('❌ Error saving to AsyncStorage:', error);
   }
 };
 
 /**
- * Get progress from local storage
+ * Get progress from AsyncStorage
  */
-const getProgressFromLocalStorage = (videoId: string): VideoProgressData | null => {
+const getProgressFromAsyncStorage = async (videoId: string): Promise<VideoProgressData | null> => {
   try {
-    // Check if we're in a browser environment
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const data = window.localStorage.getItem(`video_progress_${videoId}`);
-      if (data) {
-        const parsed = JSON.parse(data) as VideoProgressData;
-        console.log('✅ Loaded from localStorage:', parsed);
-        return parsed;
-      } else {
-        console.log('ℹ️ No saved progress found for:', videoId);
-      }
+    // ✅ Replaced window.localStorage with AsyncStorage
+    const data = await AsyncStorage.getItem(`video_progress_${videoId}`);
+    if (data) {
+      const parsed = JSON.parse(data) as VideoProgressData;
+      console.log('✅ Loaded from AsyncStorage:', parsed);
+      return parsed;
     } else {
-      console.warn('⚠️ localStorage not available');
+      console.log('ℹ️ No saved progress found for:', videoId);
     }
   } catch (error) {
-    console.warn('❌ Error reading from local storage:', error);
+    console.warn('❌ Error reading from AsyncStorage:', error);
   }
   return null;
 };
@@ -305,7 +298,7 @@ export const searchVideos = async (query: string): Promise<VideoModule[]> => {
     }
 
     const data = await response.json();
-    
+
     if (data.videos && Array.isArray(data.videos)) {
       return data.videos;
     }

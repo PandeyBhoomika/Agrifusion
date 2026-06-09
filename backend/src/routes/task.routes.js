@@ -1,10 +1,13 @@
 import express from 'express';
-import { getTasks, createTask } from '../controllers/task.controller.js';
+// Make sure completeTask is added to this import list:
+import { getTasks, createTask, completeTask } from '../controllers/task.controller.js';
 
 const router = express.Router();
 
-router.route('/')
-  .get(getTasks)
-  .post(createTask);
+router.get('/', getTasks);
+router.post('/', createTask);
+
+// ✅ Add this line right here to fix Bug 1:
+router.post('/:id/complete', completeTask);
 
 export default router;

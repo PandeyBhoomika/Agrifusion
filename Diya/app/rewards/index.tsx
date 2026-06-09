@@ -8,25 +8,15 @@ import {
   TouchableOpacity,
   Animated as RNAnimated,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, FadeInDown, ZoomIn } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
-import { Feather, FontAwesome5 } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 
-/* ---------------------- MOCK DATA ---------------------- */
-const MOCK_DATA = {
-  level: 4,
-  xp: 1280,
-  xpToNext: 1500,
-  greenCoins: 540,
-  carbonCredits: 3.5,
-  rankTier: "Silver Farmer",
-  rankProgress: 28,
-  streakDays: 5,
-};
-
+/* ---------------------- STATIC DATA ---------------------- */
 const badges = [
   { id: "b1", name: "Water Saver", status: "unlocked", icon: "💧" },
   { id: "b2", name: "Soil Guardian", status: "unlocked", icon: "🛡️" },
@@ -49,11 +39,47 @@ const { width } = Dimensions.get("window");
 ================================================================ */
 
 export default function RewardsScreen() {
+  const [userData, setUserData] = useState({
+    level: 1,
+    xp: 0,
+    xpToNext: 100,
+    greenCoins: 0,
+    rankTier: "Bronze Starter",
+  });
+  const [loading, setLoading] = useState(true);
   const [chestClaimed, setChestClaimed] = useState(false);
-  const [coinsDisplay, setCoinsDisplay] = useState(MOCK_DATA.greenCoins);
+  const [coinsDisplay, setCoinsDisplay] = useState(0);
 
   // Confetti animation (emoji falling)
   const [confetti] = useState(new RNAnimated.Value(0));
+
+  // Fetch real data from the API profile endpoint
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      // NOTE: Replace with your absolute backend URL if not using a network proxy/wrapper
+      const response = await fetch("/api/user/profile");
+      const data = await response.json();
+
+      if (data) {
+        setUserData({
+          level: data.level ?? 1,
+          xp: data.xp ?? 0,
+          xpToNext: data.xpToNext ?? 100,
+          greenCoins: data.greenCoins ?? 0,
+          rankTier: data.rankTier ?? "Silver Farmer",
+        });
+        setCoinsDisplay(data.greenCoins ?? 0);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const triggerConfetti = () => {
     confetti.setValue(0);
@@ -75,14 +101,24 @@ export default function RewardsScreen() {
   const radius = 80;
   const strokeWidth = 14;
   const circumference = 2 * Math.PI * radius;
-  const progressPercent = MOCK_DATA.xp / MOCK_DATA.xpToNext;
-  const strokeDashoffset = circumference - circumference * progressPercent;
+  const progressPercent = userData.xpToNext > 0 ? userData.xp / userData.xpToNext : 0;
+  const strokeDashoffset = circumference - circumference * Math.min(Math.max(progressPercent, 0), 1);
 
   /* ---------------------- Confetti Style ---------------------- */
   const confettiTranslateY = confetti.interpolate({
     inputRange: [0, 1],
     outputRange: [-200, 800],
   });
+
+  if (loading) {
+    return (
+      <LinearGradient colors={["#021F0F", "#042818", "#053B24"]} style={styles.centeredContainer}>
+        <StatusBar style="light" backgroundColor="#021F0F" />
+        <ActivityIndicator size="large" color="#4ade80" />
+        <Text style={styles.loadingText}>Fetching profile...</Text>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={["#021F0F", "#042818", "#053B24"]} style={styles.mainContainer}>
@@ -131,13 +167,13 @@ export default function RewardsScreen() {
                 />
               </Svg>
               <View style={styles.ringInner}>
-                <Text style={styles.levelNumber}>Lv {MOCK_DATA.level}</Text>
-                <Text style={styles.xpFraction}>{MOCK_DATA.xp} / {MOCK_DATA.xpToNext}</Text>
+                <Text style={styles.levelNumber}>Lv {userData.level}</Text>
+                <Text style={styles.xpFraction}>{userData.xp} / {userData.xpToNext}</Text>
                 <Text style={styles.xpLabel}>XP Earned</Text>
               </View>
             </View>
             <View style={styles.rankPill}>
-              <Text style={styles.rankPillText}>🌟 {MOCK_DATA.rankTier}</Text>
+              <Text style={styles.rankPillText}>🌟 {userData.rankTier}</Text>
             </View>
           </Animated.View>
 
@@ -238,6 +274,8 @@ export default function RewardsScreen() {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
+  centeredContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { color: "#86efac", marginTop: 12, fontWeight: "600", fontSize: 15 },
   safe: { flex: 1 },
   scroll: {
     paddingHorizontal: 20,
