@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   FlatList,
-  Image,
   Modal,
   StyleSheet,
   Platform,
   ActivityIndicator,
-  Dimensions,
   TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,15 +17,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
+import YoutubePlayer from 'react-native-youtube-iframe'; // ✅ ADDED THIS
 
 import { fetchAllVideos, getVideoProgress, updateVideoProgress } from '../../services/videoService';
 import { VideoModule } from '../../data/videoMockData';
-
-// Conditionally import WebView only for mobile platforms
-let WebView: any = null;
-if (Platform.OS !== 'web') {
-  WebView = require('react-native-webview').WebView;
-}
 
 type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 type ModuleType = 'simulation' | 'video' | 'quiz';
@@ -155,42 +148,10 @@ const learningModules: LearningModule[] = [
 ];
 
 const irrigationSimulation: SimulationStep[] = [
-  {
-    id: 'step-1',
-    title: 'Check Soil Moisture',
-    description: 'Tap the soil sensor to check moisture',
-    action: 'tap',
-    target: 'soil-sensor',
-    feedback: 'Soil moisture is 25% — needs watering.',
-    points: 20,
-  },
-  {
-    id: 'step-2',
-    title: 'Select Irrigation Zone',
-    description: 'Choose the irrigation zone',
-    action: 'select',
-    target: 'zone-selector',
-    feedback: 'Zone A selected — lowest moisture.',
-    points: 30,
-  },
-  {
-    id: 'step-3',
-    title: 'Set Water Duration',
-    description: 'Choose duration (recommended 15-20 min)',
-    action: 'drag',
-    target: 'time-slider',
-    feedback: '18 minutes chosen — optimal.',
-    points: 40,
-  },
-  {
-    id: 'step-4',
-    title: 'Start Irrigation',
-    description: 'Start watering',
-    action: 'tap',
-    target: 'start-button',
-    feedback: 'Water is flowing efficiently.',
-    points: 50,
-  },
+  { id: 'step-1', title: 'Check Soil Moisture', description: 'Tap the soil sensor to check moisture', action: 'tap', target: 'soil-sensor', feedback: 'Soil moisture is 25% — needs watering.', points: 20 },
+  { id: 'step-2', title: 'Select Irrigation Zone', description: 'Choose the irrigation zone', action: 'select', target: 'zone-selector', feedback: 'Zone A selected — lowest moisture.', points: 30 },
+  { id: 'step-3', title: 'Set Water Duration', description: 'Choose duration (recommended 15-20 min)', action: 'drag', target: 'time-slider', feedback: '18 minutes chosen — optimal.', points: 40 },
+  { id: 'step-4', title: 'Start Irrigation', description: 'Start watering', action: 'tap', target: 'start-button', feedback: 'Water is flowing efficiently.', points: 50 },
 ];
 
 const userProgress = {
@@ -203,12 +164,6 @@ const userProgress = {
   weeklyGoal: 4,
   weeklyCompleted: 2,
 };
-
-const cropTiles: CropTile[] = [
-  { id: 'rice', name: 'Rice', type: 'grain', season: 1, nitrogenEffect: -1, pestResistance: 3, yieldMultiplier: 1.2, color: '#FDE68A' },
-  { id: 'beans', name: 'Beans', type: 'legume', season: 2, nitrogenEffect: 2, pestResistance: 4, yieldMultiplier: 0.8, color: '#BBF7D0' },
-  { id: 'tomato', name: 'Tomato', type: 'vegetable', season: 3, nitrogenEffect: -1, pestResistance: 2, yieldMultiplier: 1.5, color: '#FECACA' },
-];
 
 const gameLevels: GameLevel[] = [
   { id: 1, name: 'Beginner Farmer', goal: 'Maximize yield while keeping soil healthy', targetScore: 100, plotCount: 4, seasons: 2 },
@@ -234,10 +189,11 @@ export default function LearningHub({
   const [currentTime, setCurrentTime] = useState(0);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  const [playerReady, setPlayerReady] = useState(false);
+
+  // ✅ Video Player Specific States
+  const [playing, setPlaying] = useState(false);
   const [shouldSeek, setShouldSeek] = useState(false);
-  const playerRef = useRef<any>(null);
-  const progressIntervalRef = useRef<any>(null);
+  const youtubePlayerRef = useRef<any>(null);
 
   // UI States
   const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes'>('overview');
@@ -279,21 +235,10 @@ export default function LearningHub({
   useEffect(() => {
     const loadSavedProgress = async () => {
       if (selectedVideo) {
-        if (playerRef.current) {
-          try {
-            playerRef.current.destroy();
-          } catch (e) { }
-          playerRef.current = null;
-        }
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = null;
-        }
-
         setIsLoadingProgress(true);
         setProgressLoaded(false);
-        setPlayerReady(false);
         setShouldSeek(false);
+        setPlaying(false);
         try {
           const savedProgress = await getVideoProgress(selectedVideo.id);
           if (savedProgress && savedProgress.currentTime > 0) {
@@ -316,13 +261,30 @@ export default function LearningHub({
       }
     };
     loadSavedProgress();
-
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
   }, [selectedVideo?.id]);
+
+  // ✅ New clean interval for tracking Youtube iframe time directly
+  useEffect(() => {
+    if (!selectedVideo || !progressLoaded) return;
+
+    const interval = setInterval(async () => {
+      if (youtubePlayerRef.current) {
+        try {
+          const current = await youtubePlayerRef.current.getCurrentTime();
+          const duration = await youtubePlayerRef.current.getDuration();
+          if (duration > 0 && current > 0) {
+            setVideoDuration(duration);
+            setCurrentTime(current);
+            setVideoProgress(Math.round((current / duration) * 100));
+          }
+        } catch (e) {
+          // Player loading or unmounted, safe to ignore
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedVideo, progressLoaded]);
 
   // Auto-save progress
   useEffect(() => {
@@ -493,137 +455,28 @@ export default function LearningHub({
                         </View>
                       )}
 
-                      {/* YouTube Video Player */}
+                      {/* ✅ STABLE YOUTUBE VIDEO PLAYER */}
                       <View style={styles.videoContainer}>
-                        {Platform.OS === 'web' ? (
-                          <iframe
-                            key={selectedVideo.id}
-                            id="youtube-player-iframe"
-                            style={{ width: '100%', height: '100%', border: 'none' }}
-                            src={`https://www.youtube.com/embed/${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}?enablejsapi=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            onLoad={() => {
-                              if (typeof window !== 'undefined' && !playerRef.current) {
-                                if (!(window as any).YT) {
-                                  const tag = document.createElement('script');
-                                  tag.src = 'https://www.youtube.com/iframe_api';
-                                  const firstScriptTag = document.getElementsByTagName('script')[0];
-                                  firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-                                }
-                                const initPlayer = () => {
-                                  const YT = (window as any).YT;
-                                  if (YT && YT.Player && !playerRef.current) {
-                                    const iframe = document.getElementById('youtube-player-iframe') as HTMLIFrameElement;
-                                    playerRef.current = new YT.Player(iframe, {
-                                      events: {
-                                        'onReady': (event: any) => {
-                                          if (shouldSeek && currentTime > 0) {
-                                            setTimeout(() => {
-                                              event.target.seekTo(currentTime, true);
-                                              setShouldSeek(false);
-                                            }, 500);
-                                          }
-                                          if (progressIntervalRef.current) {
-                                            clearInterval(progressIntervalRef.current);
-                                          }
-                                          progressIntervalRef.current = setInterval(() => {
-                                            try {
-                                              const current = event.target.getCurrentTime();
-                                              const duration = event.target.getDuration();
-                                              if (duration > 0) {
-                                                setVideoDuration(duration);
-                                                setCurrentTime(current);
-                                                const progress = Math.round((current / duration) * 100);
-                                                setVideoProgress(progress);
-                                              }
-                                            } catch (e) { }
-                                          }, 1000);
-                                        }
-                                      }
-                                    });
-                                  }
-                                };
-                                if ((window as any).YT && (window as any).YT.Player) {
-                                  initPlayer();
-                                } else {
-                                  (window as any).onYouTubeIframeAPIReady = initPlayer;
-                                }
-                              }
-                            }}
-                          />
-                        ) : (
-                          WebView && (
-                            <WebView
-                              style={styles.videoPlayer}
-                              javaScriptEnabled={true}
-                              domStorageEnabled={true}
-                              onMessage={(event: any) => {
-                                try {
-                                  const data = JSON.parse(event.nativeEvent.data);
-                                  if (data.currentTime !== undefined && data.duration !== undefined) {
-                                    setCurrentTime(data.currentTime);
-                                    setVideoDuration(data.duration);
-                                    const progress = Math.round((data.currentTime / data.duration) * 100);
-                                    setVideoProgress(progress);
-                                  }
-                                } catch (e) { }
-                              }}
-                              source={{
-                                html: `
-                                  <!DOCTYPE html>
-                                  <html>
-                                    <head>
-                                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                      <style>
-                                        body { margin: 0; padding: 0; background-color: #000; }
-                                        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; }
-                                        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-                                      </style>
-                                      <script src="https://www.youtube.com/iframe_api"></script>
-                                    </head>
-                                    <body>
-                                      <div class="video-container">
-                                        <div id="player"></div>
-                                      </div>
-                                      <script>
-                                        var player;
-                                        function onYouTubeIframeAPIReady() {
-                                          const videoId = '${selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}';
-                                          player = new YT.Player('player', {
-                                            height: '100%',
-                                            width: '100%',
-                                            videoId: videoId,
-                                            events: {
-                                              'onReady': onPlayerReady
-                                            }
-                                          });
-                                        }
-                                        
-                                        function onPlayerReady(event) {
-                                          const savedTime = ${currentTime};
-                                          if (savedTime > 0 && player.seekTo) {
-                                            player.seekTo(savedTime, true);
-                                          }
-                                          setInterval(function() {
-                                            if (player && player.getCurrentTime) {
-                                              const currentTime = player.getCurrentTime();
-                                              const duration = player.getDuration();
-                                              window.ReactNativeWebView.postMessage(JSON.stringify({
-                                                currentTime: currentTime,
-                                                duration: duration
-                                              }));
-                                            }
-                                          }, 1000);
-                                        }
-                                      </script>
-                                    </body>
-                                  </html>
-                                `,
-                              }}
-                            />
-                          )
-                        )}
+                        <YoutubePlayer
+                          ref={youtubePlayerRef}
+                          height={220}
+                          play={playing}
+                          videoId={selectedVideo.videoUrl.split('v=')[1]?.split('&')[0] || ''}
+                          onChangeState={(state) => {
+                            if (state === 'ended') {
+                              setPlaying(false);
+                              setVideoProgress(100);
+                            }
+                          }}
+                          onReady={() => {
+                            if (shouldSeek && currentTime > 0) {
+                              setTimeout(() => {
+                                youtubePlayerRef.current?.seekTo(currentTime, true);
+                                setShouldSeek(false);
+                              }, 500);
+                            }
+                          }}
+                        />
                       </View>
 
                       {/* Video Data */}
@@ -636,7 +489,7 @@ export default function LearningHub({
                         <Text style={styles.cardText}>{selectedVideo.description}</Text>
                       </View>
 
-                      {videoProgress === 100 && (
+                      {videoProgress >= 100 && (
                         <View style={styles.completedPill}>
                           <Text style={styles.completedPillText}>✓ Video Completed! You earned +{selectedVideo.points} XP</Text>
                         </View>
@@ -917,7 +770,6 @@ const styles = StyleSheet.create({
   completedPillText: { color: '#92400e', fontSize: 14, fontWeight: '700' },
 
   videoContainer: { width: '100%', height: 220, backgroundColor: '#021F0F', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#14532d' },
-  videoPlayer: { flex: 1, backgroundColor: '#000' },
 
   /* QUIZ CENTER */
   quizCenterSection: { marginTop: 10 },

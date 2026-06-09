@@ -2,7 +2,8 @@
 
 import { indianStates as mockStates } from '../data/mockData';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.103:4000/api';
+// ✅ FIX 1: Removed hardcoded IP. Relies cleanly on EXPO_PUBLIC_API_URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export interface StateResponse {
   success: boolean;
@@ -16,8 +17,9 @@ export interface StateResponse {
  */
 export const fetchIndianStates = async (): Promise<string[]> => {
   try {
-    
-    return mockStates;
+    // ✅ FIX 2: Removed the rogue "return mockStates;" that was blocking the API call!
+    console.log(`🌐 Fetching states from: ${API_BASE_URL}/states`);
+
     const response = await fetch(`${API_BASE_URL}/states`, {
       method: 'GET',
       headers: {
@@ -26,19 +28,19 @@ export const fetchIndianStates = async (): Promise<string[]> => {
     });
 
     if (!response.ok) {
-      console.warn('Failed to fetch states from API, using mock data');
+      console.warn('⚠️ Failed to fetch states from API, using mock data');
       return mockStates;
     }
 
     const data = await response.json();
-    
+
     if (data.states && Array.isArray(data.states)) {
       return data.states;
     }
 
     return mockStates;
   } catch (error) {
-    console.warn('Error fetching states, using mock data:', error);
+    console.error('🚨 Connection Failed: Error fetching states, using mock data:', error);
     return mockStates;
   }
 };

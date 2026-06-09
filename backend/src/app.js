@@ -46,6 +46,18 @@ app.use("/api/quiz", quizRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/schemes", schemeRoutes);
 
+app.get("/api/states", (req, res) => {
+  const indianStates = [
+    { id: "1", name: "Maharashtra" },
+    { id: "2", name: "Punjab" },
+    { id: "3", name: "Uttar Pradesh" },
+    { id: "4", name: "Gujarat" },
+    { id: "5", name: "Madhya Pradesh" },
+    { id: "6", name: "Haryana" }
+  ];
+  res.json(indianStates);
+});
+
 // ─── Health check ─────────────────────────────────────
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Backend running 🚜" });

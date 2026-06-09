@@ -15,6 +15,10 @@ import Animated, { FadeInUp, FadeInDown, ZoomIn } from "react-native-reanimated"
 import Svg, { Circle } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ✅ Added API Base URL fallback
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 /* ---------------------- STATIC DATA ---------------------- */
 const badges = [
@@ -53,18 +57,25 @@ export default function RewardsScreen() {
   // Confetti animation (emoji falling)
   const [confetti] = useState(new RNAnimated.Value(0));
 
-  // Fetch real data from the API profile endpoint
   useEffect(() => {
     fetchUserProfile();
   }, []);
 
   const fetchUserProfile = async () => {
     try {
-      // NOTE: Replace with your absolute backend URL if not using a network proxy/wrapper
-      const response = await fetch("/api/user/profile");
-      const data = await response.json();
+      // ✅ Added token retrieval for secure fetching
+      const token = await AsyncStorage.getItem('authToken');
 
-      if (data) {
+      // ✅ Fixed the fetch call to use the full API URL and Authorization header
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
         setUserData({
           level: data.level ?? 1,
           xp: data.xp ?? 0,
@@ -73,6 +84,8 @@ export default function RewardsScreen() {
           rankTier: data.rankTier ?? "Silver Farmer",
         });
         setCoinsDisplay(data.greenCoins ?? 0);
+      } else {
+        console.warn("Failed to fetch user profile:", response.status);
       }
     } catch (error) {
       console.error("Error fetching user profile data:", error);
@@ -141,10 +154,7 @@ export default function RewardsScreen() {
           <Text style={styles.headerSubtitle}>Level up and earn green coins</Text>
         </Animated.View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
-        >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           {/* ---------------- LEVEL & XP RING ---------------- */}
           <Animated.View entering={ZoomIn.delay(100).duration(500)} style={styles.ringSection}>
             <View style={styles.ringContainer}>
@@ -271,54 +281,24 @@ export default function RewardsScreen() {
 /* ================================================================
    STYLES
 ================================================================ */
-
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
   centeredContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { color: "#86efac", marginTop: 12, fontWeight: "600", fontSize: 15 },
   safe: { flex: 1 },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-  },
-
-  /* HEADER */
+  scroll: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40 },
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 28, fontWeight: "900", color: "#ECFDF5", letterSpacing: -0.5 },
   headerSubtitle: { fontSize: 14, color: "#86efac", marginTop: 4, fontWeight: "500" },
-
-  /* CONFETTI */
-  confetti: {
-    position: "absolute",
-    top: -50,
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontSize: 45,
-    zIndex: 20,
-  },
-
-  /* XP RING */
+  confetti: { position: "absolute", top: -50, left: 0, right: 0, textAlign: "center", fontSize: 45, zIndex: 20 },
   ringSection: { alignItems: "center", marginVertical: 24 },
-  ringContainer: {
-    width: 200, height: 200,
-    alignItems: "center", justifyContent: "center",
-  },
+  ringContainer: { width: 200, height: 200, alignItems: "center", justifyContent: "center" },
   ringInner: { position: "absolute", alignItems: "center" },
   levelNumber: { fontSize: 36, fontWeight: "900", color: "#ffffff" },
   xpFraction: { fontSize: 14, fontWeight: "700", color: "#fbbf24", marginTop: 4 },
   xpLabel: { fontSize: 11, color: "#9ca3af", marginTop: 2, fontWeight: "600", textTransform: "uppercase" },
-  rankPill: {
-    backgroundColor: "#d97706",
-    paddingHorizontal: 16, paddingVertical: 6,
-    borderRadius: 999, marginTop: -15,
-    borderWidth: 2, borderColor: "#053B24",
-    shadowColor: "#fbbf24", shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
-  },
+  rankPill: { backgroundColor: "#d97706", paddingHorizontal: 16, paddingVertical: 6, borderRadius: 999, marginTop: -15, borderWidth: 2, borderColor: "#053B24", shadowColor: "#fbbf24", shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
   rankPillText: { color: "#fffbeb", fontSize: 12, fontWeight: "800" },
-
-  /* COINS CARD */
   coinsCard: { marginBottom: 24, borderRadius: 20, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
   coinsGradient: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20 },
   coinsLeft: { flex: 1 },
@@ -326,17 +306,9 @@ const styles = StyleSheet.create({
   coinsValue: { color: "#ffffff", fontSize: 32, fontWeight: "900" },
   redeemBtn: { backgroundColor: "#fbbf24", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
   redeemBtnText: { color: "#78350f", fontSize: 13, fontWeight: "800" },
-
-  /* GLASS CARDS & SECTIONS */
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#ffffff", marginBottom: 14 },
-  glassCard: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: "rgba(34,197,94,0.15)",
-  },
-
-  /* CHEST */
+  glassCard: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, padding: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.15)" },
   chestSection: { marginBottom: 24 },
   chestCard: { flexDirection: "row", alignItems: "center", paddingVertical: 20 },
   chestEmoji: { fontSize: 48, marginRight: 16 },
@@ -345,27 +317,14 @@ const styles = StyleSheet.create({
   chestSubtitle: { color: "#86efac", fontSize: 13 },
   chestRewardPill: { backgroundColor: "rgba(251,191,36,0.2)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: "flex-start", marginTop: 8 },
   chestRewardText: { color: "#fde68a", fontSize: 11, fontWeight: "700" },
-
-  /* BADGES 3-COLUMN GRID */
   badgesGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   badgeItem: { width: "31%", alignItems: "center", marginBottom: 16 },
-  badgeIconWrap: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    justifyContent: "center", alignItems: "center",
-    marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
-  },
-  badgeIconGlow: {
-    backgroundColor: "rgba(34,197,94,0.15)",
-    borderColor: "rgba(74,222,128,0.4)",
-    shadowColor: "#4ade80", shadowOpacity: 0.4, shadowRadius: 10, elevation: 5,
-  },
+  badgeIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center", alignItems: "center", marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  badgeIconGlow: { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "rgba(74,222,128,0.4)", shadowColor: "#4ade80", shadowOpacity: 0.4, shadowRadius: 10, elevation: 5 },
   badgeEmoji: { fontSize: 28 },
   badgeName: { color: "#ffffff", fontSize: 12, fontWeight: "600", textAlign: "center" },
   badgeLocked: { opacity: 0.4 },
   badgeNameLocked: { color: "#9ca3af" },
-
-  /* RECENT ACTIVITY */
   activityRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
   activityIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(74,222,128,0.1)", justifyContent: "center", alignItems: "center", marginRight: 12 },
   activityDetails: { flex: 1 },
