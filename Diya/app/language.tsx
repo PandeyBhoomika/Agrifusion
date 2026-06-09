@@ -2,6 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
 
 const LANG_KEY = 'app_language';
 const LANGUAGES = [
@@ -24,7 +28,8 @@ export default function LanguageScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const saved = localStorage.getItem(LANG_KEY);
+        // ✅ FIX: Replaced localStorage with mobile-safe AsyncStorage
+        const saved = await AsyncStorage.getItem(LANG_KEY);
         if (saved) setSelected(saved);
       } catch {
         // ignore
@@ -35,7 +40,8 @@ export default function LanguageScreen() {
   async function onContinue() {
     if (!selected) return;
     try {
-      localStorage.setItem(LANG_KEY, selected);
+      // ✅ FIX: Replaced localStorage with mobile-safe AsyncStorage
+      await AsyncStorage.setItem(LANG_KEY, selected);
     } catch {
       // ignore
     }
@@ -43,50 +49,72 @@ export default function LanguageScreen() {
     router.replace('/auth');
   }
 
-  function renderItem({ item }: { item: typeof LANGUAGES[number] }) {
+  function renderItem({ item, index }: { item: typeof LANGUAGES[number]; index: number }) {
     const isActive = item.code === selected;
     return (
-      <TouchableOpacity
-        style={[styles.item, isActive && styles.itemActive]}
-        onPress={() => setSelected(item.code)}
-        accessibilityRole="button"
-        accessibilityState={{ selected: isActive }}
-      >
-        <Text style={[styles.label, isActive && styles.labelActive]}>{item.label}</Text>
-        {isActive && <Text style={styles.checkmark}>✓</Text>}
-      </TouchableOpacity>
+      <Animated.View entering={FadeInUp.delay(200 + index * 60).duration(400)}>
+        <TouchableOpacity
+          style={[styles.item, isActive && styles.itemActive]}
+          onPress={() => setSelected(item.code)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isActive }}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.label, isActive && styles.labelActive]}>{item.label}</Text>
+          <View style={[styles.radioCircle, isActive && styles.radioCircleActive]}>
+            {isActive && <Ionicons name="checkmark" size={16} color="#021F0F" />}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 
   return (
+    // ✅ REDESIGN: Updated background colors to meet Auth/Onboarding design spec
     <LinearGradient
-      colors={['#FAF3E0', '#DFF2D8']}
+      colors={['#021F0F', '#053B24', '#0A5C38']}
       style={styles.gradient}
     >
+      <StatusBar style="light" backgroundColor="transparent" />
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Text style={styles.headerIcon}>🌾</Text>
-        </View>
-        <Text style={styles.title}>Welcome to AgriFusion</Text>
-        <Text style={styles.subtitle}>Select your preferred language</Text>
-      </View>
-      
-      <FlatList
-        data={LANGUAGES}
-        keyExtractor={(i) => i.code}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
-      
-      <TouchableOpacity
-        style={[styles.continue, !selected && styles.continueDisabled]}
-        onPress={onContinue}
-        disabled={!selected}
-      >
-        <Text style={styles.continueText}>{selected ? 'Continue →' : 'Choose a language'}</Text>
-      </TouchableOpacity>
+
+        {/* --- HEADER --- */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
+          <View style={styles.iconContainer}>
+            <Ionicons name="language" size={36} color="#22c55e" />
+          </View>
+          <Text style={styles.title}>Welcome to AgriFusion</Text>
+          <Text style={styles.subtitle}>Select your preferred language</Text>
+        </Animated.View>
+
+        {/* --- LIST --- */}
+        <FlatList
+          data={LANGUAGES}
+          keyExtractor={(i) => i.code}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* --- FOOTER BUTTON --- */}
+        <Animated.View entering={ZoomIn.delay(600).duration(400)} style={styles.bottomContainer}>
+          <TouchableOpacity
+            style={[styles.continue, !selected && styles.continueDisabled]}
+            onPress={onContinue}
+            disabled={!selected}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={selected ? ['#22c55e', '#16a34a'] : ['#4b6b58', '#4b6b58']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.btnGradient}
+            >
+              <Text style={styles.continueText}>{selected ? 'Continue →' : 'Choose a language'}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
       </SafeAreaView>
     </LinearGradient>
   );
@@ -102,118 +130,111 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 32,
+    paddingTop: 40,
+    paddingBottom: 24,
     paddingHorizontal: 24,
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
   },
   iconContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#10B981',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerIcon: {
-    fontSize: 45,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   title: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#1F2937',
+    color: '#ECFDF5',
     marginBottom: 10,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 17,
-    color: '#6B7280',
+    fontSize: 16,
+    color: '#BBF7D0',
     textAlign: 'center',
     fontWeight: '500',
   },
   list: {
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 10,
+    paddingBottom: 110, // Avoid clearance issues with absolute positioned footer button
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.15)',
     marginBottom: 14,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   itemActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#10B981',
-    borderWidth: 2.5,
-    shadowColor: '#10B981',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-    transform: [{ scale: 1.02 }],
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderColor: '#4ade80',
   },
   label: {
     flex: 1,
-    fontSize: 18,
-    color: '#374151',
+    fontSize: 17,
+    color: '#ECFDF5',
     fontWeight: '600',
-    letterSpacing: 0.2,
   },
   labelActive: {
-    color: '#047857',
+    color: '#4ade80',
     fontWeight: '700',
   },
-  checkmark: {
-    fontSize: 24,
-    color: '#10B981',
-    fontWeight: 'bold',
-    marginLeft: 8,
+  radioCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioCircleActive: {
+    backgroundColor: '#4ade80',
+    borderColor: '#4ade80',
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 24,
+    right: 24,
   },
   continue: {
-    marginHorizontal: 24,
-    marginBottom: 40,
-    marginTop: 20,
-    paddingVertical: 18,
     borderRadius: 16,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    shadowColor: '#10B981',
+    overflow: 'hidden',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
   continueDisabled: {
-    backgroundColor: '#D1D5DB',
+    opacity: 0.5,
     shadowOpacity: 0,
     elevation: 0,
   },
+  btnGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   continueText: {
     color: '#FFFFFF',
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.5,
   },

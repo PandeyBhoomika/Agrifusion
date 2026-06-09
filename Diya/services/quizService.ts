@@ -2,6 +2,8 @@
 
 import { mockQuizCategories, QuizCategory, QuizQuestion } from '../data/quizMockData';
 
+// Fallback to laptop's IP if env var is missing. 
+// Note: localhost will fail on physical devices!
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export interface QuizResponse {
@@ -23,6 +25,7 @@ export interface AllQuizzesResponse {
  */
 export const fetchQuizByCategory = async (categoryId: string): Promise<QuizCategory | null> => {
   try {
+    console.log(`Fetching quiz from: ${API_BASE_URL}/quiz/${categoryId}`);
     const response = await fetch(`${API_BASE_URL}/quiz/${categoryId}`, {
       method: 'GET',
       headers: {
@@ -36,7 +39,7 @@ export const fetchQuizByCategory = async (categoryId: string): Promise<QuizCateg
     }
 
     const data = await response.json();
-    
+
     if (data.quiz) {
       return data.quiz;
     }
@@ -54,6 +57,7 @@ export const fetchQuizByCategory = async (categoryId: string): Promise<QuizCateg
  */
 export const fetchAllQuizzes = async (): Promise<QuizCategory[]> => {
   try {
+    console.log(`Fetching all quizzes from: ${API_BASE_URL}/quiz/all`);
     const response = await fetch(`${API_BASE_URL}/quiz/all`, {
       method: 'GET',
       headers: {
@@ -67,7 +71,7 @@ export const fetchAllQuizzes = async (): Promise<QuizCategory[]> => {
     }
 
     const data = await response.json();
-    
+
     if (data.quizzes && Array.isArray(data.quizzes)) {
       return data.quizzes;
     }
@@ -103,7 +107,7 @@ export const submitQuizAnswers = async (
     }
 
     const data = await response.json();
-    
+
     if (data.score !== undefined && data.totalPoints !== undefined) {
       return {
         score: data.score,

@@ -12,6 +12,8 @@ export interface GovernmentScheme {
   category: string;
 }
 
+// Ensure your .env file has your laptop's actual IP address (e.g. 192.168.43.15)
+// Localhost will fail on physical devices!
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 /**
@@ -158,6 +160,7 @@ export const keralaSchemes: GovernmentScheme[] = [
  */
 export const fetchGovernmentSchemes = async (): Promise<GovernmentScheme[]> => {
   try {
+    console.log(`🌐 Fetching schemes from: ${API_BASE_URL}/schemes`);
     const response = await fetch(`${API_BASE_URL}/schemes`, {
       method: 'GET',
       headers: {
@@ -166,19 +169,19 @@ export const fetchGovernmentSchemes = async (): Promise<GovernmentScheme[]> => {
     });
 
     if (!response.ok) {
-      console.warn('Failed to fetch schemes from API, using Kerala schemes');
+      console.warn('⚠️ Failed to fetch schemes from API, falling back to local Kerala schemes');
       return keralaSchemes;
     }
 
     const data = await response.json();
-    
+
     if (data.schemes && Array.isArray(data.schemes)) {
       return data.schemes;
     }
 
     return keralaSchemes;
   } catch (error) {
-    console.warn('Error fetching schemes, using Kerala schemes:', error);
+    console.error(`🚨 Connection Failed: Tried to reach ${API_BASE_URL}/schemes. Make sure your .env has your laptop's Wi-Fi IP address, not localhost!`);
     return keralaSchemes;
   }
 };

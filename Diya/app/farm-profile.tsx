@@ -13,32 +13,22 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown, FadeInUp, SlideInRight } from 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
 
 const SOIL_TYPES = [
-  'Alluvial',
-  'Black (Regur)',
-  'Red',
-  'Laterite',
-  'Desert',
-  'Mountain',
-  'Clay',
-  'Sandy',
-  'Loamy',
+  'Alluvial', 'Black (Regur)', 'Red', 'Laterite', 'Desert',
+  'Mountain', 'Clay', 'Sandy', 'Loamy',
 ];
 
 const WATER_AVAILABILITY = [
-  'Abundant (River/Canal)',
-  'Borewell',
-  'Rainfed Only',
-  'Limited',
-  'Drip Irrigation',
+  'Abundant (River/Canal)', 'Borewell', 'Rainfed Only',
+  'Limited', 'Drip Irrigation',
 ];
 
 const SKILL_LEVELS = [
-  'Beginner',
-  'Intermediate',
-  'Advanced',
-  'Expert',
+  'Beginner', 'Intermediate', 'Advanced', 'Expert',
 ];
 
 const FARMING_GOALS = [
@@ -50,12 +40,13 @@ const FARMING_GOALS = [
 
 export default function FarmProfile() {
   const router = useRouter();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const totalSteps = 3;
-  
+
   const [formData, setFormData] = useState({
     location: '',
     panchayat: '',
@@ -74,7 +65,7 @@ export default function FarmProfile() {
   useEffect(() => {
     const month = new Date().getMonth() + 1; // 1-12
     let season = '';
-    
+
     if (month >= 6 && month <= 9) {
       season = 'Kharif (Monsoon)';
     } else if (month >= 10 && month <= 3) {
@@ -82,7 +73,7 @@ export default function FarmProfile() {
     } else {
       season = 'Zaid (Summer)';
     }
-    
+
     setFormData(prev => ({ ...prev, currentSeason: season }));
   }, []);
 
@@ -92,20 +83,18 @@ export default function FarmProfile() {
 
   const handleGetLocation = async () => {
     setLocationLoading(true);
-    
+
     try {
-      // TODO: Implement actual GPS location fetching
-      // For now, simulate location detection
+      // Simulate location detection
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock data - replace with actual GPS → reverse geocoding API
+
       const mockLocation = {
         panchayat: 'Kharadi',
         district: 'Pune',
         state: 'Maharashtra',
         location: '18.5511° N, 73.9368° E',
       };
-      
+
       setFormData(prev => ({
         ...prev,
         location: mockLocation.location,
@@ -113,7 +102,7 @@ export default function FarmProfile() {
         district: mockLocation.district,
         state: mockLocation.state,
       }));
-      
+
       Alert.alert('Success', 'Location detected successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to get location. Please enter manually.');
@@ -171,19 +160,8 @@ export default function FarmProfile() {
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual API call to save farm profile
-      const response = await fetch('YOUR_API_URL/api/farm-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      // For now, simulate API call
+      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Store profile data locally if needed
-      // await AsyncStorage.setItem('farmProfile', JSON.stringify(formData));
-      
       Alert.alert('Success', 'Farm profile created successfully!');
       router.replace('/(tabs)/dashboard');
     } catch (error) {
@@ -194,39 +172,35 @@ export default function FarmProfile() {
     }
   };
 
+  // --- UI RENDERERS ---
+
   const renderStepIndicator = () => (
-    <View style={styles.stepIndicator}>
-      {[1, 2, 3].map((step) => (
-        <View key={step} style={styles.stepItem}>
-          <View style={[
-            styles.stepCircle,
-            currentStep >= step && styles.stepCircleActive,
-            currentStep > step && styles.stepCircleComplete,
-          ]}>
-            <Text style={[
-              styles.stepNumber,
-              currentStep >= step && styles.stepNumberActive,
-            ]}>
-              {currentStep > step ? '✓' : step}
-            </Text>
-          </View>
-          {step < 3 && (
+    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.stepIndicator}>
+      {[1, 2, 3].map((step) => {
+        const isActive = currentStep === step;
+        const isComplete = currentStep > step;
+
+        return (
+          <View key={step} style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={[
-              styles.stepLine,
-              currentStep > step && styles.stepLineActive,
+              styles.dot,
+              isActive && styles.dotActive,
+              isComplete && styles.dotComplete,
             ]} />
-          )}
-        </View>
-      ))}
-    </View>
+            {step < 3 && (
+              <View style={[styles.dotLine, isComplete && styles.dotLineComplete]} />
+            )}
+          </View>
+        );
+      })}
+    </Animated.View>
   );
 
   const renderStep1 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>📍 Location & Farm Details</Text>
-      <Text style={styles.stepSubtitle}>Help us understand your farm better</Text>
+    <Animated.View key="step1" entering={SlideInRight.duration(400)} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Location & Farm Details</Text>
+      <Text style={styles.stepSubtitle}>Help us understand your farm better to provide accurate weather and crop data.</Text>
 
-      {/* Location */}
       <View style={styles.field}>
         <Text style={styles.label}>Location (GPS)</Text>
         <View style={styles.row}>
@@ -234,92 +208,100 @@ export default function FarmProfile() {
             value={formData.location}
             onChangeText={(t) => handleInputChange('location', t)}
             placeholder="Auto-detect or enter coordinates"
-            style={[styles.input, { flex: 1 }]}
+            placeholderTextColor="#9ca3af"
+            onFocus={() => setFocusedField('location')}
+            onBlur={() => setFocusedField(null)}
+            style={[styles.input, { flex: 1 }, focusedField === 'location' && styles.inputFocused]}
             editable={!locationLoading}
           />
-          <TouchableOpacity 
-            style={styles.gpsButton} 
+          <TouchableOpacity
+            style={styles.gpsButton}
             onPress={handleGetLocation}
             disabled={locationLoading}
+            activeOpacity={0.8}
           >
             {locationLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.gpsButtonText}>📍 GPS</Text>
+              <Ionicons name="location" size={20} color="#ffffff" />
             )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Panchayat */}
       <View style={styles.field}>
         <Text style={styles.label}>Panchayat / Village</Text>
         <TextInput
           value={formData.panchayat}
           onChangeText={(t) => handleInputChange('panchayat', t)}
           placeholder="Enter your panchayat name"
-          style={styles.input}
+          placeholderTextColor="#9ca3af"
+          onFocus={() => setFocusedField('panchayat')}
+          onBlur={() => setFocusedField(null)}
+          style={[styles.input, focusedField === 'panchayat' && styles.inputFocused]}
         />
       </View>
 
-      {/* District */}
-      <View style={styles.field}>
-        <Text style={styles.label}>District</Text>
-        <TextInput
-          value={formData.district}
-          onChangeText={(t) => handleInputChange('district', t)}
-          placeholder="Enter your district"
-          style={styles.input}
-        />
+      <View style={styles.rowGrid}>
+        <View style={[styles.field, { flex: 1, marginRight: 10 }]}>
+          <Text style={styles.label}>District</Text>
+          <TextInput
+            value={formData.district}
+            onChangeText={(t) => handleInputChange('district', t)}
+            placeholder="E.g. Pune"
+            placeholderTextColor="#9ca3af"
+            onFocus={() => setFocusedField('district')}
+            onBlur={() => setFocusedField(null)}
+            style={[styles.input, focusedField === 'district' && styles.inputFocused]}
+          />
+        </View>
+
+        <View style={[styles.field, { flex: 1 }]}>
+          <Text style={styles.label}>State</Text>
+          <TextInput
+            value={formData.state}
+            onChangeText={(t) => handleInputChange('state', t)}
+            placeholder="E.g. MH"
+            placeholderTextColor="#9ca3af"
+            onFocus={() => setFocusedField('state')}
+            onBlur={() => setFocusedField(null)}
+            style={[styles.input, focusedField === 'state' && styles.inputFocused]}
+          />
+        </View>
       </View>
 
-      {/* State */}
-      <View style={styles.field}>
-        <Text style={styles.label}>State</Text>
-        <TextInput
-          value={formData.state}
-          onChangeText={(t) => handleInputChange('state', t)}
-          placeholder="Enter your state"
-          style={styles.input}
-        />
-      </View>
-
-      {/* Farm Size */}
       <View style={styles.field}>
         <Text style={styles.label}>Farm Size (in acres)</Text>
         <TextInput
           value={formData.farmSize}
           onChangeText={(t) => handleInputChange('farmSize', t)}
           placeholder="e.g., 2.5"
+          placeholderTextColor="#9ca3af"
           keyboardType="decimal-pad"
-          style={styles.input}
+          onFocus={() => setFocusedField('farmSize')}
+          onBlur={() => setFocusedField(null)}
+          style={[styles.input, focusedField === 'farmSize' && styles.inputFocused]}
         />
       </View>
-    </View>
+    </Animated.View>
   );
 
   const renderStep2 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>🌱 Soil & Water Resources</Text>
-      <Text style={styles.stepSubtitle}>Tell us about your farm resources</Text>
+    <Animated.View key="step2" entering={SlideInRight.duration(400)} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Soil & Water Resources</Text>
+      <Text style={styles.stepSubtitle}>This helps us recommend the best irrigation and fertilizer schedules.</Text>
 
-      {/* Soil Type */}
       <View style={styles.field}>
         <Text style={styles.label}>Soil Type</Text>
         <View style={styles.optionsGrid}>
           {SOIL_TYPES.map((soil) => (
             <TouchableOpacity
               key={soil}
-              style={[
-                styles.optionChip,
-                formData.soilType === soil && styles.optionChipSelected,
-              ]}
+              activeOpacity={0.75}
+              style={[styles.optionChip, formData.soilType === soil && styles.optionChipSelected]}
               onPress={() => handleInputChange('soilType', soil)}
             >
-              <Text style={[
-                styles.optionChipText,
-                formData.soilType === soil && styles.optionChipTextSelected,
-              ]}>
+              <Text style={[styles.optionChipText, formData.soilType === soil && styles.optionChipTextSelected]}>
                 {soil}
               </Text>
             </TouchableOpacity>
@@ -327,62 +309,50 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Water Availability */}
       <View style={styles.field}>
         <Text style={styles.label}>Water Availability</Text>
         {WATER_AVAILABILITY.map((water) => (
           <TouchableOpacity
             key={water}
-            style={[
-              styles.radioOption,
-              formData.waterAvailability === water && styles.radioOptionSelected,
-            ]}
+            activeOpacity={0.75}
+            style={[styles.radioOption, formData.waterAvailability === water && styles.radioOptionSelected]}
             onPress={() => handleInputChange('waterAvailability', water)}
           >
-            <View style={styles.radio}>
-              {formData.waterAvailability === water && (
-                <View style={styles.radioInner} />
-              )}
+            <View style={[styles.radio, formData.waterAvailability === water && styles.radioActive]}>
+              {formData.waterAvailability === water && <Ionicons name="checkmark" size={14} color="#ffffff" />}
             </View>
-            <Text style={styles.radioText}>{water}</Text>
+            <Text style={[styles.radioText, formData.waterAvailability === water && styles.radioTextSelected]}>{water}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Current Season (Auto-detected) */}
       <View style={styles.field}>
         <Text style={styles.label}>Current Season</Text>
         <View style={styles.seasonBox}>
-          <Text style={styles.seasonText}>🌾 {formData.currentSeason}</Text>
-          <Text style={styles.seasonSubtext}>(Auto-detected)</Text>
+          <Text style={styles.seasonText}>🌤️ {formData.currentSeason}</Text>
+          <Text style={styles.seasonSubtext}>(Auto-detected by region & date)</Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 
   const renderStep3 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>🎯 Your Farming Preferences</Text>
-      <Text style={styles.stepSubtitle}>Help us personalize recommendations</Text>
+    <Animated.View key="step3" entering={SlideInRight.duration(400)} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Your Farming Goals</Text>
+      <Text style={styles.stepSubtitle}>Personalize your dashboard and mission recommendations.</Text>
 
-      {/* Farming Goal */}
       <View style={styles.field}>
         <Text style={styles.label}>Primary Farming Goal</Text>
         <View style={styles.goalGrid}>
           {FARMING_GOALS.map((goal) => (
             <TouchableOpacity
               key={goal.id}
-              style={[
-                styles.goalCard,
-                formData.farmingGoal === goal.id && styles.goalCardSelected,
-              ]}
+              activeOpacity={0.75}
+              style={[styles.goalCard, formData.farmingGoal === goal.id && styles.goalCardSelected]}
               onPress={() => handleInputChange('farmingGoal', goal.id)}
             >
               <Text style={styles.goalIcon}>{goal.icon}</Text>
-              <Text style={[
-                styles.goalLabel,
-                formData.farmingGoal === goal.id && styles.goalLabelSelected,
-              ]}>
+              <Text style={[styles.goalLabel, formData.farmingGoal === goal.id && styles.goalLabelSelected]}>
                 {goal.label}
               </Text>
             </TouchableOpacity>
@@ -390,23 +360,17 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Skill Level (Optional) */}
       <View style={styles.field}>
-        <Text style={styles.label}>Skill Level (Optional)</Text>
+        <Text style={styles.label}>Skill Level</Text>
         <View style={styles.optionsGrid}>
           {SKILL_LEVELS.map((skill) => (
             <TouchableOpacity
               key={skill}
-              style={[
-                styles.optionChip,
-                formData.skillLevel === skill && styles.optionChipSelected,
-              ]}
+              activeOpacity={0.75}
+              style={[styles.optionChip, formData.skillLevel === skill && styles.optionChipSelected]}
               onPress={() => handleInputChange('skillLevel', skill)}
             >
-              <Text style={[
-                styles.optionChipText,
-                formData.skillLevel === skill && styles.optionChipTextSelected,
-              ]}>
+              <Text style={[styles.optionChipText, formData.skillLevel === skill && styles.optionChipTextSelected]}>
                 {skill}
               </Text>
             </TouchableOpacity>
@@ -414,35 +378,40 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Previous Crop */}
       <View style={styles.field}>
         <Text style={styles.label}>Previous Crop (Optional)</Text>
         <TextInput
           value={formData.previousCrop}
           onChangeText={(t) => handleInputChange('previousCrop', t)}
-          placeholder="e.g., Wheat, Rice, Cotton"
-          style={styles.input}
+          placeholder="E.g. Wheat, Cotton"
+          placeholderTextColor="#9ca3af"
+          onFocus={() => setFocusedField('previousCrop')}
+          onBlur={() => setFocusedField(null)}
+          style={[styles.input, focusedField === 'previousCrop' && styles.inputFocused]}
         />
-        <Text style={styles.hint}>Helps us suggest better crop rotation</Text>
+        <Text style={styles.hint}>Helps us suggest better crop rotation practices.</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 
   return (
-    <LinearGradient colors={['#FAF3E0', '#DFF2D8']} style={styles.gradient}>
+    <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={styles.gradient}>
+      <StatusBar style="dark" backgroundColor="transparent" />
       <SafeAreaView style={styles.safe}>
-        <View style={styles.header}>
+
+        {/* HEADER */}
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.header}>
           <Text style={styles.headerTitle}>Farm Profile Setup</Text>
-          <Text style={styles.headerSubtitle}>
-            Step {currentStep} of {totalSteps}
-          </Text>
-        </View>
+          <Text style={styles.headerSubtitle}>Customize your AgriFusion experience</Text>
+        </Animated.View>
 
         {renderStepIndicator()}
 
-        <ScrollView 
+        {/* SCROLLABLE FORM */}
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
             {currentStep === 1 && renderStep1()}
@@ -451,351 +420,104 @@ export default function FarmProfile() {
           </View>
         </ScrollView>
 
-        {/* Navigation Buttons */}
-        <View style={styles.footer}>
-          {currentStep > 1 && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-            >
-              <Text style={styles.backButtonText}>← Back</Text>
+        {/* BOTTOM NAVIGATION BUTTONS */}
+        <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.footer}>
+          {currentStep > 1 ? (
+            <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.75}>
+              <Text style={styles.backBtnText}>Back</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={{ flex: 1, marginRight: 12 }} /> // Spacer when no back button
           )}
-          
+
           <TouchableOpacity
-            style={[
-              styles.nextButton,
-              currentStep === 1 && { flex: 1 },
-            ]}
+            style={styles.nextBtn}
             onPress={handleNext}
             disabled={isLoading}
+            activeOpacity={0.8}
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.nextButtonText}>
-                {currentStep === totalSteps ? 'Complete Setup' : 'Next →'}
+              <Text style={styles.nextBtnText}>
+                {currentStep === totalSteps ? 'Complete Setup' : 'Next Step'}
               </Text>
             )}
           </TouchableOpacity>
-        </View>
+        </Animated.View>
+
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 16 : 8,
-    paddingBottom: 16,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#166534',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  stepIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stepCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-  },
-  stepCircleActive: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  stepCircleComplete: {
-    backgroundColor: '#047857',
-    borderColor: '#047857',
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  stepNumberActive: {
-    color: '#fff',
-  },
-  stepLine: {
-    width: 40,
-    height: 2,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 4,
-  },
-  stepLineActive: {
-    backgroundColor: '#10B981',
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-  },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  stepContent: {
-    // Container for step content
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#166534',
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  stepSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
-    fontWeight: '500',
-  },
-  field: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#166534',
-    marginBottom: 8,
-  },
-  input: {
-    height: 50,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    fontSize: 15,
-    color: '#111827',
-  },
-  hint: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    marginTop: 6,
-    fontWeight: '500',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  gpsButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginLeft: 8,
-    minWidth: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gpsButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  optionChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  optionChipSelected: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  optionChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#166534',
-  },
-  optionChipTextSelected: {
-    color: '#fff',
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    marginBottom: 8,
-  },
-  radioOptionSelected: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#10B981',
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#10B981',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-  },
-  radioText: {
-    fontSize: 15,
-    color: '#111827',
-    fontWeight: '500',
-    flex: 1,
-  },
-  seasonBox: {
-    backgroundColor: '#ECFDF5',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#10B981',
-    alignItems: 'center',
-  },
-  seasonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  seasonSubtext: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  goalGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-    marginHorizontal: -4,
-  },
-  goalCard: {
-    width: '48%',
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1FAE5',
-    padding: 16,
-    margin: 4,
-    alignItems: 'center',
-  },
-  goalCardSelected: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  goalIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  goalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#166534',
-    textAlign: 'center',
-  },
-  goalLabelSelected: {
-    color: '#047857',
-    fontWeight: '700',
-  },
-  footer: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  backButton: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  nextButton: {
-    flex: 2,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
+  gradient: { flex: 1 },
+  safe: { flex: 1 },
+
+  header: { paddingHorizontal: 24, paddingTop: Platform.OS === 'android' ? 40 : 16, paddingBottom: 16, alignItems: 'center' },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: '#14532d', letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 14, color: '#166534', marginTop: 4, fontWeight: '600' },
+
+  /* STEP INDICATOR (3 Dots) */
+  stepIndicator: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#22c55e', backgroundColor: 'transparent' },
+  dotActive: { backgroundColor: '#22c55e', transform: [{ scale: 1.2 }] },
+  dotComplete: { backgroundColor: '#16a34a', borderColor: '#16a34a' },
+  dotLine: { width: 30, height: 2, backgroundColor: 'rgba(34,197,94,0.3)', marginHorizontal: 8 },
+  dotLineComplete: { backgroundColor: '#16a34a' },
+
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+
+  /* MAIN CARD */
+  card: { backgroundColor: '#ffffff', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  stepContent: { width: '100%' },
+  stepTitle: { fontSize: 20, fontWeight: '800', color: '#14532d', marginBottom: 6, letterSpacing: -0.3 },
+  stepSubtitle: { fontSize: 13, color: '#6b7280', marginBottom: 24, fontWeight: '500', lineHeight: 20 },
+
+  /* INPUTS */
+  field: { marginBottom: 20 },
+  rowGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  label: { fontSize: 14, fontWeight: '700', color: '#166534', marginBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  input: { height: 52, backgroundColor: '#f9fafb', borderRadius: 14, paddingHorizontal: 16, borderWidth: 1.5, borderColor: '#e5e7eb', fontSize: 15, color: '#1f2937' },
+  inputFocused: { borderColor: '#22c55e', backgroundColor: '#f0fdf4' },
+  hint: { fontSize: 12, color: '#9ca3af', marginTop: 6, fontWeight: '500' },
+
+  gpsButton: { height: 52, width: 52, backgroundColor: '#22c55e', borderRadius: 14, marginLeft: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#22c55e', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+
+  /* CHIPS / SELECTORS */
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
+  optionChip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#f9fafb', borderWidth: 1.5, borderColor: '#e5e7eb', marginRight: 8, marginBottom: 10 },
+  optionChipSelected: { backgroundColor: '#22c55e', borderColor: '#22c55e', shadowColor: '#22c55e', shadowOpacity: 0.3, shadowRadius: 6, elevation: 3 },
+  optionChipText: { fontSize: 13, fontWeight: '600', color: '#4b5563' },
+  optionChipTextSelected: { color: '#ffffff', fontWeight: '700' },
+
+  /* RADIO BUTTONS */
+  radioOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: '#f9fafb', borderRadius: 14, borderWidth: 1.5, borderColor: '#e5e7eb', marginBottom: 10 },
+  radioOptionSelected: { backgroundColor: '#f0fdf4', borderColor: '#22c55e' },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#9ca3af', marginRight: 12, alignItems: 'center', justifyContent: 'center' },
+  radioActive: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  radioText: { fontSize: 14, color: '#4b5563', fontWeight: '600', flex: 1 },
+  radioTextSelected: { color: '#14532d', fontWeight: '800' },
+
+  /* SEASON BOX */
+  seasonBox: { backgroundColor: '#f0fdf4', padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(34,197,94,0.3)', alignItems: 'center' },
+  seasonText: { fontSize: 18, fontWeight: '800', color: '#14532d' },
+  seasonSubtext: { fontSize: 12, color: '#166534', marginTop: 4, fontWeight: '500' },
+
+  /* GOAL CARDS */
+  goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  goalCard: { width: '48%', backgroundColor: '#f9fafb', borderRadius: 16, borderWidth: 1.5, borderColor: '#e5e7eb', padding: 16, alignItems: 'center' },
+  goalCardSelected: { backgroundColor: '#f0fdf4', borderColor: '#22c55e', shadowColor: '#22c55e', shadowOpacity: 0.2, shadowRadius: 6, elevation: 3 },
+  goalIcon: { fontSize: 32, marginBottom: 8 },
+  goalLabel: { fontSize: 13, fontWeight: '600', color: '#4b5563', textAlign: 'center' },
+  goalLabelSelected: { color: '#14532d', fontWeight: '800' },
+
+  /* FOOTER BUTTONS */
+  footer: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 16, paddingBottom: Platform.OS === 'ios' ? 24 : 16, backgroundColor: 'transparent' },
+  backBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, borderWidth: 1.5, borderColor: '#166534', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  backBtnText: { fontSize: 15, fontWeight: '800', color: '#166534' },
+  nextBtn: { flex: 2, paddingVertical: 16, borderRadius: 16, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', shadowColor: '#22c55e', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  nextBtnText: { fontSize: 15, fontWeight: '800', color: '#ffffff' },
 });
