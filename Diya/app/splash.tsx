@@ -216,7 +216,7 @@ export default function SplashScreen() {
 
       {/* PHASE 9: Version Text */}
       <Reanimated.Text entering={FadeIn.delay(3000).duration(600)} style={styles.versionText}>
-        Version 1.0  ·  SIH 2025  ·  Made with 💚
+        Made with 💚
       </Reanimated.Text>
 
     </LinearGradient>

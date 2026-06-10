@@ -1,15 +1,21 @@
 import express from "express";
-// IMPORTANT: Add the .js extension for local files!
-import { auth } from "../middleware/auth.js"; // Note: Adjust this import based on how your auth middleware exports
+
+// IMPORTANT: Make sure this path and imported function name exactly match your actual auth middleware file!
+// Common names are 'auth', 'protect', or 'verifyToken'. 
+import { auth } from "../middleware/auth.js";
+
 import { updateProfile, getProfile } from "../controllers/user.controller.js";
 
 const router = express.Router();
 
-// Save/update profile
+// @route   POST /api/user/profile
+// @desc    Create or update the farmer's profile
+// @access  Private (Requires valid JWT token)
 router.post("/profile", auth, updateProfile);
 
-// Get profile
+// @route   GET /api/user/profile
+// @desc    Get the logged-in farmer's profile data
+// @access  Private (Requires valid JWT token)
 router.get("/profile", auth, getProfile);
 
-// Changed from module.exports to export default
 export default router;

@@ -1,87 +1,56 @@
-// Change these top two lines:
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 const UserSchema = new mongoose.Schema(
   {
-    // --- Authentication & Basic Info (Your original fields) ---
+    // ── Auth & Basic Info ─────────────────────────────
     email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true
+      type: String, required: true, unique: true, lowercase: true, trim: true,
     },
-    fullName: { // Note: Your audit used 'name', I kept your 'fullName' to match your original code
-      type: String,
-      default: ""
-    },
-    state: {
-      type: String,
-      default: ""
-    },
-    passwordHash: {
-      type: String,
-      default: ""
-    },
-    emailVerified: {
-      type: Boolean,
-      default: false
-    },
+    fullName: { type: String, default: "" },
+    state: { type: String, default: "" },
+    passwordHash: { type: String, default: "" },
+    emailVerified: { type: Boolean, default: false },
 
-    // --- Farm Profile (Added for personalized dashboard) ---
+    // ── Farm Profile ──────────────────────────────────
     profile: {
-      soilType: { type: String, default: 'Loamy' },
-      waterAvailability: { type: String, default: 'Moderate' },
-      farmingGoals: { type: [String], default: [] }, // e.g., ["Increase Yield", "Save Water"]
-      skillLevel: { type: String, default: 'Beginner' }
+      primaryCrops: { type: [String], default: [] },
+      farmSize: { type: String, default: "" },
+      soilType: { type: String, default: "" },
+      waterAvailability: { type: String, default: "" },
+      region: { type: String, default: "" },
+      location: { type: String, default: "" },
+      season: { type: String, default: "" },
+      farmingGoals: { type: [String], default: [] },
+      skillLevel: { type: String, default: "" },
+      previousCrop: { type: String, default: "" },
+      profileCompleted: { type: Boolean, default: false },
     },
 
-    // --- Gamification & Rewards (Added to persist progress) ---
-    xp: {
-      type: Number,
-      default: 0,
-    },
-    level: {
-      type: Number,
-      default: 1,
-    },
-    greenCoins: {
-      type: Number,
-      default: 0,
-    },
-    streakDays: {
-      type: Number,
-      default: 0,
-    },
-    badges: {
-      type: [String],
-      default: [], // e.g., ["First Seed", "Water Saver"]
-    }
+    // ── Gamification ─────────────────────────────────
+    xp: { type: Number, default: 0 },
+    level: { type: Number, default: 1 },
+    greenCoins: { type: Number, default: 0 },
+    streakDays: { type: Number, default: 0 },
+    badges: { type: [String], default: [] },
   },
-  {
-    timestamps: true, // Automatically adds createdAt and updatedAt instead of manual Date.now
-  }
+  { timestamps: true }
 );
 
-// Helper to set password
 UserSchema.methods.setPassword = async function (password) {
   const salt = await bcrypt.genSalt(10);
   this.passwordHash = await bcrypt.hash(password, salt);
 };
 
-// Validate password
 UserSchema.methods.validatePassword = async function (password) {
   if (!this.passwordHash) return false;
   return bcrypt.compare(password, this.passwordHash);
 };
 
-// Method to safely return user data without the password hash
 UserSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.passwordHash;
   return user;
 };
 
-// Change the bottom line to this:
 export default mongoose.model("User", UserSchema);

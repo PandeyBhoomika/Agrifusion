@@ -182,7 +182,7 @@ export default function PersonalizedDashboard() {
           <View style={styles.headerTop}>
             <View>
               <Text style={styles.greetingText}>{greeting}, 🌾</Text>
-              <Text style={styles.userName}>Bhoomika</Text>
+              <Text style={styles.userName}>Farmer</Text>
               <Text style={styles.dateText}>
                 {now.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
               </Text>
