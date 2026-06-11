@@ -42,14 +42,12 @@ interface LearningModule {
   prerequisites?: string[];
 }
 
-// ✅ UPGRADED SIMULATION DATA STRUCTURE FOR GAMIFICATION
 interface SimulationStep {
   id: string;
   title: string;
   description: string;
-  actionText: string;
-  visual: string;         // Emoji or icon before action
-  successVisual: string;  // Emoji or icon after action
+  action: 'tap' | 'drag' | 'select' | 'wait';
+  target?: string;
   feedback: string;
   points: number;
 }
@@ -104,20 +102,7 @@ interface LearningHubProps {
   onMiniGames?: () => void;
 }
 
-/* ---------- GAMIFIED SIMULATION DATA ---------- */
-const irrigationSimulation: SimulationStep[] = [
-  { id: 's1', title: 'Check Soil Moisture', description: 'Insert the smart sensor into the dry soil.', actionText: 'Insert Sensor 🌡️', visual: '🏜️ 🥀', successVisual: '📊 Moisture: 25%', feedback: 'Soil is critically dry! Needs immediate watering.', points: 20 },
-  { id: 's2', title: 'Select Target Zone', description: 'Zone A is showing drought stress. Target water delivery to save resources.', actionText: 'Select Zone A 🎯', visual: '🗺️ 🔴', successVisual: '🗺️ 🟢 Target Locked', feedback: 'Precision targeting saves up to 40% water.', points: 30 },
-  { id: 's3', title: 'Set Drip Duration', description: 'Set timer to 18 minutes for optimal root absorption without runoff.', actionText: 'Set to 18 Min ⏱️', visual: '⏳ 00:00', successVisual: '⏳ 18:00', feedback: 'Perfect timing prevents water waste.', points: 40 },
-  { id: 's4', title: 'Activate Drip System', description: 'Start the pump and deliver water directly to the roots.', actionText: 'Start Pump 💧', visual: '🚰 🚫', successVisual: '🌱 💦 🌿', feedback: 'Crops are thriving! You saved 50L of water.', points: 50 },
-];
-
-const pestSimulation: SimulationStep[] = [
-  { id: 'p1', title: 'Identify Pest', description: 'Aphids detected on tomato leaves.', actionText: 'Scan Leaf 🔍', visual: '🍅 🐛', successVisual: '🦠 Aphids Found', feedback: 'Early detection prevents massive crop loss.', points: 20 },
-  { id: 'p2', title: 'Choose Organic Remedy', description: 'Select Neem Oil instead of harsh chemical pesticides.', actionText: 'Select Neem Oil 🌿', visual: '🧪 vs 🌿', successVisual: '🌿 Neem Oil Ready', feedback: 'Neem oil protects beneficial insects like ladybugs.', points: 30 },
-  { id: 'p3', title: 'Apply Spray', description: 'Spray lightly on the underside of leaves.', actionText: 'Spray Crops 💨', visual: '🪴 🐛', successVisual: '🪴 ✨', feedback: 'Pests cleared! Soil remains chemical-free.', points: 50 },
-];
-
+/* ---------- sample data (kept simple & local) ---------- */
 const learningModules: LearningModule[] = [
   {
     id: 'irrigation-basics',
@@ -161,6 +146,13 @@ const learningModules: LearningModule[] = [
     points: 200,
     locked: false,
   },
+];
+
+const irrigationSimulation: SimulationStep[] = [
+  { id: 'step-1', title: 'Check Soil Moisture', description: 'Tap the soil sensor to check the current moisture levels before watering.', action: 'tap', target: 'Soil Sensor', feedback: 'Soil moisture is 25% — the field needs watering.', points: 20 },
+  { id: 'step-2', title: 'Select Irrigation Zone', description: 'Choose the correct irrigation zone that requires water the most.', action: 'select', target: 'Zone A', feedback: 'Zone A selected. This area has the lowest moisture.', points: 30 },
+  { id: 'step-3', title: 'Set Water Duration', description: 'Adjust the timer for optimal watering (Recommended: 15-20 min).', action: 'drag', target: 'Timer to 18 min', feedback: '18 minutes chosen. This prevents over-watering and saves resources.', points: 40 },
+  { id: 'step-4', title: 'Start Irrigation', description: 'Activate the drip irrigation system.', action: 'tap', target: 'Start Pump', feedback: 'Water is flowing efficiently directly to the roots!', points: 50 },
 ];
 
 const userProgress = {
@@ -208,11 +200,9 @@ export default function LearningHub({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // ✅ SIMULATION SPECIFIC STATES
   const [simulationStep, setSimulationStep] = useState(0);
   const [simulationScore, setSimulationScore] = useState(0);
   const [simulationComplete, setSimulationComplete] = useState(false);
-  const [stepSuccess, setStepSuccess] = useState(false); 
 
   // Game state
   const [showCropRotationGame, setShowCropRotationGame] = useState(false);
@@ -316,7 +306,6 @@ export default function LearningHub({
       setSimulationStep(0);
       setSimulationScore(0);
       setSimulationComplete(false);
-      setStepSuccess(false);
 
       if (module.type === 'video') {
         const videoData = videos.find(v => v.category === module.category);
@@ -325,26 +314,22 @@ export default function LearningHub({
     }
   }, [videos]);
 
-  // ✅ NEW GAMIFIED SIMULATION ENGINE LOGIC
-  const activeSimulation = selectedModule?.category === 'pest-control' ? pestSimulation : irrigationSimulation;
+  // ✅ SIMULATION ENGINE LOGIC
+  const handleSimulationAction = useCallback((stepId: string) => {
+    const current = irrigationSimulation[simulationStep];
+    if (current && current.id === stepId) {
+      setSimulationScore((s) => s + current.points);
+      
+      // Feedback popup
+      Alert.alert('Great Job!', current.feedback);
 
-  const handleSimulationAction = useCallback(() => {
-    const current = activeSimulation[simulationStep];
-    
-    // Trigger Success Visuals & Score
-    setStepSuccess(true);
-    setSimulationScore((s) => s + current.points);
-
-    // Wait 2.5 seconds to read feedback, then move to next step automatically
-    setTimeout(() => {
-      setStepSuccess(false);
-      if (simulationStep < activeSimulation.length - 1) {
+      if (simulationStep < irrigationSimulation.length - 1) {
         setSimulationStep((s) => s + 1);
       } else {
         setSimulationComplete(true);
       }
-    }, 2500); 
-  }, [simulationStep, activeSimulation]);
+    }
+  }, [simulationStep]);
 
   // ✅ DOWNLOAD OFFLINE GUIDE LOGIC
   const handleGuideDownload = () => {
@@ -388,6 +373,34 @@ export default function LearningHub({
     setSelectedCrop(null);
   }, []);
 
+  const advanceSeason = useCallback(() => {
+    const levelData = gameLevels[currentLevel - 1];
+    if (currentSeason < levelData.seasons) {
+      setCurrentSeason((s) => s + 1);
+      setFarmPlots((prev) => prev.map((plot) => ({
+        ...plot,
+        pestPressure: Math.min(100, plot.pestPressure + Math.random() * 20),
+        soilHealth: {
+          nitrogen: Math.max(0, plot.soilHealth.nitrogen - 5),
+          phosphorus: Math.max(0, plot.soilHealth.phosphorus - 3),
+          potassium: Math.max(0, plot.soilHealth.potassium - 4),
+        },
+      })));
+      setGameMessage(`Season ${currentSeason + 1} begins.`);
+    } else {
+      const totalYield = farmPlots.reduce((s, p) => s + p.yield, 0);
+      const avgSoil = farmPlots.length ? farmPlots.reduce((s, p) => s + (p.soilHealth.nitrogen + p.soilHealth.phosphorus + p.soilHealth.potassium) / 3, 0) / farmPlots.length : 0;
+      const finalScore = Math.round(totalYield * 10 + avgSoil);
+      setGameScore(finalScore);
+      setGameMessage(`Final Score: ${finalScore}`);
+    }
+  }, [currentSeason, currentLevel, farmPlots]);
+
+  const startCropRotationGame = useCallback(() => {
+    initializeGame(1);
+    setShowCropRotationGame(true);
+  }, [initializeGame]);
+
   /* ---------- UI Pieces ---------- */
   const renderProgressBar = (value: number) => (
     <View style={styles.progressBarTrack}>
@@ -427,63 +440,47 @@ export default function LearningHub({
           <ScrollView contentContainerStyle={styles.content}>
             <Animated.View entering={FadeInUp.delay(100).duration(400)}>
               
-              {/* ✅ GAMIFIED INTERACTIVE SIMULATION PLAYER */}
+              {/* ✅ INTERACTIVE SIMULATION PLAYER */}
               {selectedModule.type === 'simulation' && (
-                <View style={styles.simCard}>
+                <View style={styles.card}>
                   {!simulationComplete ? (
                     <>
-                      {/* Step Progress & Score */}
-                      <View style={styles.simHeader}>
-                        <Text style={styles.simStepText}>Step {simulationStep + 1} of {activeSimulation.length}</Text>
-                        <View style={styles.xpBadge}><Text style={styles.xpBadgeText}>{simulationScore} XP</Text></View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={styles.cardTitle}>Step {simulationStep + 1} of {irrigationSimulation.length}</Text>
+                        <View style={styles.xpBadge}>
+                          <Text style={styles.xpBadgeText}>{simulationScore} XP</Text>
+                        </View>
                       </View>
                       
-                      {/* Virtual Stage */}
-                      <LinearGradient colors={stepSuccess ? ['#ecfdf5', '#d1fae5'] : ['#f3f4f6', '#e5e7eb']} style={styles.simStage}>
-                        <Animated.Text entering={ZoomIn} key={stepSuccess ? 'success' : 'visual'} style={styles.simStageVisual}>
-                          {stepSuccess ? activeSimulation[simulationStep].successVisual : activeSimulation[simulationStep].visual}
-                        </Animated.Text>
-                      </LinearGradient>
+                      <Text style={{ fontSize: 20, fontWeight: '800', color: '#1f2937', marginBottom: 8 }}>
+                        {irrigationSimulation[simulationStep].title}
+                      </Text>
+                      <Text style={[styles.cardText, { marginBottom: 24 }]}>
+                        {irrigationSimulation[simulationStep].description}
+                      </Text>
 
-                      {/* Text & Controls */}
-                      <View style={{ padding: 20 }}>
-                        <Text style={styles.simTitle}>{activeSimulation[simulationStep].title}</Text>
-                        
-                        {!stepSuccess ? (
-                          <>
-                            <Text style={styles.simDesc}>{activeSimulation[simulationStep].description}</Text>
-                            <TouchableOpacity style={styles.simActionBtn} onPress={handleSimulationAction} activeOpacity={0.8}>
-                              <Text style={styles.simActionBtnText}>{activeSimulation[simulationStep].actionText}</Text>
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <Animated.View entering={FadeInDown.duration(300)} style={styles.simFeedbackBox}>
-                            <Ionicons name="checkmark-circle" size={24} color="#16a34a" />
-                            <View style={{ flex: 1, marginLeft: 12 }}>
-                              <Text style={styles.simFeedbackText}>{activeSimulation[simulationStep].feedback}</Text>
-                              <Text style={styles.simPointsEarned}>+{activeSimulation[simulationStep].points} XP Earned!</Text>
-                            </View>
-                          </Animated.View>
-                        )}
-                      </View>
+                      <TouchableOpacity 
+                        style={styles.simActionBtn} 
+                        onPress={() => handleSimulationAction(irrigationSimulation[simulationStep].id)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="hand-left-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={styles.simActionBtnText}>
+                          {irrigationSimulation[simulationStep].action.toUpperCase()} {irrigationSimulation[simulationStep].target}
+                        </Text>
+                      </TouchableOpacity>
                     </>
                   ) : (
-                    <Animated.View entering={ZoomIn.duration(500)} style={styles.simCompleteBox}>
-                      <Text style={{ fontSize: 60, marginBottom: 16 }}>🏆</Text>
-                      <Text style={styles.simCompleteTitle}>Simulation Mastered!</Text>
-                      <Text style={styles.simCompleteDesc}>
-                        Excellent work! You made sustainable choices and earned a total of <Text style={{fontWeight: '800', color: '#d97706'}}>{simulationScore} XP</Text>.
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                      <Text style={{ fontSize: 50, marginBottom: 10 }}>🎉</Text>
+                      <Text style={styles.cardTitle}>Simulation Complete!</Text>
+                      <Text style={[styles.cardText, { textAlign: 'center', marginVertical: 16 }]}>
+                        You've mastered this skill and earned a total of <Text style={{fontWeight: '800', color: '#d97706'}}>{simulationScore} XP</Text>! Continuous learning keeps your farm thriving.
                       </Text>
-                      <View style={styles.simImpactBox}>
-                        <Text style={styles.simImpactTitle}>🌍 Real-World Impact</Text>
-                        <Text style={styles.simImpactText}>
-                          {selectedModule.category === 'pest-control' ? '0 Chemicals Used • Soil Microbiome Saved' : '50L Water Saved • Deep Root Hydration Achieved'}
-                        </Text>
-                      </View>
-                      <TouchableOpacity style={styles.primaryButton} onPress={() => setSelectedModule(null)}>
-                        <Text style={styles.primaryButtonText}>Collect Rewards & Exit</Text>
+                      <TouchableOpacity style={[styles.primaryButton, { width: '100%' }]} onPress={() => setSelectedModule(null)}>
+                        <Text style={styles.primaryButtonText}>Back to Hub</Text>
                       </TouchableOpacity>
-                    </Animated.View>
+                    </View>
                   )}
                 </View>
               )}
@@ -737,7 +734,7 @@ export default function LearningHub({
                 </Animated.View>
               )}
 
-              {/* ✅ OFFLINE SUPPORT / DOWNLOADABLE GUIDES */}
+              {/* ✅ NEW: OFFLINE SUPPORT / DOWNLOADABLE GUIDES */}
               {(selectedTab === 'simulations' || selectedTab === 'overview') && (
                 <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.quizCenterSection}>
                   <Text style={styles.sectionTitle}>Offline Support</Text>
@@ -814,7 +811,7 @@ const styles = StyleSheet.create({
   progressBarTrack: { height: 6, backgroundColor: '#dcfce7', borderRadius: 3, overflow: 'hidden' },
   progressBarFill: { height: 6, backgroundColor: '#22c55e', borderRadius: 3 },
 
-  /* VIDEO DETAILS VIEW */
+  /* VIDEO / SIMULATION DETAILS VIEW */
   content: { padding: 20, paddingBottom: 100 },
   card: { backgroundColor: '#ffffff', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' },
   cardTitle: { fontSize: 20, fontWeight: '800', color: '#14532d' },
@@ -827,27 +824,11 @@ const styles = StyleSheet.create({
   completedPillText: { color: '#92400e', fontSize: 14, fontWeight: '700' },
   videoContainer: { width: '100%', height: 220, backgroundColor: '#021F0F', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#14532d' },
 
-  /* ✅ NEW GAMIFIED SIMULATION STYLES */
-  simCard: { backgroundColor: '#ffffff', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, elevation: 5 },
-  simHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderColor: '#f3f4f6' },
-  simStepText: { fontSize: 14, fontWeight: '800', color: '#6b7280', textTransform: 'uppercase' },
+  /* NEW SIMULATION ENGINE STYLES */
   xpBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  xpBadgeText: { color: '#d97706', fontWeight: '900', fontSize: 14 },
-  simStage: { height: 180, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderColor: '#e5e7eb' },
-  simStageVisual: { fontSize: 60 },
-  simTitle: { fontSize: 22, fontWeight: '900', color: '#1f2937', marginBottom: 8 },
-  simDesc: { fontSize: 15, color: '#4b5563', lineHeight: 22, marginBottom: 24 },
-  simActionBtn: { backgroundColor: '#22c55e', padding: 18, borderRadius: 16, alignItems: 'center', shadowColor: '#22c55e', shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
-  simActionBtnText: { color: '#ffffff', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
-  simFeedbackBox: { flexDirection: 'row', backgroundColor: '#ecfdf5', padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#a7f3d0' },
-  simFeedbackText: { fontSize: 14, color: '#065f46', fontWeight: '600', lineHeight: 20 },
-  simPointsEarned: { fontSize: 13, color: '#16a34a', fontWeight: '800', marginTop: 4 },
-  simCompleteBox: { padding: 30, alignItems: 'center' },
-  simCompleteTitle: { fontSize: 24, fontWeight: '900', color: '#14532d', marginBottom: 12 },
-  simCompleteDesc: { fontSize: 15, color: '#4b5563', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  simImpactBox: { width: '100%', backgroundColor: '#f0fdfa', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#6ee7b7', marginBottom: 24, alignItems: 'center' },
-  simImpactTitle: { fontSize: 14, fontWeight: '800', color: '#047857', marginBottom: 6 },
-  simImpactText: { fontSize: 15, color: '#065f46', fontWeight: '600', textAlign: 'center' },
+  xpBadgeText: { color: '#d97706', fontWeight: '800', fontSize: 14 },
+  simActionBtn: { backgroundColor: '#3b82f6', flexDirection: 'row', padding: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  simActionBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 15 },
 
   /* QUIZ CENTER & GAME CENTER & OFFLINE HUB */
   quizCenterSection: { marginTop: 10 },
