@@ -195,7 +195,6 @@ export default function LearningHub({
   const [shouldSeek, setShouldSeek] = useState(false);
   const youtubePlayerRef = useRef<any>(null);
 
-  // ✅ ADDED 'mini-games' TO THE TAB STATE
   const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes' | 'mini-games'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -572,7 +571,7 @@ export default function LearningHub({
                 </View>
               </Animated.View>
 
-              {/* CATEGORY PILLS (TABS) - ✅ ADDED MINI-GAMES HERE */}
+              {/* CATEGORY PILLS (TABS) */}
               <Animated.View entering={SlideInRight.delay(400).duration(400)}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollContainer}>
                   {['overview', 'simulations', 'videos', 'quizzes', 'mini-games'].map((tab) => (
@@ -662,18 +661,39 @@ export default function LearningHub({
                 </Animated.View>
               )}
 
-              {/* ✅ NEW: MINI GAMES CENTER */}
+              {/* ✅ NEW: DIRECT MINI GAMES LIST */}
               {selectedTab === 'mini-games' && (
                 <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.quizCenterSection}>
-                  <Text style={styles.sectionTitle}>Game Center</Text>
-                  <TouchableOpacity style={styles.quizCenterCard} onPress={() => router.push('/games')} activeOpacity={0.8}>
-                    <View style={styles.quizIconWrap}><Text style={{ fontSize: 28 }}>🎮</Text></View>
+                  <Text style={styles.sectionTitle}>Available Games</Text>
+
+                  {/* Game 1: Crop Rotation */}
+                  <TouchableOpacity
+                    style={[styles.quizCenterCard, { marginBottom: 16 }]}
+                    onPress={() => router.push('/games/crop-rotation')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.quizIconWrap}><Text style={{ fontSize: 28 }}>🌽</Text></View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.quizCenterTitle}>Explore Mini Games</Text>
-                      <Text style={styles.quizCenterSub}>Learn farming concepts through interactive and fun mini-games!</Text>
+                      <Text style={styles.quizCenterTitle}>Crop Rotation Master</Text>
+                      <Text style={styles.quizCenterSub}>Learn how to balance soil nutrients!</Text>
                     </View>
-                    <Ionicons name="arrow-forward" size={24} color="#10B981" />
+                    <Ionicons name="play-circle" size={32} color="#10B981" />
                   </TouchableOpacity>
+
+                  {/* Game 2: Farm Day Challenge */}
+                  <TouchableOpacity
+                    style={styles.quizCenterCard}
+                    onPress={() => router.push('/games/farm-day')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.quizIconWrap, { backgroundColor: '#EFF6FF' }]}><Text style={{ fontSize: 28 }}>🚜</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.quizCenterTitle}>Farm Day Challenge</Text>
+                      <Text style={styles.quizCenterSub}>Manage your farm and grow crops!</Text>
+                    </View>
+                    <Ionicons name="play-circle" size={32} color="#3B82F6" />
+                  </TouchableOpacity>
+
                 </Animated.View>
               )}
 
@@ -721,7 +741,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1, height: 50, fontSize: 15, color: '#1f2937', fontWeight: '500',
   },
-  searchInputFocused: { borderColor: '#22c55e' }, // Green focus border
+  searchInputFocused: { borderColor: '#22c55e' },
 
   /* FEATURED CARD */
   featuredCard: {
