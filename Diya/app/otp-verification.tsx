@@ -96,8 +96,19 @@ export default function OtpVerification() {
       await AsyncStorage.setItem("authToken", res.token);
       await AsyncStorage.setItem("user", JSON.stringify(res.user));
 
-      // Navigate based on whether they are a new or returning user
-      router.replace(res.isNewUser ? "/farm-profile" : "/(tabs)/dashboard");
+      // ✅ THE FIX: Check if they actually finished the profile setup
+      // Even if they are an old user, if profileComplete is missing/false, force them to set it up!
+      const isProfileFinished = res.user?.profileComplete === true;
+
+      // Save this to AsyncStorage so the app remembers for next time
+      await AsyncStorage.setItem("profileComplete", String(isProfileFinished));
+
+      // ✅ Correct Routing Logic
+      if (isProfileFinished) {
+        router.replace("/(tabs)/dashboard");
+      } else {
+        router.replace("/farm-profile");
+      }
 
     } catch (e) {
       console.error("Failed to verify/save auth data:", e);

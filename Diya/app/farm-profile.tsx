@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -19,13 +19,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, SlideInLeft } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
+
+// Real Location and Storage Imports
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ✅ FIX 3: Import the existing profileService instead of duplicating API logic inline
-import { saveFarmProfile } from '../services/profileService';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.103:4000/api';
 
 const CROPS = [
   'Rice (Paddy)', 'Wheat', 'Maize (Corn)', 'Jowar (Sorghum)', 'Bajra (Pearl Millet)',
@@ -73,7 +72,7 @@ const SKILL_LEVELS = [
 ];
 
 function detectSeason() {
-  const m = new Date().getMonth() + 1;
+  const m = new Date().getMonth() + 1; // 1-12
   if (m >= 6 && m <= 9) return 'Kharif (Monsoon) — Jun to Sep';
   if (m >= 10 || m <= 2) return 'Rabi (Winter) — Oct to Feb';
   return 'Zaid (Summer) — Mar to May';
@@ -102,7 +101,6 @@ function CropModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={ms.wrap}>
-        {/* Header */}
         <View style={ms.header}>
           <Text style={ms.title}>Select Primary Crop(s)</Text>
           <TouchableOpacity onPress={onClose}>
@@ -110,7 +108,6 @@ function CropModal({
           </TouchableOpacity>
         </View>
 
-        {/* Search bar */}
         <View style={ms.searchBar}>
           <Ionicons name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
           <TextInput
@@ -125,7 +122,6 @@ function CropModal({
           )}
         </View>
 
-        {/* Selected chips */}
         {temp.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ms.chipRow}>
             {temp.map(c => (
@@ -137,7 +133,6 @@ function CropModal({
           </ScrollView>
         )}
 
-        {/* List */}
         <FlatList
           data={filtered} keyExtractor={i => i}
           keyboardShouldPersistTaps="handled"
@@ -150,12 +145,9 @@ function CropModal({
               </TouchableOpacity>
             );
           }}
-          ListEmptyComponent={
-            <Text style={ms.empty}>No crops found for "{q}"</Text>
-          }
+          ListEmptyComponent={<Text style={ms.empty}>No crops found for "{q}"</Text>}
         />
 
-        {/* Confirm */}
         <View style={ms.foot}>
           <TouchableOpacity
             style={[ms.confirmBtn, temp.length === 0 && { opacity: 0.4 }]}
@@ -172,14 +164,12 @@ function CropModal({
   );
 }
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
+// ─── Main 3-Step Screen ────────────────────────────────────────────────────────
 
 export default function FarmProfile() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  // ✅ FIX 4: Track direction as a ref so it's always current when the animated
-  //    view first mounts — avoids stale closure capturing old `goBack` state.
-  const goBackRef = useRef(false);
+  const [goBack, setGoBack] = useState(false);
   const totalSteps = 3;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -188,32 +178,15 @@ export default function FarmProfile() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    // Step 1
     location: '', panchayat: '', district: '', state: '', farmSize: '',
-    // Step 2
     primaryCrops: [] as string[], soilType: '', waterAvailability: '',
     currentSeason: detectSeason(),
-    // Step 3
     farmingGoals: [] as string[], skillLevel: '', previousCrop: '',
   });
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
-  // ✅ FIX 1: Auth guard on mount — redirect to /auth if no token exists
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = await AsyncStorage.getItem('authToken');
-        if (!token) {
-          router.replace('/auth');
-        }
-      } catch {
-        router.replace('/auth');
-      }
-    })();
-  }, []);
-
-  // ── GPS ──────────────────────────────────────────────────────────────────────
+  // 1. High Accuracy GPS
   const handleGetLocation = async () => {
     setLocationLoading(true);
     try {
@@ -222,8 +195,9 @@ export default function FarmProfile() {
         Alert.alert('Permission Denied', 'Enable location permission in Settings, or enter your region manually.');
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
       const [geo] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+
       setForm(p => ({
         ...p,
         location: `${loc.coords.latitude.toFixed(4)}° N, ${loc.coords.longitude.toFixed(4)}° E`,
@@ -238,7 +212,7 @@ export default function FarmProfile() {
     }
   };
 
-  // ── Validation ───────────────────────────────────────────────────────────────
+  // 2. Step Validation
   const validate = (s: number) => {
     if (s === 1) {
       if (!form.panchayat.trim()) { Alert.alert('Required', 'Please enter your Panchayat / Village.'); return false; }
@@ -258,82 +232,63 @@ export default function FarmProfile() {
 
   const handleNext = () => {
     if (!validate(step)) return;
-    if (step < totalSteps) {
-      // ✅ FIX 4: Update direction ref before changing step
-      goBackRef.current = false;
-      setStep(s => s + 1);
-    } else {
-      handleSubmit();
-    }
+    if (step < totalSteps) { setGoBack(false); setStep(s => s + 1); }
+    else handleSubmit();
   };
 
   const handleBack = () => {
-    if (step > 1) {
-      // ✅ FIX 4: Update direction ref before changing step
-      goBackRef.current = true;
-      setStep(s => s - 1);
-    }
+    if (step > 1) { setGoBack(true); setStep(s => s - 1); }
   };
 
-  // ✅ FIX 5: handleSkip stores profileSkipped flag so the app won't re-route
-  //    the user back here on next login
   const handleSkip = () =>
-    Alert.alert(
-      'Skip Profile Setup?',
+    Alert.alert('Skip Profile Setup?',
       'You can complete this later from your profile. Some personalised features will be unavailable.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        {
-          text: 'Skip for now',
-          onPress: async () => {
-            try {
-              await AsyncStorage.setItem('profileSkipped', 'true');
-            } catch {
-              // ignore storage errors — still proceed
-            }
-            router.replace('/(tabs)/dashboard');
-          },
-        },
-      ]
-    );
+      [{ text: 'Stay', style: 'cancel' },
+      {
+        text: 'Skip for now', onPress: async () => {
+          await AsyncStorage.setItem('profileComplete', 'true');
+          router.replace('/(tabs)/dashboard');
+        }
+      }]);
 
-  // ── Submit → profileService ───────────────────────────────────────────────────
-  // ✅ FIX 2 & FIX 3: Use profileService and store profileComplete flag on success
+  // 3. Real API Submit
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const result = await saveFarmProfile({
-        primaryCrops: form.primaryCrops,
-        farmSize: form.farmSize,
-        soilType: form.soilType,
-        region: form.panchayat
-          + (form.district ? `, ${form.district}` : '')
-          + (form.state ? `, ${form.state}` : ''),
-        location: form.location,
-        season: form.currentSeason,
-        waterAvailability: form.waterAvailability,
-        farmingGoals: form.farmingGoals,
-        skillLevel: form.skillLevel,
-        previousCrop: form.previousCrop,
-      });
+      const token = await AsyncStorage.getItem('authToken');
 
-      if (!result.success) {
-        // ✅ FIX 1: If the service returns 'Not authenticated', redirect to login
-        if (result.error === 'Not authenticated') {
-          Alert.alert(
-            'Session Expired',
-            'Your session could not be found. Please sign in again.',
-            [{ text: 'OK', onPress: () => router.replace('/auth') }]
-          );
-          return;
-        }
-        throw new Error(result.error || 'Failed to save farm profile.');
+      if (!token) {
+        Alert.alert('Session Expired', 'Please sign in again.', [{ text: 'OK', onPress: () => router.replace('/login') }]);
+        return;
       }
 
-      // ✅ FIX 2: Mark profile as complete so returning users skip this screen
+      const res = await fetch(`${API_BASE}/user/profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          primaryCrop: form.primaryCrops.join(', '), // Joins array into a string
+          farmSize: parseFloat(form.farmSize) || 0,
+          soilType: form.soilType,
+          region: [form.panchayat, form.district, form.state].filter(Boolean).join(', '),
+          location: form.location,
+          season: form.currentSeason,
+          waterAvailability: form.waterAvailability,
+          farmingGoals: form.farmingGoals,
+          skillLevel: form.skillLevel,
+          previousCrop: form.previousCrop,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || `Server error ${res.status}`);
+
+      // Cache user and mark setup as finished
+      if (data.user) await AsyncStorage.setItem('user', JSON.stringify(data.user));
       await AsyncStorage.setItem('profileComplete', 'true');
-      // Also clear any old skip flag in case they previously skipped
-      await AsyncStorage.removeItem('profileSkipped');
 
       router.replace('/(tabs)/dashboard');
 
@@ -346,16 +301,13 @@ export default function FarmProfile() {
 
   // ── Step Renders ─────────────────────────────────────────────────────────────
 
-  // ✅ FIX 4: Read direction from ref at render time so each step's entering
-  //    animation correctly reflects which direction the user navigated.
-  const SlideAnim = goBackRef.current ? SlideInLeft : SlideInRight;
+  const Slide = goBack ? SlideInLeft : SlideInRight;
 
   const renderStep1 = () => (
-    <Animated.View key="s1" entering={SlideAnim.duration(350)} style={s.stepContent}>
+    <Animated.View key="s1" entering={Slide.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>📍 Location & Farm Details</Text>
       <Text style={s.stepSub}>We use this for accurate weather alerts and region-specific crop advice.</Text>
 
-      {/* GPS */}
       <View style={s.field}>
         <Text style={s.label}>GPS Coordinates</Text>
         <View style={s.row}>
@@ -371,7 +323,6 @@ export default function FarmProfile() {
         <Text style={s.hint}>Used only for personalised recommendations.</Text>
       </View>
 
-      {/* Panchayat */}
       <View style={s.field}>
         <Text style={s.label}>Panchayat / Village <Text style={s.req}>*</Text></Text>
         <TextInput value={form.panchayat} onChangeText={t => set('panchayat', t)}
@@ -380,7 +331,6 @@ export default function FarmProfile() {
           style={[s.input, focusedField === 'pan' && s.inputFocus]} />
       </View>
 
-      {/* District + State */}
       <View style={s.rowGrid}>
         <View style={[s.field, { flex: 1, marginRight: 10 }]}>
           <Text style={s.label}>District</Text>
@@ -398,7 +348,6 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Farm size */}
       <View style={s.field}>
         <Text style={s.label}>Farm Size (acres) <Text style={s.req}>*</Text></Text>
         <TextInput value={form.farmSize} onChangeText={t => set('farmSize', t)}
@@ -410,11 +359,10 @@ export default function FarmProfile() {
   );
 
   const renderStep2 = () => (
-    <Animated.View key="s2" entering={SlideAnim.duration(350)} style={s.stepContent}>
+    <Animated.View key="s2" entering={Slide.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>🌾 Crops & Resources</Text>
       <Text style={s.stepSub}>Helps us tailor irrigation schedules, fertiliser tips and mission cards.</Text>
 
-      {/* Primary crops */}
       <View style={s.field}>
         <Text style={s.label}>Primary Crop(s) <Text style={s.req}>*</Text></Text>
         <TouchableOpacity
@@ -428,7 +376,6 @@ export default function FarmProfile() {
         {form.primaryCrops.length > 0 && <Text style={s.hint}>{form.primaryCrops.length} crop(s) selected. Tap to edit.</Text>}
       </View>
 
-      {/* Soil type */}
       <View style={s.field}>
         <Text style={s.label}>Soil Type <Text style={s.req}>*</Text></Text>
         <View style={s.soilGrid}>
@@ -436,7 +383,7 @@ export default function FarmProfile() {
             const sel = form.soilType === soil.value;
             return (
               <TouchableOpacity key={soil.value}
-                style={[s.soilCard, sel && s.soilCardSel, { marginRight: idx % 2 === 0 ? 8 : 0 }]}
+                style={[s.soilCard, sel && s.soilCardSel, { marginRight: idx % 2 === 0 ? '4%' : 0 }]}
                 onPress={() => set('soilType', soil.value)} activeOpacity={0.75}>
                 <Text style={s.soilIcon}>{soil.icon}</Text>
                 <Text style={[s.soilLabel, sel && s.soilLabelSel]}>{soil.value}</Text>
@@ -447,7 +394,6 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Water source */}
       <View style={s.field}>
         <Text style={s.label}>Water Source <Text style={s.req}>*</Text></Text>
         {WATER_SOURCES.map(w => {
@@ -466,7 +412,6 @@ export default function FarmProfile() {
         })}
       </View>
 
-      {/* Season */}
       <View style={s.field}>
         <Text style={s.label}>Current Agricultural Season</Text>
         <View style={s.seasonBox}>
@@ -481,11 +426,10 @@ export default function FarmProfile() {
   );
 
   const renderStep3 = () => (
-    <Animated.View key="s3" entering={SlideAnim.duration(350)} style={s.stepContent}>
+    <Animated.View key="s3" entering={Slide.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>🎯 Goals & Experience</Text>
       <Text style={s.stepSub}>So we can assign the most relevant sustainable farming missions to you.</Text>
 
-      {/* Farming goals — multi-select */}
       <View style={s.field}>
         <Text style={s.label}>Farming Goals <Text style={s.req}>*</Text></Text>
         <Text style={s.hint}>Select all that apply.</Text>
@@ -497,7 +441,7 @@ export default function FarmProfile() {
                 style={[
                   s.goalCard,
                   sel && s.goalCardSel,
-                  { marginRight: idx % 3 !== 2 ? 8 : 0, marginBottom: 8 },
+                  { marginRight: idx % 3 !== 2 ? '3.5%' : 0, marginBottom: 10 },
                 ]}
                 onPress={() => set('farmingGoals', sel
                   ? form.farmingGoals.filter(g => g !== goal.id)
@@ -512,7 +456,6 @@ export default function FarmProfile() {
         </View>
       </View>
 
-      {/* Skill level */}
       <View style={s.field}>
         <Text style={s.label}>Skill Level <Text style={s.req}>*</Text></Text>
         {SKILL_LEVELS.map(skill => {
@@ -532,7 +475,6 @@ export default function FarmProfile() {
         })}
       </View>
 
-      {/* Previous crop (optional) */}
       <View style={s.field}>
         <Text style={s.label}>Previous Crop <Text style={s.opt}>(Optional)</Text></Text>
         <TextInput value={form.previousCrop} onChangeText={t => set('previousCrop', t)}
@@ -562,7 +504,7 @@ export default function FarmProfile() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Progress bar + step labels */}
+          {/* Progress bar */}
           <Animated.View entering={FadeInDown.delay(140).duration(400)} style={s.progressWrap}>
             <View style={s.track}>
               <View style={[s.fill, { width: `${(step / totalSteps) * 100}%` }]} />
@@ -585,14 +527,9 @@ export default function FarmProfile() {
             </View>
           </Animated.View>
 
-          {/* Scrollable form */}
-          {/*
-            ✅ FIX 4: The `key` now encodes both step number AND direction so React
-            always unmounts + remounts the card — triggering the correct entering
-            animation (SlideInLeft vs SlideInRight) every time.
-          */}
+          {/* Scrollable form with key={step} to force re-render/animation */}
           <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View key={`${step}-${goBackRef.current ? 'back' : 'fwd'}`} style={s.card}>
+            <View key={step} style={s.card}>
               {step === 1 && renderStep1()}
               {step === 2 && renderStep2()}
               {step === 3 && renderStep3()}
@@ -601,22 +538,24 @@ export default function FarmProfile() {
 
           {/* Footer buttons */}
           <Animated.View entering={FadeInUp.delay(250).duration(400)} style={s.footer}>
-            {step > 1
-              ? <TouchableOpacity style={s.backBtn} onPress={handleBack} activeOpacity={0.75}>
+            {step > 1 ? (
+              <TouchableOpacity style={s.backBtn} onPress={handleBack} activeOpacity={0.75}>
                 <Ionicons name="arrow-back" size={17} color="#166534" style={{ marginRight: 5 }} />
                 <Text style={s.backBtnText}>Back</Text>
               </TouchableOpacity>
-              : <View style={{ flex: 1, marginRight: 12 }} />
-            }
+            ) : (
+              <View style={{ flex: 1, marginRight: 12 }} />
+            )}
             <TouchableOpacity style={[s.nextBtn, isLoading && { opacity: 0.65 }]}
               onPress={handleNext} disabled={isLoading} activeOpacity={0.85}>
-              {isLoading
-                ? <ActivityIndicator color="#fff" />
-                : <>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
                   <Text style={s.nextBtnText}>{step === totalSteps ? 'Complete Setup' : 'Continue'}</Text>
                   {step < totalSteps && <Ionicons name="arrow-forward" size={17} color="#fff" style={{ marginLeft: 5 }} />}
                 </>
-              }
+              )}
             </TouchableOpacity>
           </Animated.View>
 
@@ -680,6 +619,7 @@ const s = StyleSheet.create({
   dropPlaceholder: { color: '#9ca3af', fontSize: 14.5, flex: 1 },
   dropVal: { color: '#1f2937', fontSize: 13.5, fontWeight: '600', flex: 1 },
 
+  // Using percentages to avoid 'gap' issues
   soilGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
   soilCard: { width: '48%', backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb', padding: 11, alignItems: 'center', marginBottom: 8 },
   soilCardSel: { backgroundColor: '#f0fdf4', borderColor: '#22c55e' },
