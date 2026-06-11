@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   SafeAreaView,
   View,
@@ -22,9 +22,10 @@ import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ✅ FIX 3: Import the existing profileService instead of duplicating API logic inline
+import { saveFarmProfile } from '../services/profileService';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:4000/api';
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CROPS = [
   'Rice (Paddy)', 'Wheat', 'Maize (Corn)', 'Jowar (Sorghum)', 'Bajra (Pearl Millet)',
@@ -72,7 +73,7 @@ const SKILL_LEVELS = [
 ];
 
 function detectSeason() {
-  const m = new Date().getMonth() + 1; // 1-12
+  const m = new Date().getMonth() + 1;
   if (m >= 6 && m <= 9) return 'Kharif (Monsoon) — Jun to Sep';
   if (m >= 10 || m <= 2) return 'Rabi (Winter) — Oct to Feb';
   return 'Zaid (Summer) — Mar to May';
@@ -176,7 +177,9 @@ function CropModal({
 export default function FarmProfile() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [goBack, setGoBack] = useState(false);
+  // ✅ FIX 4: Track direction as a ref so it's always current when the animated
+  //    view first mounts — avoids stale closure capturing old `goBack` state.
+  const goBackRef = useRef(false);
   const totalSteps = 3;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -195,6 +198,20 @@ export default function FarmProfile() {
   });
 
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
+
+  // ✅ FIX 1: Auth guard on mount — redirect to /auth if no token exists
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          router.replace('/auth');
+        }
+      } catch {
+        router.replace('/auth');
+      }
+    })();
+  }, []);
 
   // ── GPS ──────────────────────────────────────────────────────────────────────
   const handleGetLocation = async () => {
@@ -241,66 +258,82 @@ export default function FarmProfile() {
 
   const handleNext = () => {
     if (!validate(step)) return;
-    if (step < totalSteps) { setGoBack(false); setStep(s => s + 1); }
-    else handleSubmit();
+    if (step < totalSteps) {
+      // ✅ FIX 4: Update direction ref before changing step
+      goBackRef.current = false;
+      setStep(s => s + 1);
+    } else {
+      handleSubmit();
+    }
   };
 
   const handleBack = () => {
-    if (step > 1) { setGoBack(true); setStep(s => s - 1); }
+    if (step > 1) {
+      // ✅ FIX 4: Update direction ref before changing step
+      goBackRef.current = true;
+      setStep(s => s - 1);
+    }
   };
 
+  // ✅ FIX 5: handleSkip stores profileSkipped flag so the app won't re-route
+  //    the user back here on next login
   const handleSkip = () =>
-    Alert.alert('Skip Profile Setup?',
+    Alert.alert(
+      'Skip Profile Setup?',
       'You can complete this later from your profile. Some personalised features will be unavailable.',
-      [{ text: 'Stay', style: 'cancel' },
-      { text: 'Skip for now', onPress: () => router.replace('/(tabs)/dashboard') }]);
+      [
+        { text: 'Stay', style: 'cancel' },
+        {
+          text: 'Skip for now',
+          onPress: async () => {
+            try {
+              await AsyncStorage.setItem('profileSkipped', 'true');
+            } catch {
+              // ignore storage errors — still proceed
+            }
+            router.replace('/(tabs)/dashboard');
+          },
+        },
+      ]
+    );
 
-  // ── Submit → real API ────────────────────────────────────────────────────────
+  // ── Submit → profileService ───────────────────────────────────────────────────
+  // ✅ FIX 2 & FIX 3: Use profileService and store profileComplete flag on success
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const token = await AsyncStorage.getItem('authToken');
-
-      if (!token) {
-        Alert.alert(
-          'Session Expired',
-          'Your session could not be found. Please sign in again.',
-          [{ text: 'OK', onPress: () => router.replace('/auth') }]
-        );
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/user/profile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          primaryCrops: form.primaryCrops,
-          farmSize: form.farmSize,
-          soilType: form.soilType,
-          region: form.panchayat
-            + (form.district ? `, ${form.district}` : '')
-            + (form.state ? `, ${form.state}` : ''),
-          location: form.location,
-          season: form.currentSeason,
-          waterAvailability: form.waterAvailability,
-          farmingGoals: form.farmingGoals,
-          skillLevel: form.skillLevel,
-          previousCrop: form.previousCrop,
-        }),
+      const result = await saveFarmProfile({
+        primaryCrops: form.primaryCrops,
+        farmSize: form.farmSize,
+        soilType: form.soilType,
+        region: form.panchayat
+          + (form.district ? `, ${form.district}` : '')
+          + (form.state ? `, ${form.state}` : ''),
+        location: form.location,
+        season: form.currentSeason,
+        waterAvailability: form.waterAvailability,
+        farmingGoals: form.farmingGoals,
+        skillLevel: form.skillLevel,
+        previousCrop: form.previousCrop,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || `Server error ${res.status}`);
+      if (!result.success) {
+        // ✅ FIX 1: If the service returns 'Not authenticated', redirect to login
+        if (result.error === 'Not authenticated') {
+          Alert.alert(
+            'Session Expired',
+            'Your session could not be found. Please sign in again.',
+            [{ text: 'OK', onPress: () => router.replace('/auth') }]
+          );
+          return;
+        }
+        throw new Error(result.error || 'Failed to save farm profile.');
       }
 
-      if (data.user) {
-        await AsyncStorage.setItem('user', JSON.stringify(data.user));
-      }
+      // ✅ FIX 2: Mark profile as complete so returning users skip this screen
+      await AsyncStorage.setItem('profileComplete', 'true');
+      // Also clear any old skip flag in case they previously skipped
+      await AsyncStorage.removeItem('profileSkipped');
 
       router.replace('/(tabs)/dashboard');
 
@@ -313,10 +346,12 @@ export default function FarmProfile() {
 
   // ── Step Renders ─────────────────────────────────────────────────────────────
 
-  const Slide = goBack ? SlideInLeft : SlideInRight;
+  // ✅ FIX 4: Read direction from ref at render time so each step's entering
+  //    animation correctly reflects which direction the user navigated.
+  const SlideAnim = goBackRef.current ? SlideInLeft : SlideInRight;
 
   const renderStep1 = () => (
-    <Animated.View key="s1" entering={Slide.duration(350)} style={s.stepContent}>
+    <Animated.View key="s1" entering={SlideAnim.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>📍 Location & Farm Details</Text>
       <Text style={s.stepSub}>We use this for accurate weather alerts and region-specific crop advice.</Text>
 
@@ -375,7 +410,7 @@ export default function FarmProfile() {
   );
 
   const renderStep2 = () => (
-    <Animated.View key="s2" entering={Slide.duration(350)} style={s.stepContent}>
+    <Animated.View key="s2" entering={SlideAnim.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>🌾 Crops & Resources</Text>
       <Text style={s.stepSub}>Helps us tailor irrigation schedules, fertiliser tips and mission cards.</Text>
 
@@ -446,7 +481,7 @@ export default function FarmProfile() {
   );
 
   const renderStep3 = () => (
-    <Animated.View key="s3" entering={Slide.duration(350)} style={s.stepContent}>
+    <Animated.View key="s3" entering={SlideAnim.duration(350)} style={s.stepContent}>
       <Text style={s.stepTitle}>🎯 Goals & Experience</Text>
       <Text style={s.stepSub}>So we can assign the most relevant sustainable farming missions to you.</Text>
 
@@ -551,8 +586,13 @@ export default function FarmProfile() {
           </Animated.View>
 
           {/* Scrollable form */}
+          {/*
+            ✅ FIX 4: The `key` now encodes both step number AND direction so React
+            always unmounts + remounts the card — triggering the correct entering
+            animation (SlideInLeft vs SlideInRight) every time.
+          */}
           <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View key={step} style={s.card}>
+            <View key={`${step}-${goBackRef.current ? 'back' : 'fwd'}`} style={s.card}>
               {step === 1 && renderStep1()}
               {step === 2 && renderStep2()}
               {step === 3 && renderStep3()}

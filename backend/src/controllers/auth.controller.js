@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-// IMPORTANT: Notice the .js extensions here
 import User from "../models/User.js";
 import Otp from "../models/Otp.js";
 
@@ -17,8 +16,8 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false   // ✅ THIS FIXES YOUR ERROR
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 /* -------------------- HELPERS -------------------- */
@@ -94,7 +93,7 @@ export const verifyOtp = async (req, res) => {
     if (!record)
       return res.status(400).json({
         success: false,
-        message: "OTP not found",
+        message: "OTP not found. Please request a new one.",
       });
 
     // Check expiry
@@ -105,27 +104,37 @@ export const verifyOtp = async (req, res) => {
       await Otp.deleteOne({ email });
       return res.status(400).json({
         success: false,
-        message: "OTP expired",
+        message: "OTP expired. Please request a new one.",
       });
     }
 
     if (record.code !== otp)
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP",
+        message: "Invalid OTP. Please try again.",
       });
 
-    // A user counts as "new" if they were just created OR if they
-    // signed up before but never finished the farm-profile setup.
-    // This ensures returning-but-incomplete users still see the profile screen.
+    // ✅ FIX: Declare user and isNewUser — the original code used these
+    // variables without ever declaring or assigning them, causing the crash.
+    let user = await User.findOne({ email });
+    let isNewUser = false;
+
     if (!user) {
+      // Brand new user — create their account now
       user = await User.create({
         email,
         emailVerified: true,
       });
       isNewUser = true;
     } else if (!user.profile || !user.profile.profileCompleted) {
+      // Returning user who never finished farm-profile setup
+      // Mark them as "new" so the app routes them to farm-profile
       isNewUser = true;
+      // Ensure emailVerified is up to date
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+      }
     }
 
     const token = jwt.sign(
