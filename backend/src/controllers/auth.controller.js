@@ -115,15 +115,16 @@ export const verifyOtp = async (req, res) => {
         message: "Invalid OTP",
       });
 
-    // Create or fetch user
-    let user = await User.findOne({ email });
-    let isNewUser = false;
-
+    // A user counts as "new" if they were just created OR if they
+    // signed up before but never finished the farm-profile setup.
+    // This ensures returning-but-incomplete users still see the profile screen.
     if (!user) {
       user = await User.create({
         email,
         emailVerified: true,
       });
+      isNewUser = true;
+    } else if (!user.profile || !user.profile.profileCompleted) {
       isNewUser = true;
     }
 

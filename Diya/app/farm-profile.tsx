@@ -72,7 +72,7 @@ const SKILL_LEVELS = [
 ];
 
 function detectSeason() {
-  const m = new Date().getMonth() + 1;
+  const m = new Date().getMonth() + 1; // 1-12
   if (m >= 6 && m <= 9) return 'Kharif (Monsoon) — Jun to Sep';
   if (m >= 10 || m <= 2) return 'Rabi (Winter) — Oct to Feb';
   return 'Zaid (Summer) — Mar to May';
@@ -111,7 +111,7 @@ function CropModal({
 
         {/* Search bar */}
         <View style={ms.searchBar}>
-          <Ionicons name="search" size={16} color="#9ca3af" />
+          <Ionicons name="search" size={16} color="#9ca3af" style={{ marginRight: 8 }} />
           <TextInput
             value={q} onChangeText={setQ}
             placeholder="Search crop..." placeholderTextColor="#9ca3af"
@@ -176,7 +176,7 @@ function CropModal({
 export default function FarmProfile() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [goBack, setGoBack] = useState(false);  // track direction for animation
+  const [goBack, setGoBack] = useState(false);
   const totalSteps = 3;
 
   const [isLoading, setIsLoading] = useState(false);
@@ -210,7 +210,7 @@ export default function FarmProfile() {
       setForm(p => ({
         ...p,
         location: `${loc.coords.latitude.toFixed(4)}° N, ${loc.coords.longitude.toFixed(4)}° E`,
-        panchayat: geo?.sublocality || geo?.city || p.panchayat,
+        panchayat: geo?.district || geo?.name || geo?.city || p.panchayat,
         district: geo?.subregion || geo?.city || p.district,
         state: geo?.region || p.state,
       }));
@@ -260,7 +260,15 @@ export default function FarmProfile() {
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('authToken');
-      if (!token) throw new Error('No auth token');
+
+      if (!token) {
+        Alert.alert(
+          'Session Expired',
+          'Your session could not be found. Please sign in again.',
+          [{ text: 'OK', onPress: () => router.replace('/auth') }]
+        );
+        return;
+      }
 
       const res = await fetch(`${API_BASE}/user/profile`, {
         method: 'POST',
@@ -272,7 +280,9 @@ export default function FarmProfile() {
           primaryCrops: form.primaryCrops,
           farmSize: form.farmSize,
           soilType: form.soilType,
-          region: form.panchayat + (form.district ? `, ${form.district}` : '') + (form.state ? `, ${form.state}` : ''),
+          region: form.panchayat
+            + (form.district ? `, ${form.district}` : '')
+            + (form.state ? `, ${form.state}` : ''),
           location: form.location,
           season: form.currentSeason,
           waterAvailability: form.waterAvailability,
@@ -283,12 +293,17 @@ export default function FarmProfile() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to save profile');
 
-      // Cache updated user locally
-      await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      if (!res.ok) {
+        throw new Error(data.message || `Server error ${res.status}`);
+      }
+
+      if (data.user) {
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+      }
 
       router.replace('/(tabs)/dashboard');
+
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to save farm profile. Please try again.');
     } finally {
@@ -382,11 +397,11 @@ export default function FarmProfile() {
       <View style={s.field}>
         <Text style={s.label}>Soil Type <Text style={s.req}>*</Text></Text>
         <View style={s.soilGrid}>
-          {SOIL_TYPES.map(soil => {
+          {SOIL_TYPES.map((soil, idx) => {
             const sel = form.soilType === soil.value;
             return (
               <TouchableOpacity key={soil.value}
-                style={[s.soilCard, sel && s.soilCardSel]}
+                style={[s.soilCard, sel && s.soilCardSel, { marginRight: idx % 2 === 0 ? 8 : 0 }]}
                 onPress={() => set('soilType', soil.value)} activeOpacity={0.75}>
                 <Text style={s.soilIcon}>{soil.icon}</Text>
                 <Text style={[s.soilLabel, sel && s.soilLabelSel]}>{soil.value}</Text>
@@ -440,11 +455,15 @@ export default function FarmProfile() {
         <Text style={s.label}>Farming Goals <Text style={s.req}>*</Text></Text>
         <Text style={s.hint}>Select all that apply.</Text>
         <View style={s.goalGrid}>
-          {FARMING_GOALS.map(goal => {
+          {FARMING_GOALS.map((goal, idx) => {
             const sel = form.farmingGoals.includes(goal.id);
             return (
               <TouchableOpacity key={goal.id}
-                style={[s.goalCard, sel && s.goalCardSel]}
+                style={[
+                  s.goalCard,
+                  sel && s.goalCardSel,
+                  { marginRight: idx % 3 !== 2 ? 8 : 0, marginBottom: 8 },
+                ]}
                 onPress={() => set('farmingGoals', sel
                   ? form.farmingGoals.filter(g => g !== goal.id)
                   : [...form.farmingGoals, goal.id]
@@ -533,7 +552,7 @@ export default function FarmProfile() {
 
           {/* Scrollable form */}
           <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View style={s.card}>
+            <View key={step} style={s.card}>
               {step === 1 && renderStep1()}
               {step === 2 && renderStep2()}
               {step === 3 && renderStep3()}
@@ -621,8 +640,8 @@ const s = StyleSheet.create({
   dropPlaceholder: { color: '#9ca3af', fontSize: 14.5, flex: 1 },
   dropVal: { color: '#1f2937', fontSize: 13.5, fontWeight: '600', flex: 1 },
 
-  soilGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  soilCard: { width: '48%', backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb', padding: 11, alignItems: 'center' },
+  soilGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
+  soilCard: { width: '48%', backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb', padding: 11, alignItems: 'center', marginBottom: 8 },
   soilCardSel: { backgroundColor: '#f0fdf4', borderColor: '#22c55e' },
   soilIcon: { fontSize: 22, marginBottom: 4 },
   soilLabel: { fontSize: 12.5, fontWeight: '700', color: '#374151', textAlign: 'center' },
@@ -643,7 +662,7 @@ const s = StyleSheet.create({
   seasonText: { fontSize: 14.5, fontWeight: '800', color: '#14532d' },
   seasonSub: { fontSize: 11, color: '#166534', marginTop: 2, fontWeight: '500' },
 
-  goalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 6 },
+  goalGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 },
   goalCard: { width: '31%', backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb', padding: 11, alignItems: 'center', position: 'relative' },
   goalCardSel: { backgroundColor: '#f0fdf4', borderColor: '#22c55e' },
   goalCheck: { position: 'absolute', top: 5, right: 5 },
@@ -671,7 +690,7 @@ const ms = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: '#fff' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderColor: '#f3f4f6' },
   title: { fontSize: 17, fontWeight: '800', color: '#14532d' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', margin: 14, paddingHorizontal: 13, paddingVertical: 10, backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb', gap: 8 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', margin: 14, paddingHorizontal: 13, paddingVertical: 10, backgroundColor: '#f9fafb', borderRadius: 13, borderWidth: 1.5, borderColor: '#e5e7eb' },
   searchInput: { flex: 1, fontSize: 15, color: '#1f2937' },
   chipRow: { paddingHorizontal: 14, marginBottom: 6, maxHeight: 42 },
   chip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#22c55e', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5, marginRight: 7 },
