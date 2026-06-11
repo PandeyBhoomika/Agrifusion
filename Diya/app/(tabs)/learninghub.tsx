@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import YoutubePlayer from 'react-native-youtube-iframe'; // ✅ ADDED THIS
+import YoutubePlayer from 'react-native-youtube-iframe';
 
 import { fetchAllVideos, getVideoProgress, updateVideoProgress } from '../../services/videoService';
 import { VideoModule } from '../../data/videoMockData';
@@ -190,13 +190,13 @@ export default function LearningHub({
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
 
-  // ✅ Video Player Specific States
+  // Video Player Specific States
   const [playing, setPlaying] = useState(false);
   const [shouldSeek, setShouldSeek] = useState(false);
   const youtubePlayerRef = useRef<any>(null);
 
-  // UI States
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes'>('overview');
+  // ✅ ADDED 'mini-games' TO THE TAB STATE
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes' | 'mini-games'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -263,7 +263,7 @@ export default function LearningHub({
     loadSavedProgress();
   }, [selectedVideo?.id]);
 
-  // ✅ New clean interval for tracking Youtube iframe time directly
+  // Track Youtube iframe time directly
   useEffect(() => {
     if (!selectedVideo || !progressLoaded) return;
 
@@ -399,6 +399,7 @@ export default function LearningHub({
     selectedTab === 'overview' ||
     (selectedTab === 'simulations' && m.type === 'simulation') ||
     (selectedTab === 'quizzes' && m.type === 'quiz')
+    // mini-games are handled entirely in the footer component below!
   );
 
   const displayData = baseData.filter((item: any) =>
@@ -446,7 +447,6 @@ export default function LearningHub({
 
                   {!isLoadingProgress && progressLoaded && (
                     <>
-                      {/* Resume notification */}
                       {currentTime > 0 && videoProgress > 0 && videoProgress < 100 && (
                         <View style={styles.resumePill}>
                           <Text style={styles.resumePillText}>
@@ -455,7 +455,6 @@ export default function LearningHub({
                         </View>
                       )}
 
-                      {/* ✅ STABLE YOUTUBE VIDEO PLAYER */}
                       <View style={styles.videoContainer}>
                         <YoutubePlayer
                           ref={youtubePlayerRef}
@@ -479,7 +478,6 @@ export default function LearningHub({
                         />
                       </View>
 
-                      {/* Video Data */}
                       <View style={{ marginTop: 20 }}>
                         <Text style={styles.cardTitle}>{selectedVideo.title}</Text>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginVertical: 8 }}>
@@ -494,7 +492,6 @@ export default function LearningHub({
                           <Text style={styles.completedPillText}>✓ Video Completed! You earned +{selectedVideo.points} XP</Text>
                         </View>
                       )}
-
                     </>
                   )}
                 </View>
@@ -575,10 +572,10 @@ export default function LearningHub({
                 </View>
               </Animated.View>
 
-              {/* CATEGORY PILLS (TABS) */}
+              {/* CATEGORY PILLS (TABS) - ✅ ADDED MINI-GAMES HERE */}
               <Animated.View entering={SlideInRight.delay(400).duration(400)}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollContainer}>
-                  {['overview', 'simulations', 'videos', 'quizzes'].map((tab) => (
+                  {['overview', 'simulations', 'videos', 'quizzes', 'mini-games'].map((tab) => (
                     <TouchableOpacity
                       key={tab}
                       style={[styles.tabBtn, selectedTab === tab && styles.tabBtnActive]}
@@ -586,7 +583,7 @@ export default function LearningHub({
                       activeOpacity={0.75}
                     >
                       <Text style={[styles.tabBtnText, selectedTab === tab && styles.tabBtnTextActive]}>
-                        {tab === 'overview' ? 'All' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        {tab === 'overview' ? 'All' : tab === 'mini-games' ? 'Mini Games' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -621,7 +618,7 @@ export default function LearningHub({
                     }
                   }}
                 >
-                  {/* Thumbnail Placeholder (Colored box for now) */}
+                  {/* Thumbnail Placeholder */}
                   <View style={styles.cardThumbnail}>
                     <FontAwesome5 name={isVideo ? 'play' : moduleItem?.type === 'simulation' ? 'gamepad' : 'book'} size={24} color="#16a34a" />
                   </View>
@@ -650,6 +647,7 @@ export default function LearningHub({
 
           ListFooterComponent={
             <>
+              {/* QUIZ CENTER */}
               {selectedTab === 'quizzes' && (
                 <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.quizCenterSection}>
                   <Text style={styles.sectionTitle}>Quiz Center</Text>
@@ -663,6 +661,22 @@ export default function LearningHub({
                   </TouchableOpacity>
                 </Animated.View>
               )}
+
+              {/* ✅ NEW: MINI GAMES CENTER */}
+              {selectedTab === 'mini-games' && (
+                <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.quizCenterSection}>
+                  <Text style={styles.sectionTitle}>Game Center</Text>
+                  <TouchableOpacity style={styles.quizCenterCard} onPress={() => router.push('/games')} activeOpacity={0.8}>
+                    <View style={styles.quizIconWrap}><Text style={{ fontSize: 28 }}>🎮</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.quizCenterTitle}>Explore Mini Games</Text>
+                      <Text style={styles.quizCenterSub}>Learn farming concepts through interactive and fun mini-games!</Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={24} color="#10B981" />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+
               {isLoadingVideos && selectedTab === 'videos' && (
                 <View style={{ padding: 40, alignItems: 'center' }}>
                   <ActivityIndicator size="large" color="#22c55e" />
@@ -771,7 +785,7 @@ const styles = StyleSheet.create({
 
   videoContainer: { width: '100%', height: 220, backgroundColor: '#021F0F', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#14532d' },
 
-  /* QUIZ CENTER */
+  /* QUIZ CENTER & GAME CENTER */
   quizCenterSection: { marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', marginBottom: 12 },
   quizCenterCard: { backgroundColor: '#ffffff', padding: 20, borderRadius: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
