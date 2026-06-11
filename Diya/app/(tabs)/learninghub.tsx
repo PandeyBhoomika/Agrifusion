@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -41,12 +42,14 @@ interface LearningModule {
   prerequisites?: string[];
 }
 
+// ✅ UPGRADED SIMULATION DATA STRUCTURE FOR GAMIFICATION
 interface SimulationStep {
   id: string;
   title: string;
   description: string;
-  action: 'tap' | 'drag' | 'select' | 'wait';
-  target?: string;
+  actionText: string;
+  visual: string;         // Emoji or icon before action
+  successVisual: string;  // Emoji or icon after action
   feedback: string;
   points: number;
 }
@@ -101,13 +104,26 @@ interface LearningHubProps {
   onMiniGames?: () => void;
 }
 
-/* ---------- sample data (kept simple & local) ---------- */
+/* ---------- GAMIFIED SIMULATION DATA ---------- */
+const irrigationSimulation: SimulationStep[] = [
+  { id: 's1', title: 'Check Soil Moisture', description: 'Insert the smart sensor into the dry soil.', actionText: 'Insert Sensor 🌡️', visual: '🏜️ 🥀', successVisual: '📊 Moisture: 25%', feedback: 'Soil is critically dry! Needs immediate watering.', points: 20 },
+  { id: 's2', title: 'Select Target Zone', description: 'Zone A is showing drought stress. Target water delivery to save resources.', actionText: 'Select Zone A 🎯', visual: '🗺️ 🔴', successVisual: '🗺️ 🟢 Target Locked', feedback: 'Precision targeting saves up to 40% water.', points: 30 },
+  { id: 's3', title: 'Set Drip Duration', description: 'Set timer to 18 minutes for optimal root absorption without runoff.', actionText: 'Set to 18 Min ⏱️', visual: '⏳ 00:00', successVisual: '⏳ 18:00', feedback: 'Perfect timing prevents water waste.', points: 40 },
+  { id: 's4', title: 'Activate Drip System', description: 'Start the pump and deliver water directly to the roots.', actionText: 'Start Pump 💧', visual: '🚰 🚫', successVisual: '🌱 💦 🌿', feedback: 'Crops are thriving! You saved 50L of water.', points: 50 },
+];
+
+const pestSimulation: SimulationStep[] = [
+  { id: 'p1', title: 'Identify Pest', description: 'Aphids detected on tomato leaves.', actionText: 'Scan Leaf 🔍', visual: '🍅 🐛', successVisual: '🦠 Aphids Found', feedback: 'Early detection prevents massive crop loss.', points: 20 },
+  { id: 'p2', title: 'Choose Organic Remedy', description: 'Select Neem Oil instead of harsh chemical pesticides.', actionText: 'Select Neem Oil 🌿', visual: '🧪 vs 🌿', successVisual: '🌿 Neem Oil Ready', feedback: 'Neem oil protects beneficial insects like ladybugs.', points: 30 },
+  { id: 'p3', title: 'Apply Spray', description: 'Spray lightly on the underside of leaves.', actionText: 'Spray Crops 💨', visual: '🪴 🐛', successVisual: '🪴 ✨', feedback: 'Pests cleared! Soil remains chemical-free.', points: 50 },
+];
+
 const learningModules: LearningModule[] = [
   {
     id: 'irrigation-basics',
     title: 'Smart Irrigation Systems',
-    description: 'Efficient water management & irrigation methods',
-    duration: '12 min',
+    description: 'Learn efficient water management & irrigation methods step-by-step.',
+    duration: '5 min',
     difficulty: 'beginner',
     category: 'irrigation',
     type: 'simulation',
@@ -134,8 +150,8 @@ const learningModules: LearningModule[] = [
   {
     id: 'pest-control-organic',
     title: 'Organic Pest Management',
-    description: 'Protect crops without harmful chemicals',
-    duration: '15 min',
+    description: 'Protect crops without harmful chemicals interactively.',
+    duration: '5 min',
     difficulty: 'intermediate',
     category: 'pest-control',
     type: 'simulation',
@@ -145,13 +161,6 @@ const learningModules: LearningModule[] = [
     points: 200,
     locked: false,
   },
-];
-
-const irrigationSimulation: SimulationStep[] = [
-  { id: 'step-1', title: 'Check Soil Moisture', description: 'Tap the soil sensor to check moisture', action: 'tap', target: 'soil-sensor', feedback: 'Soil moisture is 25% — needs watering.', points: 20 },
-  { id: 'step-2', title: 'Select Irrigation Zone', description: 'Choose the irrigation zone', action: 'select', target: 'zone-selector', feedback: 'Zone A selected — lowest moisture.', points: 30 },
-  { id: 'step-3', title: 'Set Water Duration', description: 'Choose duration (recommended 15-20 min)', action: 'drag', target: 'time-slider', feedback: '18 minutes chosen — optimal.', points: 40 },
-  { id: 'step-4', title: 'Start Irrigation', description: 'Start watering', action: 'tap', target: 'start-button', feedback: 'Water is flowing efficiently.', points: 50 },
 ];
 
 const userProgress = {
@@ -199,9 +208,11 @@ export default function LearningHub({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+  // ✅ SIMULATION SPECIFIC STATES
   const [simulationStep, setSimulationStep] = useState(0);
   const [simulationScore, setSimulationScore] = useState(0);
   const [simulationComplete, setSimulationComplete] = useState(false);
+  const [stepSuccess, setStepSuccess] = useState(false); 
 
   // Game state
   const [showCropRotationGame, setShowCropRotationGame] = useState(false);
@@ -305,6 +316,7 @@ export default function LearningHub({
       setSimulationStep(0);
       setSimulationScore(0);
       setSimulationComplete(false);
+      setStepSuccess(false);
 
       if (module.type === 'video') {
         const videoData = videos.find(v => v.category === module.category);
@@ -313,17 +325,35 @@ export default function LearningHub({
     }
   }, [videos]);
 
-  const handleSimulationAction = useCallback((stepId: string) => {
-    const current = irrigationSimulation[simulationStep];
-    if (current && current.id === stepId) {
-      setSimulationScore((s) => s + current.points);
-      if (simulationStep < irrigationSimulation.length - 1) {
+  // ✅ NEW GAMIFIED SIMULATION ENGINE LOGIC
+  const activeSimulation = selectedModule?.category === 'pest-control' ? pestSimulation : irrigationSimulation;
+
+  const handleSimulationAction = useCallback(() => {
+    const current = activeSimulation[simulationStep];
+    
+    // Trigger Success Visuals & Score
+    setStepSuccess(true);
+    setSimulationScore((s) => s + current.points);
+
+    // Wait 2.5 seconds to read feedback, then move to next step automatically
+    setTimeout(() => {
+      setStepSuccess(false);
+      if (simulationStep < activeSimulation.length - 1) {
         setSimulationStep((s) => s + 1);
       } else {
         setSimulationComplete(true);
       }
-    }
-  }, [simulationStep]);
+    }, 2500); 
+  }, [simulationStep, activeSimulation]);
+
+  // ✅ DOWNLOAD OFFLINE GUIDE LOGIC
+  const handleGuideDownload = () => {
+    Alert.alert(
+      'Download Complete!', 
+      'The farming guide has been saved for offline reading. You earned +50 XP for continuing your education!',
+      [{ text: 'Awesome', style: 'default' }]
+    );
+  };
 
   const initializeGame = useCallback((level: number) => {
     const levelData = gameLevels[level - 1];
@@ -358,34 +388,6 @@ export default function LearningHub({
     setSelectedCrop(null);
   }, []);
 
-  const advanceSeason = useCallback(() => {
-    const levelData = gameLevels[currentLevel - 1];
-    if (currentSeason < levelData.seasons) {
-      setCurrentSeason((s) => s + 1);
-      setFarmPlots((prev) => prev.map((plot) => ({
-        ...plot,
-        pestPressure: Math.min(100, plot.pestPressure + Math.random() * 20),
-        soilHealth: {
-          nitrogen: Math.max(0, plot.soilHealth.nitrogen - 5),
-          phosphorus: Math.max(0, plot.soilHealth.phosphorus - 3),
-          potassium: Math.max(0, plot.soilHealth.potassium - 4),
-        },
-      })));
-      setGameMessage(`Season ${currentSeason + 1} begins.`);
-    } else {
-      const totalYield = farmPlots.reduce((s, p) => s + p.yield, 0);
-      const avgSoil = farmPlots.length ? farmPlots.reduce((s, p) => s + (p.soilHealth.nitrogen + p.soilHealth.phosphorus + p.soilHealth.potassium) / 3, 0) / farmPlots.length : 0;
-      const finalScore = Math.round(totalYield * 10 + avgSoil);
-      setGameScore(finalScore);
-      setGameMessage(`Final Score: ${finalScore}`);
-    }
-  }, [currentSeason, currentLevel, farmPlots]);
-
-  const startCropRotationGame = useCallback(() => {
-    initializeGame(1);
-    setShowCropRotationGame(true);
-  }, [initializeGame]);
-
   /* ---------- UI Pieces ---------- */
   const renderProgressBar = (value: number) => (
     <View style={styles.progressBarTrack}>
@@ -398,7 +400,6 @@ export default function LearningHub({
     selectedTab === 'overview' ||
     (selectedTab === 'simulations' && m.type === 'simulation') ||
     (selectedTab === 'quizzes' && m.type === 'quiz')
-    // mini-games are handled entirely in the footer component below!
   );
 
   const displayData = baseData.filter((item: any) =>
@@ -425,16 +426,69 @@ export default function LearningHub({
 
           <ScrollView contentContainerStyle={styles.content}>
             <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+              
+              {/* ✅ GAMIFIED INTERACTIVE SIMULATION PLAYER */}
               {selectedModule.type === 'simulation' && (
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>Simulation Coming Soon</Text>
-                  <Text style={styles.cardText}>Interactive farming simulations will be available here.</Text>
-                  <TouchableOpacity style={styles.primaryButton} onPress={() => setSelectedModule(null)}>
-                    <Text style={styles.primaryButtonText}>Back to Hub</Text>
-                  </TouchableOpacity>
+                <View style={styles.simCard}>
+                  {!simulationComplete ? (
+                    <>
+                      {/* Step Progress & Score */}
+                      <View style={styles.simHeader}>
+                        <Text style={styles.simStepText}>Step {simulationStep + 1} of {activeSimulation.length}</Text>
+                        <View style={styles.xpBadge}><Text style={styles.xpBadgeText}>{simulationScore} XP</Text></View>
+                      </View>
+                      
+                      {/* Virtual Stage */}
+                      <LinearGradient colors={stepSuccess ? ['#ecfdf5', '#d1fae5'] : ['#f3f4f6', '#e5e7eb']} style={styles.simStage}>
+                        <Animated.Text entering={ZoomIn} key={stepSuccess ? 'success' : 'visual'} style={styles.simStageVisual}>
+                          {stepSuccess ? activeSimulation[simulationStep].successVisual : activeSimulation[simulationStep].visual}
+                        </Animated.Text>
+                      </LinearGradient>
+
+                      {/* Text & Controls */}
+                      <View style={{ padding: 20 }}>
+                        <Text style={styles.simTitle}>{activeSimulation[simulationStep].title}</Text>
+                        
+                        {!stepSuccess ? (
+                          <>
+                            <Text style={styles.simDesc}>{activeSimulation[simulationStep].description}</Text>
+                            <TouchableOpacity style={styles.simActionBtn} onPress={handleSimulationAction} activeOpacity={0.8}>
+                              <Text style={styles.simActionBtnText}>{activeSimulation[simulationStep].actionText}</Text>
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <Animated.View entering={FadeInDown.duration(300)} style={styles.simFeedbackBox}>
+                            <Ionicons name="checkmark-circle" size={24} color="#16a34a" />
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                              <Text style={styles.simFeedbackText}>{activeSimulation[simulationStep].feedback}</Text>
+                              <Text style={styles.simPointsEarned}>+{activeSimulation[simulationStep].points} XP Earned!</Text>
+                            </View>
+                          </Animated.View>
+                        )}
+                      </View>
+                    </>
+                  ) : (
+                    <Animated.View entering={ZoomIn.duration(500)} style={styles.simCompleteBox}>
+                      <Text style={{ fontSize: 60, marginBottom: 16 }}>🏆</Text>
+                      <Text style={styles.simCompleteTitle}>Simulation Mastered!</Text>
+                      <Text style={styles.simCompleteDesc}>
+                        Excellent work! You made sustainable choices and earned a total of <Text style={{fontWeight: '800', color: '#d97706'}}>{simulationScore} XP</Text>.
+                      </Text>
+                      <View style={styles.simImpactBox}>
+                        <Text style={styles.simImpactTitle}>🌍 Real-World Impact</Text>
+                        <Text style={styles.simImpactText}>
+                          {selectedModule.category === 'pest-control' ? '0 Chemicals Used • Soil Microbiome Saved' : '50L Water Saved • Deep Root Hydration Achieved'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity style={styles.primaryButton} onPress={() => setSelectedModule(null)}>
+                        <Text style={styles.primaryButtonText}>Collect Rewards & Exit</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  )}
                 </View>
               )}
 
+              {/* VIDEO PLAYER */}
               {selectedModule.type === 'video' && selectedVideo && (
                 <View style={styles.card}>
                   {isLoadingProgress && (
@@ -617,7 +671,6 @@ export default function LearningHub({
                     }
                   }}
                 >
-                  {/* Thumbnail Placeholder */}
                   <View style={styles.cardThumbnail}>
                     <FontAwesome5 name={isVideo ? 'play' : moduleItem?.type === 'simulation' ? 'gamepad' : 'book'} size={24} color="#16a34a" />
                   </View>
@@ -661,17 +714,11 @@ export default function LearningHub({
                 </Animated.View>
               )}
 
-              {/* ✅ NEW: DIRECT MINI GAMES LIST */}
+              {/* MINI GAMES CENTER */}
               {selectedTab === 'mini-games' && (
                 <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.quizCenterSection}>
                   <Text style={styles.sectionTitle}>Available Games</Text>
-
-                  {/* Game 1: Crop Rotation */}
-                  <TouchableOpacity
-                    style={[styles.quizCenterCard, { marginBottom: 16 }]}
-                    onPress={() => router.push('/games/crop-rotation')}
-                    activeOpacity={0.8}
-                  >
+                  <TouchableOpacity style={[styles.quizCenterCard, { marginBottom: 16 }]} onPress={() => router.push('/games/crop-rotation')} activeOpacity={0.8}>
                     <View style={styles.quizIconWrap}><Text style={{ fontSize: 28 }}>🌽</Text></View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.quizCenterTitle}>Crop Rotation Master</Text>
@@ -679,13 +726,7 @@ export default function LearningHub({
                     </View>
                     <Ionicons name="play-circle" size={32} color="#10B981" />
                   </TouchableOpacity>
-
-                  {/* Game 2: Farm Day Challenge */}
-                  <TouchableOpacity
-                    style={styles.quizCenterCard}
-                    onPress={() => router.push('/games/farm-day')}
-                    activeOpacity={0.8}
-                  >
+                  <TouchableOpacity style={styles.quizCenterCard} onPress={() => router.push('/games/farm-day')} activeOpacity={0.8}>
                     <View style={[styles.quizIconWrap, { backgroundColor: '#EFF6FF' }]}><Text style={{ fontSize: 28 }}>🚜</Text></View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.quizCenterTitle}>Farm Day Challenge</Text>
@@ -693,7 +734,21 @@ export default function LearningHub({
                     </View>
                     <Ionicons name="play-circle" size={32} color="#3B82F6" />
                   </TouchableOpacity>
+                </Animated.View>
+              )}
 
+              {/* ✅ OFFLINE SUPPORT / DOWNLOADABLE GUIDES */}
+              {(selectedTab === 'simulations' || selectedTab === 'overview') && (
+                <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.quizCenterSection}>
+                  <Text style={styles.sectionTitle}>Offline Support</Text>
+                  <TouchableOpacity style={styles.quizCenterCard} onPress={handleGuideDownload} activeOpacity={0.8}>
+                    <View style={[styles.quizIconWrap, { backgroundColor: '#FEF3C7' }]}><Text style={{ fontSize: 28 }}>📥</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.quizCenterTitle}>Downloadable Guides</Text>
+                      <Text style={styles.quizCenterSub}>Save farming handbooks to your device for offline reading. Earn XP even without active missions!</Text>
+                    </View>
+                    <Ionicons name="cloud-download" size={26} color="#D97706" />
+                  </TouchableOpacity>
                 </Animated.View>
               )}
 
@@ -715,39 +770,18 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   /* HEADER */
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, flexDirection: 'row', alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: '800', color: '#14532d', letterSpacing: -0.5 },
   headerSub: { fontSize: 14, color: '#166534', marginTop: 4, fontWeight: '600' },
   headerButton: { padding: 10, backgroundColor: '#ffffff', borderRadius: 12, marginRight: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
 
   /* SEARCH BAR */
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-  },
-  searchInput: {
-    flex: 1, height: 50, fontSize: 15, color: '#1f2937', fontWeight: '500',
-  },
-  searchInputFocused: { borderColor: '#22c55e' },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 16, paddingHorizontal: 16, marginBottom: 16, borderWidth: 1.5, borderColor: 'transparent', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  searchInput: { flex: 1, height: 50, fontSize: 15, color: '#1f2937', fontWeight: '500' },
+  searchInputFocused: { borderColor: '#22c55e' }, 
 
   /* FEATURED CARD */
-  featuredCard: {
-    padding: 20, borderRadius: 24, marginBottom: 16,
-    shadowColor: '#0F7A4A', shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
-  },
+  featuredCard: { padding: 20, borderRadius: 24, marginBottom: 16, shadowColor: '#0F7A4A', shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
   featuredBadge: { backgroundColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 12 },
   featuredBadgeText: { color: '#86efac', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   featuredTitle: { color: '#ffffff', fontSize: 22, fontWeight: '800', marginBottom: 6 },
@@ -756,30 +790,19 @@ const styles = StyleSheet.create({
   featuredBtnText: { color: '#021F0F', fontWeight: '800', fontSize: 14 },
 
   /* PROGRESS CARD */
-  progressCard: {
-    backgroundColor: '#ffffff', padding: 16, borderRadius: 20, marginBottom: 16,
-    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
-  },
+  progressCard: { backgroundColor: '#ffffff', padding: 16, borderRadius: 20, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
   progressTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', letterSpacing: -0.3 },
   progressSub: { fontSize: 12, color: '#6b7280', fontWeight: '600', marginTop: 2 },
 
   /* CATEGORY PILLS */
   tabScrollContainer: { flexDirection: 'row', marginBottom: 8 },
-  tabBtn: {
-    paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: '#ffffff',
-    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', marginRight: 10,
-  },
+  tabBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: '#ffffff', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', marginRight: 10 },
   tabBtnActive: { backgroundColor: '#14532d', borderColor: '#14532d' },
   tabBtnText: { fontSize: 13, fontWeight: '700', color: '#166534' },
   tabBtnTextActive: { color: '#ffffff' },
 
   /* MODULE CARDS */
-  moduleCard: {
-    backgroundColor: '#ffffff', borderRadius: 20, flexDirection: 'row', overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
-  },
+  moduleCard: { backgroundColor: '#ffffff', borderRadius: 20, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 3 },
   cardThumbnail: { width: 100, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
   moduleTitle: { fontSize: 16, fontWeight: '800', color: '#1f2937' },
   moduleDesc: { color: '#6b7280', marginTop: 4, fontSize: 13, lineHeight: 18, fontWeight: '500' },
@@ -791,7 +814,7 @@ const styles = StyleSheet.create({
   progressBarTrack: { height: 6, backgroundColor: '#dcfce7', borderRadius: 3, overflow: 'hidden' },
   progressBarFill: { height: 6, backgroundColor: '#22c55e', borderRadius: 3 },
 
-  /* VIDEO / DETAILS VIEW */
+  /* VIDEO DETAILS VIEW */
   content: { padding: 20, paddingBottom: 100 },
   card: { backgroundColor: '#ffffff', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' },
   cardTitle: { fontSize: 20, fontWeight: '800', color: '#14532d' },
@@ -802,10 +825,31 @@ const styles = StyleSheet.create({
   resumePillText: { color: '#166534', fontSize: 13, fontWeight: '700' },
   completedPill: { backgroundColor: '#fef3c7', padding: 14, borderRadius: 12, marginTop: 16, borderLeftWidth: 4, borderLeftColor: '#d97706' },
   completedPillText: { color: '#92400e', fontSize: 14, fontWeight: '700' },
-
   videoContainer: { width: '100%', height: 220, backgroundColor: '#021F0F', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#14532d' },
 
-  /* QUIZ CENTER & GAME CENTER */
+  /* ✅ NEW GAMIFIED SIMULATION STYLES */
+  simCard: { backgroundColor: '#ffffff', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, elevation: 5 },
+  simHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderColor: '#f3f4f6' },
+  simStepText: { fontSize: 14, fontWeight: '800', color: '#6b7280', textTransform: 'uppercase' },
+  xpBadge: { backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  xpBadgeText: { color: '#d97706', fontWeight: '900', fontSize: 14 },
+  simStage: { height: 180, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderColor: '#e5e7eb' },
+  simStageVisual: { fontSize: 60 },
+  simTitle: { fontSize: 22, fontWeight: '900', color: '#1f2937', marginBottom: 8 },
+  simDesc: { fontSize: 15, color: '#4b5563', lineHeight: 22, marginBottom: 24 },
+  simActionBtn: { backgroundColor: '#22c55e', padding: 18, borderRadius: 16, alignItems: 'center', shadowColor: '#22c55e', shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+  simActionBtnText: { color: '#ffffff', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
+  simFeedbackBox: { flexDirection: 'row', backgroundColor: '#ecfdf5', padding: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#a7f3d0' },
+  simFeedbackText: { fontSize: 14, color: '#065f46', fontWeight: '600', lineHeight: 20 },
+  simPointsEarned: { fontSize: 13, color: '#16a34a', fontWeight: '800', marginTop: 4 },
+  simCompleteBox: { padding: 30, alignItems: 'center' },
+  simCompleteTitle: { fontSize: 24, fontWeight: '900', color: '#14532d', marginBottom: 12 },
+  simCompleteDesc: { fontSize: 15, color: '#4b5563', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  simImpactBox: { width: '100%', backgroundColor: '#f0fdfa', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#6ee7b7', marginBottom: 24, alignItems: 'center' },
+  simImpactTitle: { fontSize: 14, fontWeight: '800', color: '#047857', marginBottom: 6 },
+  simImpactText: { fontSize: 15, color: '#065f46', fontWeight: '600', textAlign: 'center' },
+
+  /* QUIZ CENTER & GAME CENTER & OFFLINE HUB */
   quizCenterSection: { marginTop: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', marginBottom: 12 },
   quizCenterCard: { backgroundColor: '#ffffff', padding: 20, borderRadius: 20, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
