@@ -269,7 +269,7 @@ export default function FarmProfile() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          primaryCrop: form.primaryCrops.join(', '), // Joins array into a string
+          primaryCrops: form.primaryCrops,           // send the array, key matches backend
           farmSize: parseFloat(form.farmSize) || 0,
           soilType: form.soilType,
           region: [form.panchayat, form.district, form.state].filter(Boolean).join(', '),

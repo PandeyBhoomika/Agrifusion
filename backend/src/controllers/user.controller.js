@@ -24,7 +24,9 @@ export const updateProfile = async (req, res) => {
     // Merge — only overwrite fields that were actually sent
     user.profile = {
       ...user.profile.toObject ? user.profile.toObject() : user.profile,
-      ...(primaryCrops !== undefined && { primaryCrops }),
+    ...(primaryCrops !== undefined && {
+    primaryCrops: Array.isArray(primaryCrops) ? primaryCrops : [primaryCrops],
+   }),
       ...(farmSize !== undefined && { farmSize }),
       ...(soilType !== undefined && { soilType }),
       ...(region !== undefined && { region }),
