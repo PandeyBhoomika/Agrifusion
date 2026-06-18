@@ -5,7 +5,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts",
-    "app/rewards"
+    "expo-env.d.ts"
   ]
 }
