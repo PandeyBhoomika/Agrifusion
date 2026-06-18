@@ -80,8 +80,7 @@ export const sendOtp = async (req, res) => {
 // POST /api/auth/verify-otp
 export const verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-
+    const { email, otp, password } = req.body;
     if (!email || !otp)
       return res.status(400).json({
         success: false,
@@ -95,7 +94,8 @@ export const verifyOtp = async (req, res) => {
         success: false,
         message: "OTP not found. Please request a new one.",
       });
-
+    
+  
     // Check expiry
     const age =
       (Date.now() - new Date(record.createdAt).getTime()) / 60000;
@@ -120,13 +120,18 @@ export const verifyOtp = async (req, res) => {
     let isNewUser = false;
 
     if (!user) {
-      // Brand new user — create their account now
-      user = await User.create({
-        email,
-        emailVerified: true,
-      });
-      isNewUser = true;
-    } else if (!user.profile || !user.profile.profileCompleted) {
+  // Brand new user — create their account now
+  user = await User.create({
+    email,
+    emailVerified: true,
+  });
+  // Save the password chosen at signup so they can log in later
+  if (password) {
+    await user.setPassword(password);
+    await user.save();
+  }
+  isNewUser = true;
+} else if (!user.profile || !user.profile.profileCompleted) {
       // Returning user who never finished farm-profile setup
       // Mark them as "new" so the app routes them to farm-profile
       isNewUser = true;

@@ -42,14 +42,14 @@ export default function OtpVerification() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleResend = () => {
+  function handleResend() {
     if (timer === 0) {
       setTimer(30);
       setError("");
       // Add your resend API call here if needed:
       // await sendOtp(email as string);
     }
-  };
+  }
 
   // --- OTP INPUT LOGIC ---
   const handleOtpChange = (text: string, index: number) => {
@@ -84,8 +84,7 @@ export default function OtpVerification() {
     setError("");
 
     try {
-      const res = await verifyOtp(email as string, otpCode);
-
+      const res = await verifyOtp(email as string, otpCode, password as string);
       if (!res.success) {
         setError(res.error || "Invalid OTP entered. Please try again.");
         setIsLoading(false);
@@ -98,7 +97,7 @@ export default function OtpVerification() {
 
       // ✅ THE FIX: Check if they actually finished the profile setup
       // Even if they are an old user, if profileComplete is missing/false, force them to set it up!
-      const isProfileFinished = res.user?.profileComplete === true;
+      const isProfileFinished = res.user?.profile?.profileCompleted === true;
 
       // Save this to AsyncStorage so the app remembers for next time
       await AsyncStorage.setItem("profileComplete", String(isProfileFinished));

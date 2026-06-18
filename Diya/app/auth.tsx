@@ -19,9 +19,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Reanimated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Keep your existing service imports
-import { sendOtp } from "../services/authService";
+import { sendOtp, loginUser } from "../services/authService";
 import { fetchIndianStates } from "../services/stateService";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -160,14 +161,47 @@ export default function AuthScreen() {
   };
 
   // -------------------------------
-  // MOCK LOGIN LOGIC
+  // LOGIN LOGIC (email + password)
   // -------------------------------
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!formData.email.trim() || !formData.password.trim()) {
       setErrorMessage("Email and Password are required");
       return;
     }
-    Alert.alert("Login", "Connect your Login API endpoint here!");
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const res = await loginUser({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (!res.success) {
+        setErrorMessage(res.error || "Login failed");
+        return;
+      }
+
+      const { token, user } = res.data;
+      await AsyncStorage.setItem("authToken", token);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+
+      // Route based on whether the farm profile is complete (same check as OTP flow)
+      const isProfileFinished = user?.profile?.profileCompleted === true;
+      await AsyncStorage.setItem("profileComplete", String(isProfileFinished));
+
+      if (isProfileFinished) {
+        router.replace("/(tabs)/dashboard");
+      } else {
+        router.replace("/farm-profile");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setErrorMessage("Unexpected error occurred while logging in");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const onSubmit = isLogin ? handleLogin : handleSendOtp;
