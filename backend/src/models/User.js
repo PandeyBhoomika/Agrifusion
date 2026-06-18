@@ -15,7 +15,7 @@ const UserSchema = new mongoose.Schema(
     // ── Farm Profile ──────────────────────────────────
     profile: {
       primaryCrops: { type: [String], default: [] },
-      farmSize: { type: String, default: "" },
+      farmSize: { type: Number, default: 0 },
       soilType: { type: String, default: "" },
       waterAvailability: { type: String, default: "" },
       region: { type: String, default: "" },
