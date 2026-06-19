@@ -1,31 +1,17 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  SafeAreaView,
-  ActivityIndicator,
-  Animated,
-  Easing,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  RefreshControl, SafeAreaView, ActivityIndicator, Animated, Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import {
-  AntDesign,
-  Feather,
-  FontAwesome5,
-  Ionicons,
-  MaterialIcons,
-} from '@expo/vector-icons';
+import { AntDesign, Feather, FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import Reanimated, { FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
+import { useLanguage } from '../../context/LanguageContext';
 
-// ================= WEATHER API CONFIG =================
 const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
 
 interface WeatherData {
@@ -45,16 +31,13 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-
     const humidity: number = data.current.humidity;
     const windKph: number = data.current.wind_kph;
     const temp: number = data.current.temp_c;
-
     const tempScore = temp >= 20 && temp <= 30 ? 4 : temp >= 15 && temp <= 35 ? 3 : 2;
     const humScore = humidity >= 50 && humidity <= 70 ? 3 : 2;
     const windScore = windKph < 20 ? 3 : 2;
     const score = parseFloat(((tempScore + humScore + windScore) / 1.0).toFixed(1));
-
     return {
       temp: Math.round(temp),
       feelsLike: Math.round(data.current.feelslike_c),
@@ -69,72 +52,52 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
     return null;
   }
 }
-// ======================================================
 
 export default function PersonalizedDashboard() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
 
-  // Mocked backend values
   const progressValue = 72;
   const level = 4;
   const todaysXP = 34;
   const streakDays = 3;
 
-  // Animations
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Tick clock
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
-  // Weather icon continuous rotation
   useEffect(() => {
     const loop = Animated.loop(
       Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        easing: Easing.linear,
-        useNativeDriver: true,
+        toValue: 1, duration: 8000, easing: Easing.linear, useNativeDriver: true,
       })
     );
     loop.start();
     return () => loop.stop();
   }, [rotateAnim]);
 
-  const rotation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const rotation = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
-  // Fetch real weather on mount
-  useEffect(() => {
-    loadWeather();
-  }, []);
+  useEffect(() => { loadWeather(); }, []);
 
   const loadWeather = async () => {
     setWeatherLoading(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setWeather(null);
-        setWeatherLoading(false);
-        return;
-      }
+      if (status !== 'granted') { setWeather(null); setWeatherLoading(false); return; }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
       const data = await fetchWeather(loc.coords.latitude, loc.coords.longitude);
       setWeather(data);
-    } catch {
-      setWeather(null);
-    } finally {
-      setWeatherLoading(false);
-    }
+    } catch { setWeather(null); }
+    finally { setWeatherLoading(false); }
   };
 
   const onRefresh = useCallback(async () => {
@@ -144,7 +107,6 @@ export default function PersonalizedDashboard() {
     setTimeout(() => setRefreshing(false), 800);
   }, []);
 
-  // Navigation handlers
   const goToTasks = () => router.push('/(tabs)/tasks');
   const goToProofSubmit = () => router.push('/proof-submission');
   const goToRewards = () => router.push('/rewards');
@@ -153,7 +115,6 @@ export default function PersonalizedDashboard() {
   const goToGovSchemes = () => router.push('/schemes');
   const goToVirtualFarm = () => router.push('/(tabs)/virtualfarm');
 
-  // Derived display values
   const displayTemp = weather ? `${weather.temp}°C` : '28°C';
   const displayCondition = weather ? weather.condition : 'Partly Cloudy';
   const displayFeelsLike = weather ? `Feels ${weather.feelsLike}° · Mild wind` : 'Feels 30° · Mild wind';
@@ -164,9 +125,11 @@ export default function PersonalizedDashboard() {
   const displayScore = weather ? `${weather.score}/10` : '8.4/10';
 
   const hour = now.getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  // ✅ Translated greeting
+  const greeting = hour < 12 ? t.dashboard.goodMorning
+    : hour < 17 ? t.dashboard.goodAfternoon
+    : t.dashboard.goodEvening;
 
-  // Circular Progress Math
   const radius = 65;
   const strokeWidth = 10;
   const circumference = 2 * Math.PI * radius;
@@ -177,10 +140,11 @@ export default function PersonalizedDashboard() {
       <StatusBar style="light" backgroundColor="#021F0F" />
       <SafeAreaView style={{ flex: 1 }}>
 
-        {/* --- CUSTOM DARK HEADER --- */}
+        {/* HEADER */}
         <Reanimated.View entering={FadeInDown.duration(500)} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
+              {/* ✅ Translated */}
               <Text style={styles.greetingText}>{greeting}, 🌾</Text>
               <Text style={styles.userName}>Farmer</Text>
               <Text style={styles.dateText}>
@@ -196,12 +160,12 @@ export default function PersonalizedDashboard() {
               </View>
             </View>
           </View>
-
           <View style={styles.headerBottomRow}>
             <View style={styles.headerXpTrack}>
               <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: '40%' }]} />
             </View>
-            <Text style={styles.headerXpLabel}>180 XP to Level {level + 1}</Text>
+            {/* ✅ Translated */}
+            <Text style={styles.headerXpLabel}>180 {t.dashboard.xpToLevel} {level + 1}</Text>
           </View>
         </Reanimated.View>
 
@@ -209,7 +173,7 @@ export default function PersonalizedDashboard() {
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22c55e" />}
         >
-          {/* --- HERO WEATHER CARD --- */}
+          {/* WEATHER CARD */}
           <Reanimated.View entering={FadeInUp.delay(100).duration(400)}>
             <LinearGradient colors={['#0F5E35', '#0A4228', '#063020']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.weatherHero}>
               <View style={styles.weatherTopRow}>
@@ -222,21 +186,21 @@ export default function PersonalizedDashboard() {
                   <Text style={styles.heroCondition}>{displayCondition}</Text>
                   <Text style={styles.heroFeelsLike}>{displayFeelsLike}</Text>
                 </View>
-
                 <View style={styles.weatherHeroRight}>
                   <View style={styles.irrigationChip}>
                     <Feather name="zap" size={12} color="#053B24" />
-                    <Text style={styles.irrigationChipText}>Good for Irrigation</Text>
+                    {/* ✅ Translated */}
+                    <Text style={styles.irrigationChipText}>{t.dashboard.goodForIrrigation}</Text>
                   </View>
                   <Animated.View style={{ transform: [{ rotate: rotation }], marginTop: 10 }}>
                     <Ionicons name="sunny" size={56} color="#fbbf24" />
                   </Animated.View>
                   <View style={styles.farmingScorePill}>
-                    <Text style={styles.scorePillText}>Farming Score {displayScore}</Text>
+                    {/* ✅ Translated */}
+                    <Text style={styles.scorePillText}>{t.dashboard.farmingScore} {displayScore}</Text>
                   </View>
                 </View>
               </View>
-
               <View style={styles.weatherStatBoxes}>
                 <View style={styles.miniStatBox}><Text style={styles.miniStatText}>💧 {displayHumidity}</Text></View>
                 <View style={styles.miniStatBox}><Text style={styles.miniStatText}>🌬️ {displayWind}</Text></View>
@@ -246,23 +210,24 @@ export default function PersonalizedDashboard() {
             </LinearGradient>
           </Reanimated.View>
 
-          {/* --- STREAK & XP ROW --- */}
+          {/* STREAK & XP ROW */}
           <View style={styles.rowCards}>
             <Reanimated.View entering={FadeInUp.delay(200).duration(400)} style={styles.halfCardWrapper}>
               <LinearGradient colors={['#92400e', '#78350f']} style={[styles.halfCard, styles.streakCard]}>
                 <Text style={styles.halfCardEmoji}>🔥</Text>
                 <View>
-                  <Text style={styles.halfCardTitle}>{streakDays} Day Streak</Text>
-                  <Text style={styles.halfCardSubGold}>+20 XP Bonus</Text>
+                  {/* ✅ Translated */}
+                  <Text style={styles.halfCardTitle}>{streakDays} {t.dashboard.streakDays}</Text>
+                  <Text style={styles.halfCardSubGold}>{t.dashboard.xpBonus}</Text>
                 </View>
               </LinearGradient>
             </Reanimated.View>
-
             <Reanimated.View entering={FadeInUp.delay(300).duration(400)} style={styles.halfCardWrapper}>
               <LinearGradient colors={['#14532d', '#0a3d1f']} style={[styles.halfCard, styles.xpCard]}>
                 <Text style={styles.halfCardEmoji}>⚡</Text>
                 <View>
-                  <Text style={styles.halfCardTitle}>+{todaysXP} XP Today</Text>
+                  {/* ✅ Translated */}
+                  <Text style={styles.halfCardTitle}>+{todaysXP} {t.dashboard.xpToday}</Text>
                   <View style={styles.miniProgressTrack}>
                     <View style={[styles.miniProgressFill, { width: '70%' }]} />
                   </View>
@@ -271,22 +236,20 @@ export default function PersonalizedDashboard() {
             </Reanimated.View>
           </View>
 
-          {/* --- MISSION PROGRESS CIRCLE --- */}
+          {/* MISSION PROGRESS CIRCLE */}
           <Reanimated.View entering={ZoomIn.delay(400).duration(500)} style={styles.missionCircleContainer}>
             <View style={styles.outerGlowRing}>
               <Svg width={150} height={150}>
-                {/* Background Track */}
                 <Circle cx={75} cy={75} r={radius} stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} fill="none" />
-                {/* Progress Fill */}
                 <Circle cx={75} cy={75} r={radius} stroke="#22c55e" strokeWidth={strokeWidth} fill="none"
                   strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-                  rotation="-90" origin="75, 75"
-                />
+                  rotation="-90" origin="75, 75" />
               </Svg>
               <View style={styles.circleInnerContent}>
                 <Text style={{ fontSize: 28 }}>👨‍🌾</Text>
                 <Text style={styles.circlePercentage}>{progressValue}%</Text>
-                <Text style={styles.circleLabel}>Mission Progress</Text>
+                {/* ✅ Translated */}
+                <Text style={styles.circleLabel}>{t.dashboard.missionProgress}</Text>
               </View>
             </View>
             <View style={styles.levelBadgeAmber}>
@@ -294,56 +257,59 @@ export default function PersonalizedDashboard() {
             </View>
           </Reanimated.View>
 
-          {/* --- SMART INSIGHTS --- */}
+          {/* SMART INSIGHTS */}
           <Reanimated.View entering={FadeInUp.delay(500).duration(400)} style={styles.glassCard}>
-            <Text style={styles.sectionTitle}>Smart Insights 🧠</Text>
+            {/* ✅ Translated */}
+            <Text style={styles.sectionTitle}>{t.dashboard.smartInsights}</Text>
             <View style={styles.insightRow}>
               <View style={styles.insightIcon}><Feather name="trending-up" size={16} color="#86efac" /></View>
-              <Text style={styles.insightText}>Crop health stable and improving</Text>
+              <Text style={styles.insightText}>{t.dashboard.cropHealthStable}</Text>
               <View style={styles.chipGreen}><Text style={styles.chipGreenText}>+6%</Text></View>
             </View>
             <View style={styles.insightRow}>
               <View style={styles.insightIcon}><Feather name="droplet" size={16} color="#86efac" /></View>
-              <Text style={styles.insightText}>Water usage 12% better than last week</Text>
+              <Text style={styles.insightText}>{t.dashboard.waterUsageBetter}</Text>
               <View style={styles.chipGreen}><Text style={styles.chipGreenText}>-12%</Text></View>
             </View>
             <View style={styles.insightRow}>
               <View style={styles.insightIcon}><Feather name="award" size={16} color="#fde68a" /></View>
-              <Text style={styles.insightText}>2 new rewards unlocked!</Text>
-              <View style={styles.chipAmber}><Text style={styles.chipAmberText}>New</Text></View>
+              <Text style={styles.insightText}>{t.dashboard.newRewards}</Text>
+              <View style={styles.chipAmber}><Text style={styles.chipAmberText}>{t.dashboard.new}</Text></View>
             </View>
           </Reanimated.View>
 
-          {/* --- FARM HEALTH SNAPSHOT --- */}
+          {/* FARM HEALTH */}
           <Reanimated.View entering={FadeInUp.delay(600).duration(400)} style={styles.glassCard}>
-            <Text style={styles.sectionTitle}>Farm Health 🌿</Text>
+            {/* ✅ Translated */}
+            <Text style={styles.sectionTitle}>{t.dashboard.farmHealth}</Text>
             <View style={styles.healthGrid}>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🌱 Soil</Text>
                 <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '82%', backgroundColor: '#22c55e' }]} /></View>
-                <Text style={styles.healthValue}>82% · Healthy</Text>
+                <Text style={styles.healthValue}>82% · {t.dashboard.soilHealthy}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>💧 Water</Text>
                 <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '74%', backgroundColor: '#3b82f6' }]} /></View>
-                <Text style={styles.healthValue}>74% · Efficient</Text>
+                <Text style={styles.healthValue}>74% · {t.dashboard.waterEfficient}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🐛 Pest</Text>
                 <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '38%', backgroundColor: '#f97316' }]} /></View>
-                <Text style={styles.healthValue}>38% · Low Risk</Text>
+                <Text style={styles.healthValue}>38% · {t.dashboard.pestLowRisk}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>☀️ Sun</Text>
                 <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '68%', backgroundColor: '#fbbf24' }]} /></View>
-                <Text style={styles.healthValue}>68% · Good</Text>
+                <Text style={styles.healthValue}>68% · {t.dashboard.sunGood}</Text>
               </View>
             </View>
           </Reanimated.View>
 
-          {/* --- TOOLS GRID --- */}
+          {/* TOOLS GRID */}
           <Reanimated.View entering={FadeInUp.delay(700).duration(400)}>
-            <Text style={[styles.sectionTitle, { marginLeft: 4, marginTop: 10 }]}>Your Tools ⚒️</Text>
+            {/* ✅ Translated */}
+            <Text style={[styles.sectionTitle, { marginLeft: 4, marginTop: 10 }]}>{t.dashboard.yourTools}</Text>
             <View style={styles.toolsGrid}>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToTasks} activeOpacity={0.75}>
@@ -351,10 +317,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
                     <Feather name="check-circle" size={20} color="#ef4444" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(239,68,68,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#fca5a5' }]}>3 pending</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(239,68,68,0.2)' }]}>
+                    <Text style={[styles.toolBadgeText, { color: '#fca5a5' }]}>3 {t.dashboard.pending}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Tasks</Text>
-                <Text style={styles.toolSubtitle}>Daily missions</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.tasks}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.dailyMissions}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToProofSubmit} activeOpacity={0.75}>
@@ -362,10 +330,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(134,239,172,0.15)' }]}>
                     <MaterialIcons name="photo-camera" size={20} color="#86efac" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}><Text style={styles.toolBadgeText}>Field Photos</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Text style={styles.toolBadgeText}>{t.dashboard.fieldPhotos}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Submit Proof</Text>
-                <Text style={styles.toolSubtitle}>Upload images</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.submitProof}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.uploadImages}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToRewards} activeOpacity={0.75}>
@@ -373,10 +343,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(251,191,36,0.15)' }]}>
                     <AntDesign name="gift" size={20} color="#fbbf24" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(251,191,36,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#fde68a' }]}>+34 XP</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(251,191,36,0.2)' }]}>
+                    <Text style={[styles.toolBadgeText, { color: '#fde68a' }]}>+34 XP</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Rewards</Text>
-                <Text style={styles.toolSubtitle}>Unlock badges</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.rewards}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.unlockBadges}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToVirtualFarm} activeOpacity={0.75}>
@@ -384,10 +356,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(167,243,208,0.15)' }]}>
                     <Feather name="map" size={20} color="#6ee7b7" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}><Text style={styles.toolBadgeText}>Overview</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Text style={styles.toolBadgeText}>{t.dashboard.overview}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Virtual Farm</Text>
-                <Text style={styles.toolSubtitle}>Crop status</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.virtualFarm}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.cropStatus}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToLearningHub} activeOpacity={0.75}>
@@ -395,10 +369,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
                     <FontAwesome5 name="play" size={16} color="#60a5fa" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(59,130,246,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#bfdbfe' }]}>New</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(59,130,246,0.2)' }]}>
+                    <Text style={[styles.toolBadgeText, { color: '#bfdbfe' }]}>{t.dashboard.new}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Learning Hub</Text>
-                <Text style={styles.toolSubtitle}>Watch & learn</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.learningHub}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.watchLearn}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToCommunity} activeOpacity={0.75}>
@@ -406,10 +382,12 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
                     <Ionicons name="people" size={20} color="#4ade80" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(34,197,94,0.2)' }]}><Text style={[styles.toolBadgeText, { color: '#86efac' }]}>Live</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(34,197,94,0.2)' }]}>
+                    <Text style={[styles.toolBadgeText, { color: '#86efac' }]}>{t.dashboard.live}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Community</Text>
-                <Text style={styles.toolSubtitle}>Ask experts</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.community}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.askExperts}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.toolCard, { width: '100%' }]} onPress={goToGovSchemes} activeOpacity={0.75}>
@@ -417,15 +395,16 @@ export default function PersonalizedDashboard() {
                   <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
                     <Ionicons name="document-text" size={20} color="#ffffff" />
                   </View>
-                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}><Text style={styles.toolBadgeText}>3 eligible</Text></View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                    <Text style={styles.toolBadgeText}>3 {t.dashboard.eligible}</Text>
+                  </View>
                 </View>
-                <Text style={styles.toolTitle}>Gov Schemes</Text>
-                <Text style={styles.toolSubtitle}>Find subsidies and financial support</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.govSchemes}</Text>
+                <Text style={styles.toolSubtitle}>{t.dashboard.findSubsidies}</Text>
               </TouchableOpacity>
 
             </View>
           </Reanimated.View>
-
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -434,9 +413,7 @@ export default function PersonalizedDashboard() {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 100 }, // Clearance for custom tab bar
-
-  /* HEADER */
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
   header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   greetingText: { fontSize: 16, color: '#bbf7d0', fontWeight: '600' },
@@ -450,8 +427,6 @@ const styles = StyleSheet.create({
   headerXpTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2 },
   headerXpFill: { height: 4, borderRadius: 2 },
   headerXpLabel: { fontSize: 10, color: '#bbf7d0', alignSelf: 'flex-end', marginTop: 6, fontWeight: '600' },
-
-  /* WEATHER HERO */
   weatherHero: { borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(74,222,128,0.2)', marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 },
   weatherTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
@@ -467,8 +442,6 @@ const styles = StyleSheet.create({
   weatherStatBoxes: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   miniStatBox: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   miniStatText: { color: '#e2e8f0', fontSize: 11, fontWeight: '600' },
-
-  /* ROW CARDS */
   rowCards: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   halfCardWrapper: { width: '48%' },
   halfCard: { height: 90, borderRadius: 20, padding: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 4 },
@@ -479,8 +452,6 @@ const styles = StyleSheet.create({
   halfCardSubGold: { fontSize: 12, fontWeight: '700', color: '#fbbf24' },
   miniProgressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, width: 60 },
   miniProgressFill: { height: 4, backgroundColor: '#22c55e', borderRadius: 2 },
-
-  /* MISSION CIRCLE */
   missionCircleContainer: { alignItems: 'center', marginBottom: 24, paddingVertical: 10 },
   outerGlowRing: { width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(34,197,94,0.08)', alignItems: 'center', justifyContent: 'center' },
   circleInnerContent: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
@@ -488,12 +459,8 @@ const styles = StyleSheet.create({
   circleLabel: { fontSize: 11, color: '#86efac', fontWeight: '600' },
   levelBadgeAmber: { backgroundColor: '#d97706', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, marginTop: -15, borderWidth: 2, borderColor: '#053B24' },
   levelBadgeAmberText: { color: '#fffbeb', fontSize: 11, fontWeight: '800' },
-
-  /* GLASS CARDS */
   glassCard: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', marginBottom: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', marginBottom: 16 },
-
-  /* INSIGHTS */
   insightRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   insightIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   insightText: { flex: 1, color: '#ffffff', fontSize: 13, fontWeight: '500' },
@@ -501,16 +468,12 @@ const styles = StyleSheet.create({
   chipGreenText: { color: '#4ade80', fontSize: 11, fontWeight: '700' },
   chipAmber: { backgroundColor: 'rgba(245,158,11,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   chipAmberText: { color: '#fde68a', fontSize: 11, fontWeight: '700' },
-
-  /* HEALTH GRID */
   healthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   healthItem: { width: '48%', backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 16, marginBottom: 12 },
   healthLabel: { color: '#e2e8f0', fontSize: 13, fontWeight: '600', marginBottom: 8 },
   healthBarTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, marginBottom: 6 },
   healthBarFill: { height: 6, borderRadius: 3 },
   healthValue: { color: '#94a3b8', fontSize: 11, fontWeight: '500' },
-
-  /* TOOLS GRID */
   toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   toolCard: { width: '48%', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   toolHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
