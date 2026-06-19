@@ -3,12 +3,11 @@ import { View, Text, TouchableOpacity, FlatList, StyleSheet, SafeAreaView } from
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
+import { useLanguage, LangCode } from '../context/LanguageContext';
 
-const LANG_KEY = 'app_language';
-const LANGUAGES = [
+const LANGUAGES: { code: LangCode; label: string }[] = [
   { code: 'en', label: 'English' },
   { code: 'hi', label: 'हिंदी (Hindi)' },
   { code: 'ml', label: 'മലയാളം (Malayalam)' },
@@ -23,29 +22,18 @@ const LANGUAGES = [
 
 export default function LanguageScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<string | null>(null);
+  const { lang, t, setLanguage } = useLanguage();
+  const [selected, setSelected] = useState<LangCode>(lang);
 
+  // If user already has a saved language, pre-select it
   useEffect(() => {
-    (async () => {
-      try {
-        // ✅ FIX: Replaced localStorage with mobile-safe AsyncStorage
-        const saved = await AsyncStorage.getItem(LANG_KEY);
-        if (saved) setSelected(saved);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
+    setSelected(lang);
+  }, [lang]);
 
   async function onContinue() {
     if (!selected) return;
-    try {
-      // ✅ FIX: Replaced localStorage with mobile-safe AsyncStorage
-      await AsyncStorage.setItem(LANG_KEY, selected);
-    } catch {
-      // ignore
-    }
-    // go to auth and replace so user can't go back to language selection
+    // ✅ This saves to AsyncStorage AND updates context → whole app translates
+    await setLanguage(selected);
     router.replace('/auth');
   }
 
@@ -70,11 +58,7 @@ export default function LanguageScreen() {
   }
 
   return (
-    // ✅ REDESIGN: Updated background colors to meet Auth/Onboarding design spec
-    <LinearGradient
-      colors={['#021F0F', '#053B24', '#0A5C38']}
-      style={styles.gradient}
-    >
+    <LinearGradient colors={['#021F0F', '#053B24', '#0A5C38']} style={styles.gradient}>
       <StatusBar style="light" backgroundColor="transparent" />
       <SafeAreaView style={styles.container}>
 
@@ -83,8 +67,9 @@ export default function LanguageScreen() {
           <View style={styles.iconContainer}>
             <Ionicons name="language" size={36} color="#22c55e" />
           </View>
-          <Text style={styles.title}>Welcome to AgriFusion</Text>
-          <Text style={styles.subtitle}>Select your preferred language</Text>
+          {/* ✅ These now use translation keys */}
+          <Text style={styles.title}>{t.language.welcome}</Text>
+          <Text style={styles.subtitle}>{t.language.selectLanguage}</Text>
         </Animated.View>
 
         {/* --- LIST --- */}
@@ -110,7 +95,10 @@ export default function LanguageScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.btnGradient}
             >
-              <Text style={styles.continueText}>{selected ? 'Continue →' : 'Choose a language'}</Text>
+              {/* ✅ Button text from translations */}
+              <Text style={styles.continueText}>
+                {selected ? `${t.common.continue} →` : t.language.choosePrompt}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -121,121 +109,22 @@ export default function LanguageScreen() {
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-  },
-  iconContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#ECFDF5',
-    marginBottom: 10,
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#BBF7D0',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  list: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    paddingBottom: 110, // Avoid clearance issues with absolute positioned footer button
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.15)',
-    marginBottom: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  itemActive: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderColor: '#4ade80',
-  },
-  label: {
-    flex: 1,
-    fontSize: 17,
-    color: '#ECFDF5',
-    fontWeight: '600',
-  },
-  labelActive: {
-    color: '#4ade80',
-    fontWeight: '700',
-  },
-  radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioCircleActive: {
-    backgroundColor: '#4ade80',
-    borderColor: '#4ade80',
-  },
-  bottomContainer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 24,
-    right: 24,
-  },
-  continue: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  continueDisabled: {
-    opacity: 0.5,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  btnGradient: {
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
+  gradient: { flex: 1 },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  header: { alignItems: 'center', paddingTop: 40, paddingBottom: 24, paddingHorizontal: 24 },
+  iconContainer: { width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(34, 197, 94, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.3)', shadowColor: '#22c55e', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  title: { fontSize: 30, fontWeight: '800', color: '#ECFDF5', marginBottom: 10, textAlign: 'center', letterSpacing: -0.5 },
+  subtitle: { fontSize: 16, color: '#BBF7D0', textAlign: 'center', fontWeight: '500' },
+  list: { paddingHorizontal: 24, paddingVertical: 10, paddingBottom: 110 },
+  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.15)', marginBottom: 14, backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+  itemActive: { backgroundColor: 'rgba(34, 197, 94, 0.15)', borderColor: '#4ade80' },
+  label: { flex: 1, fontSize: 17, color: '#ECFDF5', fontWeight: '600' },
+  labelActive: { color: '#4ade80', fontWeight: '700' },
+  radioCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center' },
+  radioCircleActive: { backgroundColor: '#4ade80', borderColor: '#4ade80' },
+  bottomContainer: { position: 'absolute', bottom: 30, left: 24, right: 24 },
+  continue: { borderRadius: 16, overflow: 'hidden', shadowColor: '#22c55e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 6 },
+  continueDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
+  btnGradient: { paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  continueText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.5 },
 });

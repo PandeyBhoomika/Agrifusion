@@ -4,13 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
+import { useLanguage } from '../../context/LanguageContext';
 
-// Ensure your .env has your laptop's actual IP address!
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-// --- DATA INTERFACES ---
 interface FarmTask {
-  id: string; // Will map from MongoDB _id if necessary
+  id: string;
   title: string;
   description: string;
   category: 'irrigation' | 'soil' | 'pest' | 'harvest' | 'organic';
@@ -22,23 +21,12 @@ interface FarmTask {
   difficulty: 'easy' | 'medium' | 'hard';
 }
 
-// --- FALLBACK MOCK DATA ---
 const INITIAL_TASKS: FarmTask[] = [
-  {
-    id: 't1', title: 'Drip Irrigation Check', description: 'Inspect the main water line for leaks and ensure all drip emitters are flowing.',
-    category: 'irrigation', xpReward: 15, coinReward: 5, dueDate: new Date(), isCompleted: false, requiresProof: false, difficulty: 'easy',
-  },
-  {
-    id: 't2', title: 'Apply Neem Oil Spray', description: 'Spray neem oil mixture on the tomato crop to prevent aphid infestation.',
-    category: 'pest', xpReward: 30, coinReward: 10, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'medium',
-  },
-  {
-    id: 't3', title: 'Soil Testing Sample', description: 'Collect 5 soil samples from the northern plot and send to the lab.',
-    category: 'soil', xpReward: 50, coinReward: 20, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'hard',
-  },
+  { id: 't1', title: 'Drip Irrigation Check', description: 'Inspect the main water line for leaks and ensure all drip emitters are flowing.', category: 'irrigation', xpReward: 15, coinReward: 5, dueDate: new Date(), isCompleted: false, requiresProof: false, difficulty: 'easy' },
+  { id: 't2', title: 'Apply Neem Oil Spray', description: 'Spray neem oil mixture on the tomato crop to prevent aphid infestation.', category: 'pest', xpReward: 30, coinReward: 10, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'medium' },
+  { id: 't3', title: 'Soil Testing Sample', description: 'Collect 5 soil samples from the northern plot and send to the lab.', category: 'soil', xpReward: 50, coinReward: 20, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'hard' },
 ];
 
-// --- HELPER CONFIGS ---
 const CATEGORY_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
   irrigation: { color: '#3b82f6', icon: '💧', label: 'Irrigation' },
   soil: { color: '#b45309', icon: '🪨', label: 'Soil' },
@@ -51,63 +39,53 @@ const DIFFICULTY_EMOJI: Record<string, string> = {
   easy: '🌱', medium: '🌿', hard: '🌳',
 };
 
-const FILTERS = ['All', 'Today', 'Irrigation', 'Soil', 'Pest', 'Organic'];
-
 export default function TasksScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+
   const [tasks, setTasks] = useState<FarmTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
 
-  // --- FETCH FROM BACKEND ---
+  // ✅ Translated filters — defined inside component so t is available
+  const FILTERS = [t.tasks.all, t.tasks.today, 'Irrigation', 'Soil', 'Pest', 'Organic'];
+
   useEffect(() => {
     const fetchTasks = async () => {
       setIsLoading(true);
       try {
-        console.log(`🌐 Fetching tasks from: ${API_BASE_URL}/tasks`);
         const response = await fetch(`${API_BASE_URL}/tasks`);
-
         if (response.ok) {
           const data = await response.json();
-          // Map MongoDB _id to id if necessary, and ensure array
           const fetchedTasks = Array.isArray(data) ? data : (data.tasks || []);
-          const normalizedTasks = fetchedTasks.map((t: any) => ({
-            ...t,
-            id: t._id || t.id,
-          }));
+          const normalizedTasks = fetchedTasks.map((task: any) => ({ ...task, id: task._id || task.id }));
           setTasks(normalizedTasks.length > 0 ? normalizedTasks : INITIAL_TASKS);
         } else {
-          console.warn('⚠️ Failed to fetch tasks from API, using fallback data');
           setTasks(INITIAL_TASKS);
         }
       } catch (error) {
-        console.error('🚨 Connection Failed. Check your EXPO_PUBLIC_API_URL in .env:', error);
-        setTasks(INITIAL_TASKS); // Fallback so UI doesn't break
+        console.error('Connection Failed:', error);
+        setTasks(INITIAL_TASKS);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchTasks();
   }, []);
 
-  // --- DERIVED STATE ---
   const completedTasks = tasks.filter(t => t.isCompleted).length;
-  const earnedXP = tasks.filter(t => t.isCompleted).reduce((sum, t) => sum + (t.xpReward || 0), 0);
+  const earnedXP = tasks.filter(t => t.isCompleted).reduce((sum, task) => sum + (task.xpReward || 0), 0);
 
   const filteredTasks = useMemo(() => {
-    if (activeFilter === 'All') return tasks;
-    if (activeFilter === 'Today') {
-      return tasks.filter(t => !t.isCompleted);
-    }
-    return tasks.filter(t => CATEGORY_CONFIG[t.category]?.label === activeFilter);
-  }, [tasks, activeFilter]);
+    if (activeFilter === t.tasks.all || activeFilter === 'All') return tasks;
+    if (activeFilter === t.tasks.today || activeFilter === 'Today') return tasks.filter(task => !task.isCompleted);
+    return tasks.filter(task => CATEGORY_CONFIG[task.category]?.label === activeFilter);
+  }, [tasks, activeFilter, t]);
 
-  // --- ACTIONS ---
   const handleMarkDone = (task: FarmTask) => {
     if (task.requiresProof) {
-      // router.push({ pathname: '/proof-submission', params: { taskId: task.id }});
-      alert('This task requires a photo! Opening camera...');
+      // ✅ Translated
+      alert(t.tasks.requiresPhoto);
       completeTask(task.id);
     } else {
       completeTask(task.id);
@@ -115,20 +93,12 @@ export default function TasksScreen() {
   };
 
   const completeTask = async (id: string) => {
-    // 1. Optimistic UI Update (instant feedback for the user)
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: true } : t));
-
-    // 2. Sync with Backend
+    setTasks(prev => prev.map(task => task.id === id ? { ...task, isCompleted: true } : task));
     try {
-      console.log(`📡 Marking task complete: ${API_BASE_URL}/tasks/${id}/complete`);
       const response = await fetch(`${API_BASE_URL}/tasks/${id}/complete`, {
-        method: 'POST', // or PATCH/PUT depending on your backend
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
       });
-
-      if (!response.ok) {
-        console.warn('Failed to sync completion with backend.');
-      }
+      if (!response.ok) console.warn('Failed to sync completion with backend.');
     } catch (error) {
       console.error('Failed to connect to backend to complete task:', error);
     }
@@ -137,25 +107,27 @@ export default function TasksScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={StyleSheet.absoluteFillObject} />
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* --- HEADER --- */}
+        {/* HEADER */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.header}>
-          <Text style={styles.headerTitle}>This Week's Missions 🌾</Text>
+          {/* ✅ Translated */}
+          <Text style={styles.headerTitle}>{t.tasks.weeklyMissions}</Text>
           <Text style={styles.headerDate}>June 4 - June 10</Text>
         </Animated.View>
 
-        {/* --- PROGRESS SUMMARY --- */}
+        {/* PROGRESS SUMMARY */}
         <Animated.View entering={FadeInUp.delay(200).duration(400)} style={styles.summaryCard}>
           <View style={styles.summaryStats}>
             <View>
-              <Text style={styles.summaryLabel}>Tasks Done</Text>
+              {/* ✅ Translated */}
+              <Text style={styles.summaryLabel}>{t.tasks.tasksDone}</Text>
               <Text style={styles.summaryValue}>{completedTasks}/{tasks.length || 0}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View>
-              <Text style={styles.summaryLabel}>XP Earned</Text>
+              {/* ✅ Translated */}
+              <Text style={styles.summaryLabel}>{t.tasks.xpEarned}</Text>
               <Text style={styles.summaryValueXP}>{earnedXP} XP</Text>
             </View>
           </View>
@@ -164,44 +136,41 @@ export default function TasksScreen() {
           </View>
         </Animated.View>
 
-        {/* --- FILTERS --- */}
+        {/* FILTERS */}
         <Animated.ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+          horizontal showsHorizontalScrollIndicator={false}
           style={styles.filterContainer}
           entering={SlideInRight.delay(300).duration(400)}
         >
           {FILTERS.map((filter) => (
             <TouchableOpacity
-              key={filter}
-              activeOpacity={0.75}
+              key={filter} activeOpacity={0.75}
               onPress={() => setActiveFilter(filter)}
               style={[styles.filterChip, activeFilter === filter && styles.filterChipActive]}
             >
-              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                {filter}
-              </Text>
+              <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>{filter}</Text>
             </TouchableOpacity>
           ))}
         </Animated.ScrollView>
 
-        {/* --- TASK LIST --- */}
+        {/* TASK LIST */}
         <View style={styles.taskList}>
           {isLoading ? (
             <Animated.View entering={ZoomIn.duration(400)} style={{ paddingVertical: 40, alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#166534" />
-              <Text style={{ marginTop: 12, color: '#166534', fontWeight: '600' }}>Fetching your missions...</Text>
+              {/* ✅ Translated */}
+              <Text style={{ marginTop: 12, color: '#166534', fontWeight: '600' }}>{t.tasks.fetchingMissions}</Text>
             </Animated.View>
           ) : filteredTasks.length === 0 ? (
             <Animated.View entering={ZoomIn.delay(400)} style={styles.emptyState}>
               <Text style={styles.emptyStateEmoji}>🌱</Text>
-              <Text style={styles.emptyStateText}>No tasks today — great job! 🎉</Text>
+              {/* ✅ Translated */}
+              <Text style={styles.emptyStateText}>{t.tasks.noTasksToday}</Text>
             </Animated.View>
           ) : (
             filteredTasks.map((task, index) => {
-              const conf = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG['organic']; // fallback config
+              const conf = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG['organic'];
               const diffEmoji = DIFFICULTY_EMOJI[task.difficulty] || '🌱';
-
               return (
                 <Animated.View
                   key={task.id}
@@ -209,19 +178,14 @@ export default function TasksScreen() {
                   style={[styles.taskCard, task.isCompleted && styles.taskCardCompleted]}
                 >
                   <TouchableOpacity activeOpacity={0.75} style={styles.taskCardTouchArea}>
-                    {/* Left Color Stripe */}
                     <View style={[styles.colorStripe, { backgroundColor: conf.color }]} />
-
                     <View style={styles.taskCardInner}>
-                      {/* Top Row: Icon + Title + XP */}
                       <View style={styles.taskHeaderRow}>
                         <View style={[styles.iconCircle, { backgroundColor: `${conf.color}20` }]}>
                           <Text style={styles.categoryEmoji}>{conf.icon}</Text>
                         </View>
                         <View style={styles.titleContainer}>
-                          <Text style={[styles.taskTitle, task.isCompleted && styles.strikethrough]}>
-                            {task.title}
-                          </Text>
+                          <Text style={[styles.taskTitle, task.isCompleted && styles.strikethrough]}>{task.title}</Text>
                           <Text style={styles.difficultyText}>
                             {diffEmoji} {task.difficulty ? task.difficulty.charAt(0).toUpperCase() + task.difficulty.slice(1) : 'Standard'}
                           </Text>
@@ -230,29 +194,21 @@ export default function TasksScreen() {
                           <Text style={styles.xpBadgeText}>+{task.xpReward} XP</Text>
                         </View>
                       </View>
-
-                      {/* Middle Row: Description */}
                       <Text style={styles.taskDesc} numberOfLines={2}>{task.description}</Text>
-
-                      {/* Bottom Row: Actions */}
                       <View style={styles.taskFooterRow}>
                         {task.isCompleted ? (
                           <View style={styles.completedBadge}>
                             <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
-                            <Text style={styles.completedText}>Completed</Text>
+                            {/* ✅ Translated */}
+                            <Text style={styles.completedText}>{t.tasks.completed}</Text>
                           </View>
                         ) : (
-                          <TouchableOpacity
-                            style={styles.markDoneBtn}
-                            activeOpacity={0.8}
-                            onPress={() => handleMarkDone(task)}
-                          >
-                            <Text style={styles.markDoneBtnText}>Mark Done</Text>
+                          <TouchableOpacity style={styles.markDoneBtn} activeOpacity={0.8} onPress={() => handleMarkDone(task)}>
+                            {/* ✅ Translated */}
+                            <Text style={styles.markDoneBtnText}>{t.tasks.markDone}</Text>
                             {task.requiresProof && <Ionicons name="camera" size={16} color="#ffffff" style={{ marginLeft: 6 }} />}
                           </TouchableOpacity>
                         )}
-
-                        {/* Coins indicator */}
                         <View style={styles.coinIndicator}>
                           <FontAwesome5 name="coins" size={14} color="#fbbf24" />
                           <Text style={styles.coinText}>{task.coinReward || 0}</Text>
@@ -267,7 +223,7 @@ export default function TasksScreen() {
         </View>
       </ScrollView>
 
-      {/* --- FLOATING ACTION BUTTON --- */}
+      {/* FAB */}
       <Animated.View entering={ZoomIn.delay(800).duration(400)} style={styles.fabContainer}>
         <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
           <MaterialIcons name="add" size={32} color="#ffffff" />
