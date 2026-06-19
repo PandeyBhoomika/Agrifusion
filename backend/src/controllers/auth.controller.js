@@ -30,48 +30,44 @@ export const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email)
+    if (!email) {
       return res.status(400).json({
         success: false,
         message: "Email is required",
       });
+    }
 
     const otp = generateOtp();
 
-    // Save / Update OTP
+    // Upsert the OTP for this email (replaces any existing one)
     await Otp.findOneAndUpdate(
       { email },
-      { code: otp, createdAt: new Date() },
+      { email, code: otp, createdAt: new Date() },
       { upsert: true, new: true }
     );
 
-    // Send email
-    await transporter.sendMail({
-      from: `"AgriFusion 🌱" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your OTP for AgriFusion",
-      html: `
-        <div style="font-family: Arial;">
-          <h2>AgriFusion OTP Verification</h2>
-          <p>Your OTP is:</p>
-          <h1 style="letter-spacing: 4px;">${otp}</h1>
-          <p>This OTP is valid for <b>${OTP_EXPIRY_MINUTES} minutes</b>.</p>
-          <p>If you did not request this, ignore this email.</p>
-        </div>
-      `,
-    });
+    // Dev convenience: print the code to the server console
+    console.log(`\n========================================`);
+    console.log(`🔑 OTP for ${email}: ${otp}`);
+    console.log(`========================================\n`);
 
-    console.log(`✅ OTP sent to ${email}: ${otp}`);
+    // Send the OTP by email
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your AgriFusion verification code",
+      text: `Your AgriFusion OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+    });
 
     return res.json({
       success: true,
-      message: "OTP sent to email",
+      message: "OTP sent successfully",
     });
   } catch (error) {
     console.error("❌ Send OTP error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to send OTP email",
+      message: "Failed to send OTP",
     });
   }
 };
@@ -81,21 +77,23 @@ export const sendOtp = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp, password } = req.body;
-    if (!email || !otp)
+
+    if (!email || !otp) {
       return res.status(400).json({
         success: false,
         message: "Email and OTP required",
       });
+    }
 
     const record = await Otp.findOne({ email });
 
-    if (!record)
+    if (!record) {
       return res.status(400).json({
         success: false,
         message: "OTP not found. Please request a new one.",
       });
-    
-  
+    }
+
     // Check expiry
     const age =
       (Date.now() - new Date(record.createdAt).getTime()) / 60000;
@@ -108,34 +106,32 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    if (record.code !== otp)
+    if (record.code !== otp) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP. Please try again.",
       });
+    }
 
-    // ✅ FIX: Declare user and isNewUser — the original code used these
-    // variables without ever declaring or assigning them, causing the crash.
+    // Find or create the user
     let user = await User.findOne({ email });
     let isNewUser = false;
 
     if (!user) {
-  // Brand new user — create their account now
-  user = await User.create({
-    email,
-    emailVerified: true,
-  });
-  // Save the password chosen at signup so they can log in later
-  if (password) {
-    await user.setPassword(password);
-    await user.save();
-  }
-  isNewUser = true;
-} else if (!user.profile || !user.profile.profileCompleted) {
-      // Returning user who never finished farm-profile setup
-      // Mark them as "new" so the app routes them to farm-profile
+      // Brand new user — create their account now
+      user = await User.create({
+        email,
+        emailVerified: true,
+      });
+      // Save the password chosen at signup so they can log in later
+      if (password) {
+        await user.setPassword(password);
+        await user.save();
+      }
       isNewUser = true;
-      // Ensure emailVerified is up to date
+    } else if (!user.profile || !user.profile.profileCompleted) {
+      // Returning user who never finished farm-profile setup
+      isNewUser = true;
       if (!user.emailVerified) {
         user.emailVerified = true;
         await user.save();
@@ -173,11 +169,12 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user || !(await user.validatePassword(password)))
+    if (!user || !(await user.validatePassword(password))) {
       return res.status(400).json({
         success: false,
         message: "Invalid credentials",
       });
+    }
 
     const token = jwt.sign(
       { userId: user._id, email },
