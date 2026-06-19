@@ -24,8 +24,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.103:4000/api';
-
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 const CROPS = [
   'Rice (Paddy)', 'Wheat', 'Maize (Corn)', 'Jowar (Sorghum)', 'Bajra (Pearl Millet)',
   'Ragi (Finger Millet)', 'Cotton', 'Sugarcane', 'Groundnut', 'Soybean',
