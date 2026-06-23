@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mockVideos, VideoModule } from '../data/videoMockData';
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
+// ⚠️ IMPORTANT: Change 192.168.1.X to your computer's actual IPv4 address if testing on a real phone!
+// If using an Android Emulator, use 'http://10.0.2.2:4000'
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.X:4000';
 
 export interface VideoResponse {
   success: boolean;
@@ -34,6 +35,24 @@ export interface VideoProgressData {
 }
 
 /**
+ * Helper to get the Auth Token for Protected Backend Routes
+ */
+const getAuthHeaders = async () => {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    if (token) {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+    }
+  } catch (error) {
+    console.warn("Error getting auth token", error);
+  }
+  return { 'Content-Type': 'application/json' };
+};
+
+/**
  * Fetch all learning videos from API
  * Falls back to mock data if API fails
  */
@@ -41,9 +60,7 @@ export const fetchAllVideos = async (): Promise<VideoModule[]> => {
   try {
     const response = await fetch(`${API_BASE_URL}/videos`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -72,9 +89,7 @@ export const fetchVideosByCategory = async (category: string): Promise<VideoModu
   try {
     const response = await fetch(`${API_BASE_URL}/videos/category/${category}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -103,9 +118,7 @@ export const fetchVideoById = async (videoId: string): Promise<VideoModule | nul
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -149,9 +162,7 @@ export const updateVideoProgress = async (
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify({
         progress,
         currentTime,
@@ -185,9 +196,7 @@ export const getVideoProgress = async (videoId: string): Promise<VideoProgressDa
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -283,9 +292,7 @@ export const searchVideos = async (query: string): Promise<VideoModule[]> => {
   try {
     const response = await fetch(`${API_BASE_URL}/videos/search?q=${encodeURIComponent(query)}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {

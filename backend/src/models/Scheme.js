@@ -2,12 +2,13 @@ import mongoose from 'mongoose';
 
 const schemeSchema = new mongoose.Schema(
     {
-        title: { type: String, required: true },
+        title:       { type: String, required: true },
         description: { type: String, required: true },
-        eligibility: { type: [String], required: true }, // e.g., ["Small farmer", "Kerala resident"]
-        state: { type: String, default: 'National' }, // Or "Kerala", "Maharashtra", etc.
-        link: { type: String }, // Official application link
-        isActive: { type: Boolean, default: true }
+        eligibility: { type: [String], required: true },
+        state:       { type: String, default: 'National' }, // 'National' | state name
+        link:        { type: String },
+        category:    { type: String, default: 'general' }, // NEW: financial-assistance, insurance, credit, etc.
+        isActive:    { type: Boolean, default: true }
     },
     { timestamps: true }
 );
