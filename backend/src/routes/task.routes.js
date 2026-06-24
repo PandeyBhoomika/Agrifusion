@@ -1,13 +1,16 @@
 import express from 'express';
+import { optionalAuth } from '../middleware/auth.js';
 // Make sure completeTask is added to this import list:
 import { getTasks, createTask, completeTask } from '../controllers/task.controller.js';
 
 const router = express.Router();
 
-router.get('/', getTasks);
-router.post('/', createTask);
+// For development: use optionalAuth to allow testing without JWT
+// For production: switch to 'auth' middleware
+router.get('/', optionalAuth, getTasks);
+router.post('/', optionalAuth, createTask);
 
-// ✅ Add this line right here to fix Bug 1:
-router.post('/:id/complete', completeTask);
+// ✅ Mark a task as complete
+router.post('/:id/complete', optionalAuth, completeTask);
 
 export default router;

@@ -5,6 +5,57 @@ import User from '../models/User.js';
 // Get all active tasks
 export const getTasks = async (req, res) => {
     try {
+        const userId = req.user?.userId || req.user?.id;
+        
+        // For development: return mock tasks if user is dev user
+        if (userId === "dev-user-123") {
+            return res.status(200).json({ 
+                success: true, 
+                count: 3, 
+                data: [
+                    {
+                        _id: 't1',
+                        title: 'Drip Irrigation Check',
+                        description: 'Inspect the main water line for leaks and ensure all drip emitters are flowing.',
+                        category: 'Water Conservation',
+                        xpReward: 15,
+                        coinReward: 5,
+                        dueDate: new Date(),
+                        isCompleted: false,
+                        requiresProof: false,
+                        difficulty: 'Easy',
+                        isActive: true,
+                    },
+                    {
+                        _id: 't2',
+                        title: 'Apply Neem Oil Spray',
+                        description: 'Spray neem oil mixture on the tomato crop to prevent aphid infestation.',
+                        category: 'Pest Control',
+                        xpReward: 30,
+                        coinReward: 10,
+                        dueDate: new Date(),
+                        isCompleted: false,
+                        requiresProof: true,
+                        difficulty: 'Medium',
+                        isActive: true,
+                    },
+                    {
+                        _id: 't3',
+                        title: 'Soil Testing Sample',
+                        description: 'Collect 5 soil samples from the northern plot and send to the lab.',
+                        category: 'Soil Health',
+                        xpReward: 50,
+                        coinReward: 20,
+                        dueDate: new Date(),
+                        isCompleted: false,
+                        requiresProof: true,
+                        difficulty: 'Hard',
+                        isActive: true,
+                    },
+                ] 
+            });
+        }
+
         const tasks = await Task.find({ isActive: true }).sort({ createdAt: -1 });
         res.status(200).json({ success: true, count: tasks.length, data: tasks });
     } catch (error) {

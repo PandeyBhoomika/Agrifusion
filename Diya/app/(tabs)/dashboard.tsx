@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useFocusEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   RefreshControl, SafeAreaView, ActivityIndicator, Animated, Easing,
@@ -11,6 +11,8 @@ import * as Location from 'expo-location';
 import Reanimated, { FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserContext';
+import { useTasks } from '../../context/TaskContext';
 
 const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
 
@@ -56,23 +58,43 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
 export default function PersonalizedDashboard() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { user, loading, refreshUser } = useUser();
+  const { pendingTasks, refreshTasks } = useTasks();
 
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
 
-  const progressValue = 72;
-  const level = 4;
-  const todaysXP = 34;
-  const streakDays = 3;
-
   const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Calculate XP progress to next level ─────────────────────────────
+  // Assuming each level needs ~1000 XP
+  const XP_PER_LEVEL = 1000;
+  const currentLevelXP = user ? (user.xp % XP_PER_LEVEL) : 0;
+  const progressValue = user ? Math.round((currentLevelXP / XP_PER_LEVEL) * 100) : 72;
+  const xpToNextLevel = user ? (XP_PER_LEVEL - currentLevelXP) : 180;
+  const level = user?.level || 4;
+  const todaysXP = user?.xp ? (user.xp % 100) : 34; // Simplified calculation
+  const streakDays = user?.streakDays || 3;
+  const fullName = user?.fullName || 'Farmer';
+  const avatarEmoji = '👨‍🌾';
+  
+  // ── Real pending tasks count ─────────────────────────────────
+  const pendingTasksCount = pendingTasks.length;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // ── Refresh user data whenever dashboard comes into focus ─────────────
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Dashboard focused - refreshing user data');
+      refreshUser().catch(err => console.error('Failed to refresh user on focus:', err));
+    }, [refreshUser])
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -102,10 +124,10 @@ export default function PersonalizedDashboard() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadWeather();
+    await Promise.all([loadWeather(), refreshUser(), refreshTasks()]);
     setNow(new Date());
     setTimeout(() => setRefreshing(false), 800);
-  }, []);
+  }, [refreshUser, refreshTasks]);
 
   const goToTasks = () => router.push('/(tabs)/tasks');
   const goToProofSubmit = () => router.push('/proof-submission');
@@ -146,14 +168,23 @@ export default function PersonalizedDashboard() {
             <View>
               {/* ✅ Translated */}
               <Text style={styles.greetingText}>{greeting}, 🌾</Text>
-              <Text style={styles.userName}>Farmer</Text>
-              <Text style={styles.dateText}>
-                {now.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </Text>
+              {loading ? (
+                <>
+                  <View style={{ width: 120, height: 28, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, marginVertical: 4 }} />
+                  <View style={{ width: 100, height: 14, backgroundColor: 'rgba(134,239,172,0.1)', borderRadius: 4, marginTop: 4 }} />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.userName}>{fullName}</Text>
+                  <Text style={styles.dateText}>
+                    {now.toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
+                  </Text>
+                </>
+              )}
             </View>
             <View style={styles.avatarContainer}>
               <View style={styles.avatarCircle}>
-                <Text style={{ fontSize: 24 }}>👨‍🌾</Text>
+                <Text style={{ fontSize: 24 }}>{avatarEmoji}</Text>
               </View>
               <View style={styles.levelBadge}>
                 <Text style={styles.levelBadgeText}>Lv.{level}</Text>
@@ -162,10 +193,10 @@ export default function PersonalizedDashboard() {
           </View>
           <View style={styles.headerBottomRow}>
             <View style={styles.headerXpTrack}>
-              <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: '40%' }]} />
+              <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: `${progressValue}%` }]} />
             </View>
             {/* ✅ Translated */}
-            <Text style={styles.headerXpLabel}>180 {t.dashboard.xpToLevel} {level + 1}</Text>
+            <Text style={styles.headerXpLabel}>{xpToNextLevel} {t.dashboard.xpToLevel} {level + 1}</Text>
           </View>
         </Reanimated.View>
 
@@ -246,14 +277,14 @@ export default function PersonalizedDashboard() {
                   rotation="-90" origin="75, 75" />
               </Svg>
               <View style={styles.circleInnerContent}>
-                <Text style={{ fontSize: 28 }}>👨‍🌾</Text>
+                <Text style={{ fontSize: 28 }}>{avatarEmoji}</Text>
                 <Text style={styles.circlePercentage}>{progressValue}%</Text>
                 {/* ✅ Translated */}
                 <Text style={styles.circleLabel}>{t.dashboard.missionProgress}</Text>
               </View>
             </View>
             <View style={styles.levelBadgeAmber}>
-              <Text style={styles.levelBadgeAmberText}>🌟 Lv.{level} Eco Farmer</Text>
+              <Text style={styles.levelBadgeAmberText}>🌟 Lv.{level} {level < 3 ? 'Farmer' : level < 6 ? 'Eco Farmer' : 'Master Farmer'}</Text>
             </View>
           </Reanimated.View>
 
@@ -318,7 +349,7 @@ export default function PersonalizedDashboard() {
                     <Feather name="check-circle" size={20} color="#ef4444" />
                   </View>
                   <View style={[styles.toolBadge, { backgroundColor: 'rgba(239,68,68,0.2)' }]}>
-                    <Text style={[styles.toolBadgeText, { color: '#fca5a5' }]}>3 {t.dashboard.pending}</Text>
+                    <Text style={[styles.toolBadgeText, { color: '#fca5a5' }]}>{pendingTasksCount} {t.dashboard.pending}</Text>
                   </View>
                 </View>
                 <Text style={styles.toolTitle}>{t.dashboard.tasks}</Text>

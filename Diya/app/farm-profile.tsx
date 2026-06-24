@@ -192,6 +192,7 @@ export default function FarmProfile() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [form, setForm] = useState({
+    fullName: '',
     location: '', panchayat: '', district: '', state: '', farmSize: '',
     primaryCrops: [] as string[], soilType: '', waterAvailability: '',
     currentSeason: detectSeason(t),

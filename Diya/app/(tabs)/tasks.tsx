@@ -1,113 +1,87 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
 import { useLanguage } from '../../context/LanguageContext';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
-
-interface FarmTask {
-  id: string;
-  title: string;
-  description: string;
-  category: 'irrigation' | 'soil' | 'pest' | 'harvest' | 'organic';
-  xpReward: number;
-  coinReward: number;
-  dueDate: Date | string;
-  isCompleted: boolean;
-  requiresProof: boolean;
-  difficulty: 'easy' | 'medium' | 'hard';
-}
-
-const INITIAL_TASKS: FarmTask[] = [
-  { id: 't1', title: 'Drip Irrigation Check', description: 'Inspect the main water line for leaks and ensure all drip emitters are flowing.', category: 'irrigation', xpReward: 15, coinReward: 5, dueDate: new Date(), isCompleted: false, requiresProof: false, difficulty: 'easy' },
-  { id: 't2', title: 'Apply Neem Oil Spray', description: 'Spray neem oil mixture on the tomato crop to prevent aphid infestation.', category: 'pest', xpReward: 30, coinReward: 10, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'medium' },
-  { id: 't3', title: 'Soil Testing Sample', description: 'Collect 5 soil samples from the northern plot and send to the lab.', category: 'soil', xpReward: 50, coinReward: 20, dueDate: new Date(), isCompleted: false, requiresProof: true, difficulty: 'hard' },
-];
+import { useTasks } from '../../context/TaskContext';
+import type { Task } from '../../context/TaskContext';
 
 const CATEGORY_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
-  irrigation: { color: '#3b82f6', icon: '💧', label: 'Irrigation' },
-  soil: { color: '#b45309', icon: '🪨', label: 'Soil' },
-  pest: { color: '#ef4444', icon: '🐛', label: 'Pest' },
-  harvest: { color: '#f59e0b', icon: '🧺', label: 'Harvest' },
-  organic: { color: '#10b981', icon: '♻️', label: 'Organic' },
+  'Water Conservation': { color: '#3b82f6', icon: '💧', label: 'Water' },
+  'Soil Health': { color: '#b45309', icon: '🪨', label: 'Soil' },
+  'Pest Control': { color: '#ef4444', icon: '🐛', label: 'Pest' },
+  'Crop Management': { color: '#f59e0b', icon: '🧺', label: 'Harvest' },
+  'General': { color: '#10b981', icon: '♻️', label: 'General' },
+  // Lowercase versions for compatibility
+  'water conservation': { color: '#3b82f6', icon: '💧', label: 'Water' },
+  'soil health': { color: '#b45309', icon: '🪨', label: 'Soil' },
+  'pest control': { color: '#ef4444', icon: '🐛', label: 'Pest' },
+  'crop management': { color: '#f59e0b', icon: '🧺', label: 'Harvest' },
+  'general': { color: '#10b981', icon: '♻️', label: 'General' },
 };
 
 const DIFFICULTY_EMOJI: Record<string, string> = {
-  easy: '🌱', medium: '🌿', hard: '🌳',
+  Easy: '🌱',
+  Medium: '🌿',
+  Hard: '🌳',
+  easy: '🌱',
+  medium: '🌿',
+  hard: '🌳',
 };
 
 export default function TasksScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-
-  const [tasks, setTasks] = useState<FarmTask[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { tasks, completedTasks, pendingTasks, loading, refreshTasks, completeTask } = useTasks();
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
 
   // ✅ Translated filters — defined inside component so t is available
-  const FILTERS = [t.tasks.all, t.tasks.today, 'Irrigation', 'Soil', 'Pest', 'Organic'];
+  const FILTERS = [t.tasks.all, t.tasks.today, 'Water', 'Soil', 'Pest', 'General'];
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`${API_BASE_URL}/tasks`);
-        if (response.ok) {
-          const data = await response.json();
-          const fetchedTasks = Array.isArray(data) ? data : (data.tasks || []);
-          const normalizedTasks = fetchedTasks.map((task: any) => ({ ...task, id: task._id || task.id }));
-          setTasks(normalizedTasks.length > 0 ? normalizedTasks : INITIAL_TASKS);
-        } else {
-          setTasks(INITIAL_TASKS);
-        }
-      } catch (error) {
-        console.error('Connection Failed:', error);
-        setTasks(INITIAL_TASKS);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchTasks();
-  }, []);
-
-  const completedTasks = tasks.filter(t => t.isCompleted).length;
-  const earnedXP = tasks.filter(t => t.isCompleted).reduce((sum, task) => sum + (task.xpReward || 0), 0);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshTasks();
+    setTimeout(() => setRefreshing(false), 800);
+  };
 
   const filteredTasks = useMemo(() => {
     if (activeFilter === t.tasks.all || activeFilter === 'All') return tasks;
-    if (activeFilter === t.tasks.today || activeFilter === 'Today') return tasks.filter(task => !task.isCompleted);
-    return tasks.filter(task => CATEGORY_CONFIG[task.category]?.label === activeFilter);
-  }, [tasks, activeFilter, t]);
+    if (activeFilter === t.tasks.today || activeFilter === 'Today') return pendingTasks;
+    
+    // Filter by category label
+    const categoryMap: Record<string, string[]> = {
+      'Water': ['Water Conservation', 'water conservation'],
+      'Soil': ['Soil Health', 'soil health'],
+      'Pest': ['Pest Control', 'pest control'],
+      'General': ['General', 'general'],
+    };
+    
+    const targetCategories = categoryMap[activeFilter] || [];
+    return tasks.filter(task => targetCategories.includes(task.category));
+  }, [tasks, pendingTasks, activeFilter, t]);
 
-  const handleMarkDone = (task: FarmTask) => {
+  const handleMarkDone = async (task: Task) => {
     if (task.requiresProof) {
       // ✅ Translated
       alert(t.tasks.requiresPhoto);
-      completeTask(task.id);
-    } else {
-      completeTask(task.id);
     }
+    await completeTask(task._id || task.id || '');
   };
 
-  const completeTask = async (id: string) => {
-    setTasks(prev => prev.map(task => task.id === id ? { ...task, isCompleted: true } : task));
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks/${id}/complete`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-      });
-      if (!response.ok) console.warn('Failed to sync completion with backend.');
-    } catch (error) {
-      console.error('Failed to connect to backend to complete task:', error);
-    }
-  };
+  const completedCount = completedTasks.length;
+  const earnedXP = completedTasks.reduce((sum, task) => sum + (task.xpReward || 0), 0);
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={StyleSheet.absoluteFillObject} />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22c55e" />}
+      >
 
         {/* HEADER */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.header}>
@@ -122,7 +96,7 @@ export default function TasksScreen() {
             <View>
               {/* ✅ Translated */}
               <Text style={styles.summaryLabel}>{t.tasks.tasksDone}</Text>
-              <Text style={styles.summaryValue}>{completedTasks}/{tasks.length || 0}</Text>
+              <Text style={styles.summaryValue}>{completedCount}/{tasks.length || 0}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View>
@@ -132,7 +106,7 @@ export default function TasksScreen() {
             </View>
           </View>
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: tasks.length > 0 ? `${(completedTasks / tasks.length) * 100}%` : '0%' }]} />
+            <View style={[styles.progressBarFill, { width: tasks.length > 0 ? `${(completedCount / tasks.length) * 100}%` : '0%' }]} />
           </View>
         </Animated.View>
 
@@ -155,7 +129,7 @@ export default function TasksScreen() {
 
         {/* TASK LIST */}
         <View style={styles.taskList}>
-          {isLoading ? (
+          {loading ? (
             <Animated.View entering={ZoomIn.duration(400)} style={{ paddingVertical: 40, alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#166534" />
               {/* ✅ Translated */}
@@ -169,11 +143,12 @@ export default function TasksScreen() {
             </Animated.View>
           ) : (
             filteredTasks.map((task, index) => {
-              const conf = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG['organic'];
+              const conf = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG['general'];
               const diffEmoji = DIFFICULTY_EMOJI[task.difficulty] || '🌱';
+              const taskId = task._id || task.id || `task-${index}`;
               return (
                 <Animated.View
-                  key={task.id}
+                  key={taskId}
                   entering={FadeInUp.delay(400 + (index * 100)).duration(400)}
                   style={[styles.taskCard, task.isCompleted && styles.taskCardCompleted]}
                 >
