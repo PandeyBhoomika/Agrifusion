@@ -12,7 +12,10 @@ import videoRoutes from "./routes/video.routes.js";
 import quizRoutes from "./routes/quiz.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import schemeRoutes from "./routes/scheme.routes.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ─── Development mode ─────────────────────────────────
 console.log("⚠️ Running without env validation");
 
@@ -21,7 +24,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 // ─── MongoDB ──────────────────────────────────────────
 if (process.env.MONGO_URI) {
   mongoose

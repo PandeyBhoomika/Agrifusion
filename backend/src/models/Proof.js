@@ -13,8 +13,17 @@ const proofSchema = new mongoose.Schema(
             required: true,
         },
         proofUrl: {
-            type: String, // In a real app, this would be an S3 or Cloudinary URL
+            type: String,
             required: true,
+        },
+        audioUrl: {
+            type: String,
+            default: '',
+        },
+        location: {
+            lat: { type: String, default: '' },
+            lon: { type: String, default: '' },
+            capturedAt: { type: Date, default: null },
         },
         status: {
             type: String,

@@ -18,26 +18,15 @@ export const auth = (req, res, next) => {
   }
 };
 
-// Optional auth middleware — allows requests to proceed even without a valid token
-// Useful for development/testing. In production, use the regular 'auth' middleware
 export const optionalAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    // No token provided, but that's okay for optional auth
-    req.user = { userId: "dev-user-123", email: "dev@agrifusion.com" };
-    return next();
-  }
+  if (!authHeader) return next();
 
   const token = authHeader.split(" ")[1];
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
-    // Invalid token, but proceed with mock user anyway
-    req.user = { userId: "dev-user-123", email: "dev@agrifusion.com" };
-    next();
+    // invalid/expired token on an optional route — proceed unauthenticated
   }
+  next();
 };
