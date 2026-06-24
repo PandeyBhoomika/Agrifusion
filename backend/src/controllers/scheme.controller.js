@@ -1,13 +1,13 @@
 import Scheme from '../models/Scheme.js';
 
-// Get schemes (optionally filter by state)
+// GET /api/schemes?state=Maharashtra
 export const getSchemes = async (req, res) => {
     try {
-        const { state } = req.query; // Check if frontend passed ?state=Kerala
+        const { state } = req.query;
 
         let query = { isActive: true };
 
-        // If state is provided, show National schemes AND the user's state schemes
+        // Show National schemes + the user's state schemes
         if (state) {
             query.state = { $in: ['National', state] };
         }
@@ -17,6 +17,16 @@ export const getSchemes = async (req, res) => {
         res.status(200).json({ success: true, count: schemes.length, data: schemes });
     } catch (error) {
         console.error('Error fetching schemes:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// GET /api/schemes/categories  — returns unique category list
+export const getSchemeCategories = async (req, res) => {
+    try {
+        const categories = await Scheme.distinct('category', { isActive: true });
+        res.status(200).json({ success: true, data: categories });
+    } catch (error) {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };

@@ -1,216 +1,172 @@
-// Government Schemes Service - Fetch schemes from Kerala Agriculture Department
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GovernmentScheme {
+  // Fields from MongoDB (_id comes as id after JSON serialisation)
   id: string;
-  name: string;
+  _id?: string;
+  title: string;          // backend field name (was "name" in old mock)
+  name?: string;          // kept for backward-compat with old mock data
   description: string;
-  amount: string;
-  status: string;
-  department: string;
-  eligibility: string;
-  applicationLink: string;
+  eligibility: string[];  // backend sends array; screen joins to string when needed
+  state: string;          // 'National' | 'Maharashtra' | 'Kerala' etc.
+  link: string;           // backend field name (was "applicationLink")
+  applicationLink?: string;
   category: string;
+  isActive: boolean;
+  // Extra display fields computed on the frontend (not in DB)
+  amount?: string;
+  status?: string;
+  department?: string;
 }
 
-// Ensure your .env file has your laptop's actual IP address (e.g. 192.168.43.15)
-// Localhost will fail on physical devices!
+// ─── Config ───────────────────────────────────────────────────────────────────
+
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
-/**
- * Kerala Government Agricultural Schemes
- * Source: Kerala State Agriculture Department
- */
-export const keralaSchemes: GovernmentScheme[] = [
+// ─── Normaliser ───────────────────────────────────────────────────────────────
+// Backend and the old mock use different field names. This function makes
+// both look the same so the schemes.tsx screen needs zero changes.
+
+export const normaliseScheme = (raw: any): GovernmentScheme => ({
+  id:              raw._id   || raw.id,
+  title:           raw.title || raw.name || '',
+  name:            raw.title || raw.name || '',          // keep for screen compat
+  description:     raw.description || '',
+  eligibility:     Array.isArray(raw.eligibility)
+                     ? raw.eligibility
+                     : [raw.eligibility || ''],
+  state:           raw.state || 'National',
+  link:            raw.link  || raw.applicationLink || '',
+  applicationLink: raw.link  || raw.applicationLink || '', // keep for screen compat
+  category:        raw.category || 'general',
+  isActive:        raw.isActive !== undefined ? raw.isActive : true,
+  // Display extras — not in DB, shown only when backend doesn't send them
+  amount:          raw.amount     || '',
+  status:          raw.status     || (raw.isActive !== false ? 'Active' : 'Inactive'),
+  department:      raw.department || raw.state || '',
+});
+
+// ─── Fallback mock data (shown when API is unreachable) ───────────────────────
+
+export const fallbackSchemes: GovernmentScheme[] = [
   {
-    id: 'ks1',
-    name: 'Karshaka Samridhi',
-    description: 'Financial assistance for farmers to improve agricultural productivity',
-    amount: '₹10,000 - ₹50,000',
-    status: 'Active',
-    department: 'Kerala Agriculture Department',
-    eligibility: 'Small and marginal farmers with land up to 2 hectares',
-    applicationLink: 'https://keralaagriculture.gov.in',
-    category: 'financial-assistance'
+    id: 'fb1', title: 'PM-KISAN Samman Nidhi', name: 'PM-KISAN Samman Nidhi',
+    description: 'Direct income support of Rs. 6000 per year to land-holding farmer families.',
+    eligibility: ['Small and marginal farmers', 'Must own cultivable land'],
+    state: 'National', link: 'https://pmkisan.gov.in', applicationLink: 'https://pmkisan.gov.in',
+    category: 'income-support', isActive: true, amount: '₹6,000/year', status: 'Active',
+    department: 'Government of India',
   },
   {
-    id: 'ks2',
-    name: 'Subhiksha Keralam',
-    description: 'Integrated farming development program for sustainable agriculture',
-    amount: 'Up to ₹1,00,000',
-    status: 'Active',
-    department: 'Kerala Agriculture Department',
-    eligibility: 'Farmers with minimum 0.25 acre of land',
-    applicationLink: 'https://keralaagriculture.gov.in/subhiksha',
-    category: 'integrated-farming'
+    id: 'fb2', title: 'Pradhan Mantri Fasal Bima Yojana', name: 'Pradhan Mantri Fasal Bima Yojana',
+    description: 'Crop insurance scheme providing financial support for crop loss due to natural calamities.',
+    eligibility: ['All farmers including sharecroppers', 'Growing notified crops'],
+    state: 'National', link: 'https://pmfby.gov.in', applicationLink: 'https://pmfby.gov.in',
+    category: 'insurance', isActive: true, amount: '2% premium for Kharif', status: 'Active',
+    department: 'Ministry of Agriculture',
   },
   {
-    id: 'ks3',
-    name: 'Kerala Vegetable and Fruit Promotion Programme',
-    description: 'Support for vegetable and fruit cultivation including subsidy for planting materials',
-    amount: '50% subsidy',
-    status: 'Active',
-    department: 'Vegetable and Fruit Promotion Council Keralam (VFPCK)',
-    eligibility: 'All farmers engaged in vegetable and fruit cultivation',
-    applicationLink: 'https://vfpck.org',
-    category: 'horticulture'
-  },
-  {
-    id: 'ks4',
-    name: 'Organic Farming Assistance',
-    description: 'Financial support for organic farming certification and inputs',
-    amount: '₹15,000 - ₹30,000 per hectare',
-    status: 'Active',
-    department: 'Kerala State Organic Farming Board',
-    eligibility: 'Farmers converting to organic farming',
-    applicationLink: 'https://keralaagriculture.gov.in/organic',
-    category: 'organic-farming'
-  },
-  {
-    id: 'ks5',
-    name: 'Coconut Development Board Schemes',
-    description: 'Support for coconut plantation, rejuvenation and value addition',
-    amount: 'Varies by scheme',
-    status: 'Active',
-    department: 'Coconut Development Board',
-    eligibility: 'Coconut farmers and entrepreneurs',
-    applicationLink: 'https://coconutboard.gov.in',
-    category: 'plantation-crops'
-  },
-  {
-    id: 'ks6',
-    name: 'Rashtriya Krishi Vikas Yojana (RKVY)',
-    description: 'State plan scheme for agriculture and allied sector development',
-    amount: 'Project-based funding',
-    status: 'Active',
-    department: 'Kerala Agriculture Department',
-    eligibility: 'Farmer groups, cooperatives, and institutions',
-    applicationLink: 'https://rkvy.nic.in',
-    category: 'development'
-  },
-  {
-    id: 'ks7',
-    name: 'Soil Health Card Scheme',
-    description: 'Free soil testing and soil health card distribution',
-    amount: 'Free service',
-    status: 'Active',
-    department: 'Department of Agriculture Development & Farmers Welfare',
-    eligibility: 'All farmers',
-    applicationLink: 'https://soilhealth.dac.gov.in',
-    category: 'soil-health'
-  },
-  {
-    id: 'ks8',
-    name: 'PM-KISAN (Kerala)',
-    description: 'Direct income support to farmer families',
-    amount: '₹6,000/year',
-    status: 'Active',
-    department: 'Government of India (implemented by Kerala)',
-    eligibility: 'Land-holding farmer families',
-    applicationLink: 'https://pmkisan.gov.in',
-    category: 'income-support'
-  },
-  {
-    id: 'ks9',
-    name: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)',
-    description: 'Crop insurance scheme for all farmers',
-    amount: '2% premium for Kharif, 1.5% for Rabi',
-    status: 'Active',
-    department: 'Ministry of Agriculture & Farmers Welfare',
-    eligibility: 'All farmers including sharecroppers and tenant farmers',
-    applicationLink: 'https://pmfby.gov.in',
-    category: 'insurance'
-  },
-  {
-    id: 'ks10',
-    name: 'Kisan Credit Card (KCC)',
-    description: 'Credit support for agriculture and allied activities',
-    amount: 'Up to ₹3 lakh',
-    status: 'Active',
+    id: 'fb3', title: 'Kisan Credit Card (KCC)', name: 'Kisan Credit Card (KCC)',
+    description: 'Affordable credit for agricultural operations, post-harvest expenses, and farm maintenance.',
+    eligibility: ['All farmers including tenant farmers', 'Age 18-75 years'],
+    state: 'National', link: 'https://www.nabard.org', applicationLink: 'https://www.nabard.org',
+    category: 'credit', isActive: true, amount: 'Up to ₹3 lakh', status: 'Active',
     department: 'NABARD & Commercial Banks',
-    eligibility: 'All farmers including tenant farmers',
-    applicationLink: 'https://www.nabard.org/content1.aspx?id=523',
-    category: 'credit'
   },
   {
-    id: 'ks11',
-    name: 'Micro Irrigation Scheme',
-    description: 'Subsidy for drip and sprinkler irrigation systems',
-    amount: '40-55% subsidy',
-    status: 'Active',
-    department: 'Kerala Agriculture Department',
-    eligibility: 'Farmers with irrigation facilities',
-    applicationLink: 'https://keralaagriculture.gov.in',
-    category: 'irrigation'
+    id: 'fb4', title: 'Soil Health Card Scheme', name: 'Soil Health Card Scheme',
+    description: 'Free soil testing and crop-wise nutrient recommendations for individual farms.',
+    eligibility: ['All farmers', 'No restrictions on land size'],
+    state: 'National', link: 'https://soilhealth.dac.gov.in', applicationLink: 'https://soilhealth.dac.gov.in',
+    category: 'soil-health', isActive: true, amount: 'Free service', status: 'Active',
+    department: 'Dept. of Agriculture & Farmers Welfare',
   },
-  {
-    id: 'ks12',
-    name: 'Krishibhavan Support Services',
-    description: 'Extension services, training, and technical assistance',
-    amount: 'Free service',
-    status: 'Active',
-    department: 'Local Krishibhavan offices',
-    eligibility: 'All farmers',
-    applicationLink: 'https://keralaagriculture.gov.in',
-    category: 'training'
-  }
 ];
 
+// ─── API functions ─────────────────────────────────────────────────────────────
+
 /**
- * Fetch all government schemes from API or return Kerala schemes
+ * Fetch schemes from backend.
+ * Passes the user's saved state so the API filters National + state-specific schemes.
+ * Falls back to fallbackSchemes if the API is unreachable.
  */
-export const fetchGovernmentSchemes = async (): Promise<GovernmentScheme[]> => {
+export const fetchGovernmentSchemes = async (
+  userState?: string
+): Promise<GovernmentScheme[]> => {
   try {
-    console.log(`🌐 Fetching schemes from: ${API_BASE_URL}/schemes`);
-    const response = await fetch(`${API_BASE_URL}/schemes`, {
+    // Get state from param or from AsyncStorage (saved at login / farm-profile setup)
+    const state = userState || (await AsyncStorage.getItem('userState')) || '';
+
+    const url = state
+      ? `${API_BASE_URL}/schemes?state=${encodeURIComponent(state)}`
+      : `${API_BASE_URL}/schemes`;
+
+    console.log(`🌐 Fetching schemes from: ${url}`);
+
+    const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      console.warn('⚠️ Failed to fetch schemes from API, falling back to local Kerala schemes');
-      return keralaSchemes;
+      console.warn('⚠️ API returned non-OK status, using fallback schemes');
+      return fallbackSchemes;
     }
 
-    const data = await response.json();
+    const json = await response.json();
 
-    if (data.schemes && Array.isArray(data.schemes)) {
-      return data.schemes;
+    // Backend returns { success: true, count: N, data: [...] }
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      console.log(`✅ Loaded ${json.data.length} schemes from API`);
+      return json.data.map(normaliseScheme);
     }
 
-    return keralaSchemes;
+    console.warn('⚠️ API returned empty data, using fallback schemes');
+    return fallbackSchemes;
+
   } catch (error) {
-    console.error(`🚨 Connection Failed: Tried to reach ${API_BASE_URL}/schemes. Make sure your .env has your laptop's Wi-Fi IP address, not localhost!`);
-    return keralaSchemes;
+    console.error(
+      `🚨 Connection failed: could not reach ${API_BASE_URL}/schemes.\n` +
+      `   Make sure EXPO_PUBLIC_API_URL in your .env points to your laptop's Wi-Fi IP, not localhost!`
+    );
+    return fallbackSchemes;
   }
 };
 
 /**
- * Fetch schemes by category
- * @param category - Category to filter by
+ * Filter schemes by category on the frontend (avoids extra API round-trip).
  */
-export const fetchSchemesByCategory = (category: string): GovernmentScheme[] => {
-  return keralaSchemes.filter(scheme => scheme.category === category);
+export const filterSchemesByCategory = (
+  schemes: GovernmentScheme[],
+  category: string
+): GovernmentScheme[] => {
+  if (category === 'all') return schemes;
+  return schemes.filter(s => s.category === category);
 };
 
 /**
- * Get active schemes (all Kerala schemes are active)
+ * Search schemes by title, description, category, or state.
  */
-export const getActiveSchemes = (): GovernmentScheme[] => {
-  return keralaSchemes.filter(scheme => scheme.status === 'Active');
-};
-
-/**
- * Search schemes by name or description
- * @param query - Search query
- */
-export const searchSchemes = (query: string): GovernmentScheme[] => {
-  const lowerQuery = query.toLowerCase();
-  return keralaSchemes.filter(
-    scheme =>
-      scheme.name.toLowerCase().includes(lowerQuery) ||
-      scheme.description.toLowerCase().includes(lowerQuery) ||
-      scheme.category.toLowerCase().includes(lowerQuery)
+export const searchSchemes = (
+  schemes: GovernmentScheme[],
+  query: string
+): GovernmentScheme[] => {
+  const q = query.toLowerCase().trim();
+  if (!q) return schemes;
+  return schemes.filter(s =>
+    (s.title || s.name || '').toLowerCase().includes(q) ||
+    s.description.toLowerCase().includes(q) ||
+    s.category.toLowerCase().includes(q) ||
+    s.state.toLowerCase().includes(q) ||
+    (s.department || '').toLowerCase().includes(q)
   );
 };
+
+// Legacy exports — keeps older imports working without changes
+export { fallbackSchemes as keralaSchemes };
+export const fetchSchemesByCategory = (category: string) =>
+  fallbackSchemes.filter(s => s.category === category);
+export const getActiveSchemes = () =>
+  fallbackSchemes.filter(s => s.isActive !== false);
