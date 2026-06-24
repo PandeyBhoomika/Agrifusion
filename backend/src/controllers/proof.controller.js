@@ -5,13 +5,59 @@ import User from '../models/User.js'; // Assuming you are converting User.js to 
 // Submit proof for a task
 export const submitProof = async (req, res) => {
     try {
-        const { userId, taskId, proofUrl } = req.body;
+        const userId = req.user?.userId || req.body.userId;
+        const { taskId, location } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'A valid logged-in user is required to submit proof.' });
+        }
+        if (!taskId) {
+            return res.status(400).json({ success: false, message: 'taskId is required.' });
+        }
+        const photoFile = req.files?.photo?.[0];
+        if (!photoFile) {
+            return res.status(400).json({ success: false, message: 'A photo is required as proof.' });
+        }
+        const audioFile = req.files?.audio?.[0];
+
+        let parsedLocation = {};
+        if (location) {
+            try {
+                const loc = JSON.parse(location);
+                parsedLocation = { lat: loc.lat, lon: loc.lon, capturedAt: loc.time ? new Date(loc.time) : new Date() };
+            } catch {}
+        }
 
         const newProof = await Proof.create({
             userId,
             taskId,
-            proofUrl,
+            proofUrl: `/uploads/proofs/${photoFile.filename}`,
+            audioUrl: audioFile ? `/uploads/proofs/${audioFile.filename}` : '',
+            location: parsedLocation,
         });
+
+        // ✅ Auto-approve for now (per project decision) — no manual review yet.
+        // This grants XP/coins immediately and unlocks the next stage task.
+        const task = await Task.findById(taskId);
+        if (task) {
+            const alreadyApproved = task.completedBy.some((entry) => entry.userId.toString() === userId.toString());
+            if (!alreadyApproved) {
+                task.completedBy.push({ userId, completedAt: new Date() });
+                await task.save();
+
+                await User.findByIdAndUpdate(userId, {
+                    $inc: {
+                        xp: task.xpReward || 0,
+                        greenCoins: task.coinReward || 0,
+                    },
+                });
+
+                newProof.status = 'Approved';
+                newProof.xpAwarded = task.xpReward || 0;
+                newProof.coinsAwarded = task.coinReward || 0;
+                await newProof.save();
+            }
+        }
 
         res.status(201).json({ success: true, data: newProof });
     } catch (error) {

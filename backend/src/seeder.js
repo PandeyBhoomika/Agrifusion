@@ -16,7 +16,9 @@ const tasks = [
         xpReward: 100,
         coinReward: 20,
         category: "Soil Health",
-        difficulty: "Easy"
+        difficulty: "Easy",
+        stageOrder: 1,
+        requiresProof: true
     },
     {
         title: "Install Drip Irrigation",
@@ -24,7 +26,9 @@ const tasks = [
         xpReward: 300,
         coinReward: 50,
         category: "Water Conservation",
-        difficulty: "Hard"
+        difficulty: "Hard",
+        stageOrder: 2,
+        requiresProof: true
     }
 ];
 

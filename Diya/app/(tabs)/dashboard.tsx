@@ -108,7 +108,10 @@ export default function PersonalizedDashboard() {
   }, []);
 
   const goToTasks = () => router.push('/(tabs)/tasks');
-  const goToProofSubmit = () => router.push('/proof-submission');
+  // Proof submission needs a specific taskId, which only exists when you tap
+// "Mark Done" on a task that requires proof — so route here instead of
+// opening proof-submission with no task context.
+const goToProofSubmit = () => router.push('/tasks');
   const goToRewards = () => router.push('/rewards');
   const goToLearningHub = () => router.push('/(tabs)/learninghub');
   const goToCommunity = () => router.push('/(tabs)/communitydashboard');

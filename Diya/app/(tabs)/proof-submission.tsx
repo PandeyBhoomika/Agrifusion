@@ -15,7 +15,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 
@@ -23,6 +24,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/a
 
 export default function ProofSubmissionScreen() {
   const router = useRouter();
+  const { taskId, title, xpReward } = useLocalSearchParams<{ taskId?: string; title?: string; xpReward?: string }>();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -89,42 +91,62 @@ export default function ProofSubmissionScreen() {
     });
   };
 
-  /* ------------------ SUBMIT PROOF (BUG 5 FIX) ------------------ */
+  /* ------------------ SUBMIT PROOF ------------------ */
   const submitProof = async () => {
     if (!photo) return;
+    if (!taskId) {
+      setStatus("No task selected ❌");
+      return;
+    }
 
     setIsLoading(true);
     setStatus("Uploading proof... 📡");
 
     try {
+      const token = await AsyncStorage.getItem("authToken");
+      const storedUser = await AsyncStorage.getItem("user");
+      const userId = storedUser ? JSON.parse(storedUser)?._id : undefined;
+
       const formData = new FormData();
 
-      // 1. Append Photo
-      const filename = photo.split("/").pop() || "proof.jpg";
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
-      formData.append("photo", { uri: photo, name: filename, type } as any);
+        // ✅ Web fix: on web, expo-image-picker gives a blob: URI, and
+        // React Native Web's FormData polyfill needs a real Blob/File object,
+        // not the { uri, name, type } shorthand that only works on native.
+        // Fetching the blob: URI and appending the resulting Blob works on
+        // both web and native.
+        const filename = photo.split("/").pop()?.split("?")[0] || "proof.jpg";
+        const photoMatch = /\.(\w+)$/.exec(filename);
+        const photoType = photoMatch ? `image/${photoMatch[1]}` : `image/jpeg`;
 
-      // 2. Append Audio (if exists)
-      if (audioUri) {
-        const audioName = audioUri.split("/").pop() || "audio.m4a";
-        formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
-      }
+        if (Platform.OS === "web") {
+          const photoBlob = await (await fetch(photo)).blob();
+          formData.append("photo", photoBlob, filename);
+        } else {
+          formData.append("photo", { uri: photo, name: filename, type: photoType } as any);
+        }
 
-      // 3. Append Metadata
+        if (audioUri) {
+          const audioName = audioUri.split("/").pop()?.split("?")[0] || "audio.m4a";
+          if (Platform.OS === "web") {
+            const audioBlob = await (await fetch(audioUri)).blob();
+            formData.append("audio", audioBlob, audioName);
+          } else {
+            formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
+          }
+        }
+
       if (location) {
         formData.append("location", JSON.stringify(location));
       }
-      formData.append("missionId", "mission_mulching_01"); // Replace with dynamic ID if passed via params
-
-      console.log(`🚀 Submitting proof to: ${API_BASE_URL}/proofs/submit`);
+      formData.append("taskId", taskId);
+      if (userId) formData.append("userId", userId);
 
       const response = await fetch(`${API_BASE_URL}/proofs/submit`, {
         method: "POST",
         body: formData,
         headers: {
-          // fetch handles multipart/form-data boundary automatically
           "Accept": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
@@ -132,11 +154,8 @@ export default function ProofSubmissionScreen() {
         throw new Error("Failed to submit proof to the server.");
       }
 
-      const data = await response.json();
+      setStatus("Submitted — awaiting review ⏳");
 
-      setStatus("Approved ✔️ +50 XP");
-
-      // Navigate back to tasks after success
       setTimeout(() => {
         router.back();
       }, 2000);
@@ -175,7 +194,7 @@ export default function ProofSubmissionScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.missionLabel}>Current Mission</Text>
-              <Text style={styles.missionTitleText}>Organic Mulching Application</Text>
+              <Text style={styles.missionTitleText}>{title || "Field Task"}</Text>
             </View>
           </Animated.View>
 
