@@ -105,9 +105,13 @@ export const fetchGovernmentSchemes = async (
 
     console.log(`🌐 Fetching schemes from: ${url}`);
 
+    const token = await AsyncStorage.getItem('authToken');
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
     });
 
     if (!response.ok) {
