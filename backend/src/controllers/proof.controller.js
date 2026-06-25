@@ -5,7 +5,8 @@ import User from '../models/User.js'; // Assuming you are converting User.js to 
 // Submit proof for a task
 export const submitProof = async (req, res) => {
     try {
-        const { userId, taskId, proofUrl } = req.body;
+        const userId = req.user.userId; // from the verified token, not the client
+        const { taskId, proofUrl } = req.body;
 
         const newProof = await Proof.create({
             userId,

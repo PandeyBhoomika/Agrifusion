@@ -31,8 +31,7 @@ export const completeTask = async (req, res) => {
         const taskId = req.params.id;
 
         // Grab userId from your auth middleware (req.user) OR from the request body
-        const userId = req.user?.userId || req.body.userId;
-
+        const userId = req.user.userId;
         // ✅ THE FIX: Prevent Mongoose CastError by checking if the ID is valid first
         if (!mongoose.Types.ObjectId.isValid(taskId)) {
             console.log(`⚠️ Mock task "${taskId}" completed. Skipping DB update.`);
