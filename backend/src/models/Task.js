@@ -34,7 +34,25 @@ const taskSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true,
-        }
+        },
+        // Used to sequence tasks: 1 = first stage, 2 = next, etc.
+        stageOrder: {
+            type: Number,
+            default: 1,
+        },
+        // Whether completing this task requires photo/audio/GPS proof
+        // (routes through proof-submission) vs a plain one-tap completion.
+        requiresProof: {
+            type: Boolean,
+            default: false,
+        },
+        completedBy: [
+            {
+                userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+                completedAt: { type: Date, default: Date.now },
+            },
+        ],
+        
     },
     { timestamps: true }
 );

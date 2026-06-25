@@ -1,363 +1,409 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList,
-  Modal, TextInput as RNTextInput, ScrollView, StyleSheet, Platform, ActivityIndicator,
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  TextInput as RNTextInput,
+  ScrollView,
+  StyleSheet,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInUp, ZoomIn, SlideInRight } from 'react-native-reanimated';
-import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLanguage } from '../../context/LanguageContext';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+const { width } = Dimensions.get('window');
+const COLUMN_WIDTH = (width - 16 * 2 - 12) / 2; // 16px screen padding, 12px gap
 
-const FALLBACK_POSTS = [
-  {
-    id: '1',
-    author: { name: 'Rajesh Kumar', location: 'Punjab, India', avatar: '👨‍🌾', verified: true, level: 4 },
-    content: 'Just completed installing drip irrigation in my wheat field! 💧 Reduced water usage by 40% and plants are healthier than ever. #WaterConservation',
-    timestamp: '2 hours ago', likes: 24, comments: 8, shares: 3, liked: true, isSuccessStory: false,
-  }
+// --- Mock data ---
+const STORIES = [
+  { id: 'me', name: 'Your Story', avatar: '➕', isMe: true },
+  { id: '1', name: 'Suresh', avatar: '👨‍🌾' },
+  { id: '2', name: 'Kavitha', avatar: '👩‍🌾' },
+  { id: '3', name: 'Ravi', avatar: '👨‍🌾' },
+  { id: '4', name: 'Meena', avatar: '👩‍🌾' },
 ];
 
-export default function CommunityDashboard() {
-  const router = useRouter();
-  const { t } = useLanguage();
+const POSTS = [
+  {
+    id: '1',
+    author: { name: 'Ravi Kumar', avatar: '👨‍🌾', level: 4, location: 'Nashik' },
+    timestamp: '2h ago',
+    content: 'Neem oil spray worked really well against aphids this season 🌱',
+    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800',
+    height: 220,
+    likes: 24,
+    comments: 2,
+    shares: 3,
+  },
+  {
+    id: '2',
+    author: { name: 'Meena Patil', avatar: '👩‍🌾', level: 6, location: 'Pune' },
+    timestamp: '4h ago',
+    content: 'Drip irrigation setup cut my water usage by 40% 💧',
+    image: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=800',
+    height: 300,
+    likes: 58,
+    comments: 9,
+    shares: 6,
+  },
+  {
+    id: '3',
+    author: { name: 'Suresh Naik', avatar: '👨‍🌾', level: 8, location: 'Kolhapur' },
+    timestamp: '6h ago',
+    content: 'Harvest day! Organic turmeric finally ready 🌾',
+    image: 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=800',
+    height: 260,
+    likes: 91,
+    comments: 14,
+    shares: 11,
+  },
+  {
+    id: '4',
+    author: { name: 'Kavitha Rao', avatar: '👩‍🌾', level: 5, location: 'Belagavi' },
+    timestamp: '1d ago',
+    content: 'Composting setup for the new season 🍂',
+    image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800',
+    height: 190,
+    likes: 33,
+    comments: 5,
+    shares: 2,
+  },
+];
 
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
-  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
-  const [isPosting, setIsPosting] = useState(false);
+const REELS = [
+  {
+    id: 'r1',
+    title: '🎥 Organic Fertilizer Tips',
+    sub: '240 likes • 12 comments',
+    image: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=1200',
+  },
+  {
+    id: 'r2',
+    title: '💧 Smart Irrigation Hacks',
+    sub: '185 likes • 9 comments',
+    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200',
+  },
+];
+
+type TabKey = 'feed' | 'reels' | 'challenges' | 'leaderboard';
+
+const TABS: { key: TabKey; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'feed', icon: 'grid-outline' },
+  { key: 'reels', icon: 'play-circle-outline' },
+  { key: 'challenges', icon: 'flag-outline' },
+  { key: 'leaderboard', icon: 'trophy-outline' },
+];
+
+export default function CommunityScreen() {
+  const [selectedTab, setSelectedTab] = useState<TabKey>('feed');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'feed' | 'challenges' | 'leaderboard'>('feed');
+  const [notifications] = useState(3);
+  const [posts] = useState(POSTS);
+
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
-  const [notifications] = useState(3);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const userStr = await AsyncStorage.getItem('user');
-        if (userStr) setCurrentUser(JSON.parse(userStr));
-      } catch (e) { console.warn("Failed to load user"); }
-      fetchFeed();
-    };
-    init();
-  }, []);
+  const [showComments, setShowComments] = useState(false);
+  const [heartPostId, setHeartPostId] = useState<string | null>(null);
 
-  const fetchFeed = async () => {
-    setIsLoadingFeed(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/community`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.data && Array.isArray(data.data)) {
-          const mappedPosts = data.data.map((p: any) => ({
-            id: p._id,
-            author: { name: p.userId?.fullName || 'Farmer', location: p.userId?.state || 'India', avatar: '👨‍🌾', verified: true, level: p.userId?.level || 1 },
-            content: p.content,
-            timestamp: new Date(p.createdAt).toLocaleDateString(),
-            likes: p.likes?.length || 0, comments: p.comments?.length || 0, shares: 0,
-            liked: currentUser ? p.likes?.includes(currentUser._id) : false,
-            isSuccessStory: false,
-          }));
-          setPosts(mappedPosts);
-          return;
-        }
-      }
-      setPosts(FALLBACK_POSTS);
-    } catch (error) {
-      console.warn("Failed to fetch feed, using fallback.", error);
-      setPosts(FALLBACK_POSTS);
-    } finally { setIsLoadingFeed(false); }
+  const handleDoubleTap = (id: string) => {
+    setHeartPostId(id);
+    setTimeout(() => setHeartPostId(null), 800);
   };
 
-  const handleCreatePost = async () => {
-    if (!newPostContent.trim()) return;
-    setIsPosting(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/community`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser?._id || 'mock_user_id', content: newPostContent })
-      });
-      if (res.ok) {
-        await fetchFeed();
-        setNewPostContent('');
-        setShowCreatePost(false);
-      } else {
-        // ✅ Translated
-        alert(t.community.failedPost);
-      }
-    } catch (error) {
-      console.error("Post creation failed:", error);
-      // ✅ Translated
-      alert(t.community.networkError);
-    } finally { setIsPosting(false); }
-  };
+  // Split posts into two masonry columns
+  const leftColumn = posts.filter((_, i) => i % 2 === 0);
+  const rightColumn = posts.filter((_, i) => i % 2 === 1);
 
-  const handleLikePost = async (postId: string, currentlyLiked: boolean) => {
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) return { ...post, liked: !currentlyLiked, likes: currentlyLiked ? post.likes - 1 : post.likes + 1 };
-      return post;
-    }));
-    try {
-      await fetch(`${API_BASE_URL}/community/${postId}/like`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser?._id || 'mock_user_id' })
-      });
-    } catch (error) { console.error("Like toggle failed:", error); }
-  };
+  const renderPostCard = (item: (typeof POSTS)[0]) => (
+    <View key={item.id} style={styles.pinCard}>
+      <TouchableOpacity activeOpacity={0.95} onPress={() => handleDoubleTap(item.id)}>
+        <Image source={{ uri: item.image }} style={[styles.pinImage, { height: item.height }]} />
+        {heartPostId === item.id && (
+          <Animated.View entering={ZoomIn.duration(250)} style={styles.bigHeart}>
+            <Ionicons name="heart" size={64} color="#fff" />
+          </Animated.View>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.55)']}
+          style={styles.pinGradient}
+        >
+          <Text style={styles.pinContent} numberOfLines={2}>
+            {item.content}
+          </Text>
+        </LinearGradient>
+      </TouchableOpacity>
 
-  const challenges = [
-    { id: 'c1', title: 'Zero Waste Week', description: 'Implement zero waste practices in your farming operations', duration: '7 days', participants: 156, points: 500, emoji: '🌱', difficulty: 'medium', status: 'active' },
-    { id: 'c2', title: 'Smart Irrigation Challenge', description: 'Optimize water usage with smart irrigation techniques', duration: '14 days', participants: 89, points: 750, emoji: '💧', difficulty: 'hard', status: 'upcoming' },
-  ];
-
-  const leaderboard = [
-    { id: 'l1', name: 'Suresh Reddy', location: 'Telangana', avatar: '🏆', level: 6, points: 2450, rank: 1 },
-    { id: 'l2', name: 'Kavitha Singh', location: 'Karnataka', avatar: '🥈', level: 5, points: 2180, rank: 2 },
-    { id: 'l3', name: 'Ravi Kumar', location: 'Punjab', avatar: '🥉', level: 4, points: 1890, rank: 3 },
-  ];
-
-  // ✅ Translated tab labels
-  const TAB_LABELS: Record<string, string> = {
-    feed: t.community.feed,
-    challenges: t.community.challenges,
-    leaderboard: t.community.leaderboard,
-  };
+      <View style={styles.pinFooter}>
+        <View style={styles.pinAuthorRow}>
+          <View style={styles.pinAvatar}>
+            <Text style={{ fontSize: 14 }}>{item.author.avatar}</Text>
+          </View>
+          <Text style={styles.pinAuthorName} numberOfLines={1}>
+            {item.author.name}
+          </Text>
+        </View>
+        <View style={styles.pinStatsRow}>
+          <TouchableOpacity style={styles.pinStat}>
+            <Ionicons name="heart-outline" size={15} color="#5B7553" />
+            <Text style={styles.pinStatText}>{item.likes}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.pinStat} onPress={() => setShowComments(true)}>
+            <Ionicons name="chatbubble-outline" size={14} color="#5B7553" />
+            <Text style={styles.pinStatText}>{item.comments}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
-    <LinearGradient colors={['#d4efdd', '#c8e8d4', '#b8dfc8']} style={{ flex: 1 }}>
-      <StatusBar style="dark" backgroundColor="transparent" />
-      <SafeAreaView style={styles.container}>
-
+    <LinearGradient colors={['#F0FFF4', '#E8F5E9', '#F1F8E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
+      <SafeAreaView style={{ flex: 1 }}>
         {/* HEADER */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <View style={styles.headerTitle}>
-            {/* ✅ Translated */}
-            <Text style={styles.title}>{t.community.title}</Text>
-            <Text style={styles.subtitle}>{t.community.subtitle}</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>AgriFusion</Text>
+            <Text style={styles.subtitle}>Grow together, harvest together</Text>
           </View>
-          <View style={styles.rightContainer}>
-            <TouchableOpacity style={styles.iconButton} activeOpacity={0.8}>
-              <Ionicons name="notifications-outline" size={24} color="#14532d" />
-              {notifications > 0 && (
-                <View style={styles.badge}><Text style={styles.badgeText}>{notifications}</Text></View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
+
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="notifications-outline" size={22} color="#1B4332" />
+            {notifications > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notifications}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* SEARCH */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.searchRow}>
-          <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
-            <Ionicons name="search" size={20} color="#166534" style={{ marginRight: 8 }} />
+        <View style={styles.searchRow}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#9CA3AF" />
             <TextInput
               style={styles.searchInput}
-              // ✅ Translated
-              placeholder={t.community.searchPlaceholder}
+              placeholder="Search farmers, tips, crops..."
+              placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              placeholderTextColor="#6b7280"
             />
           </View>
-        </Animated.View>
+        </View>
 
-        {/* TABS */}
-        <Animated.View entering={SlideInRight.delay(200).duration(400)}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
-            {(['feed', 'challenges', 'leaderboard'] as const).map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tabItem, selectedTab === tab && styles.tabItemActive]}
-                onPress={() => setSelectedTab(tab)}
-                activeOpacity={0.8}
-              >
-                {/* ✅ Translated */}
-                <Text style={[styles.tabText, selectedTab === tab && styles.tabTextActive]}>
-                  {TAB_LABELS[tab]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
+        {/* TABS — compact icon only bar at top */}
+        <View style={styles.tabBarWrap}>
+          <View style={styles.tabBar}>
+            {TABS.map((tab) => {
+              const active = selectedTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tabPill, active && styles.tabPillActive]}
+                  onPress={() => setSelectedTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={tab.icon}
+                    size={18}
+                    color={active ? '#10b981' : '#9ca3af'}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
-        {/* FEED */}
-        {selectedTab === 'feed' ? (
-          isLoadingFeed ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#14532d" />
-              {/* ✅ Translated */}
-              <Text style={{ marginTop: 12, color: '#14532d', fontWeight: '600' }}>{t.community.loadingFeed}</Text>
+        {/* FEED — Pinterest masonry */}
+        {selectedTab === 'feed' && (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+            <View style={styles.trendingSection}>
+              <Text style={styles.sectionTitle}>🔥 Trending</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {['🌱 Organic Farming', '💧 Drip Irrigation', '🐛 Pest Control', '🍂 Composting'].map(
+                  (tag) => (
+                    <View key={tag} style={styles.trendingChip}>
+                      <Text style={styles.trendingChipText}>{tag}</Text>
+                    </View>
+                  )
+                )}
+              </ScrollView>
             </View>
-          ) : (
-            <FlatList
-              data={posts}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={
-                <Animated.View entering={FadeInUp.delay(300).duration(400)} style={styles.trendingSection}>
-                  {/* ✅ Translated */}
-                  <Text style={styles.sectionTitle}>{t.community.trendingNow}</Text>
-                  <View style={styles.trendingCard}>
-                    {['Drip Irrigation Setup', 'Organic Pesticides', 'Soil pH Testing'].map((topic, i) => (
-                      <View key={topic} style={styles.trendingRow}>
-                        <Text style={styles.trendingText}>#{topic}</Text>
-                        <Text style={styles.trendingMeta}>{`${23 - i * 5} posts • Farming`}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </Animated.View>
-              }
-              renderItem={({ item, index }) => (
-                <Animated.View entering={FadeInUp.delay(400 + (index * 100)).duration(400)}>
-                  <View style={[styles.postCard, item.isSuccessStory && styles.postCardSuccess]}>
-                    {item.isSuccessStory && (
-                      <View style={styles.successBadge}>
-                        {/* ✅ Translated */}
-                        <Text style={styles.successBadgeText}>{t.community.successStory}</Text>
-                      </View>
-                    )}
-                    <View style={styles.postHeader}>
-                      <View style={styles.avatar}><Text style={styles.avatarText}>{item.author.avatar}</Text></View>
-                      <View style={styles.postMeta}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={styles.postAuthor}>{item.author.name}</Text>
-                          {item.author.verified && <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginLeft: 4 }} />}
-                          <View style={styles.levelBadge}><Text style={styles.levelText}>Lv.{item.author.level}</Text></View>
-                        </View>
-                        <Text style={styles.postSub}>{`${item.author.location} • ${item.timestamp}`}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.postContent}>{item.content}</Text>
-                    <View style={styles.postActions}>
-                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7} onPress={() => handleLikePost(item.id, item.liked)}>
-                        <Ionicons name={item.liked ? "heart" : "heart-outline"} size={20} color={item.liked ? "#EF4444" : "#6B7280"} />
-                        <Text style={[styles.actionText, item.liked && styles.likeActive]}>{item.likes}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
-                        <Ionicons name="chatbubble-outline" size={18} color="#6B7280" />
-                        <Text style={styles.actionText}>{item.comments}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
-                        <Feather name="share-2" size={18} color="#6B7280" />
-                        <Text style={styles.actionText}>{item.shares}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Animated.View>
-              )}
-            />
-          )
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContent}>
-            {selectedTab === 'challenges' && (
-              <View>
-                {challenges.map((c, index) => (
-                  <Animated.View key={c.id} entering={FadeInUp.delay(300 + (index * 100)).duration(400)}>
-                    <View style={styles.challengeCard}>
-                      <View style={styles.challengeLeft}><Text style={styles.challengeEmoji}>{c.emoji}</Text></View>
-                      <View style={styles.challengeBody}>
-                        <View style={styles.challengeHeader}>
-                          <Text style={styles.challengeTitle} numberOfLines={1}>{c.title}</Text>
-                          <View style={[styles.challengeBadge, c.difficulty === 'hard' ? styles.badgeHard : styles.badgeMedium]}>
-                            <Text style={styles.challengeBadgeText}>{c.difficulty}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.challengeDesc}>{c.description}</Text>
-                        <View style={styles.challengeMeta}>
-                          <Text style={styles.metaText}>⏱️ {c.duration}</Text>
-                          <Text style={styles.metaText}>👥 {c.participants}</Text>
-                          <Text style={styles.metaTextGold}>🪙 {c.points} pts</Text>
-                        </View>
-                        <TouchableOpacity style={styles.outlineButton} activeOpacity={0.8}>
-                          {/* ✅ Translated */}
-                          <Text style={styles.outlineButtonText}>
-                            {c.status === 'active' ? t.community.joinChallenge : t.community.notifyMe}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </Animated.View>
-                ))}
-              </View>
-            )}
-            {selectedTab === 'leaderboard' && (
-              <View>
-                {leaderboard.map((l, index) => (
-                  <Animated.View key={l.id} entering={FadeInUp.delay(300 + (index * 100)).duration(400)}>
-                    <View style={[styles.leaderCard, l.rank === 1 ? styles.rankOne : l.rank === 2 ? styles.rankTwo : styles.rankThree]}>
-                      <View style={styles.leaderLeft}>
-                        <Text style={styles.leaderAvatar}>{l.avatar}</Text>
-                        <View style={styles.rankCircle}><Text style={styles.rankText}>#{l.rank}</Text></View>
-                      </View>
-                      <View style={styles.leaderBody}>
-                        <View style={styles.leaderHeader}>
-                          <Text style={styles.leaderName}>{l.name}</Text>
-                          <Text style={styles.leaderPoints}>{l.points.toLocaleString()} XP</Text>
-                        </View>
-                        <Text style={styles.leaderSub}>{`${l.location} • Lv.${l.level}`}</Text>
-                      </View>
-                    </View>
-                  </Animated.View>
-                ))}
-              </View>
-            )}
+
+            <View style={styles.masonryRow}>
+              <View style={styles.masonryColumn}>{leftColumn.map(renderPostCard)}</View>
+              <View style={styles.masonryColumn}>{rightColumn.map(renderPostCard)}</View>
+            </View>
           </ScrollView>
         )}
 
-        {/* FAB */}
-        <Animated.View entering={ZoomIn.delay(600).duration(400)} style={styles.fabContainer}>
-          <TouchableOpacity style={styles.fab} onPress={() => setShowCreatePost(true)} activeOpacity={0.8}>
-            <Feather name="edit-2" size={24} color="#ffffff" />
+        {/* REELS */}
+        {selectedTab === 'reels' && (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+          >
+            {REELS.map((reel) => (
+              <View key={reel.id} style={styles.reelCard}>
+                <Image source={{ uri: reel.image }} style={styles.reelImage} />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.75)']}
+                  style={styles.reelGradient}
+                >
+                  <View style={styles.reelPlayBtn}>
+                    <Ionicons name="play" size={22} color="#fff" />
+                  </View>
+                  <Text style={styles.reelTitle}>{reel.title}</Text>
+                  <Text style={styles.reelSubtitle}>{reel.sub}</Text>
+                </LinearGradient>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* CHALLENGES */}
+        {selectedTab === 'challenges' && (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+          >
+            <View style={styles.challengeCard}>
+              <Text style={styles.challengeEmoji}>🌱</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.challengeTitle}>Zero Waste Week</Text>
+                <Text style={styles.challengeDesc}>
+                  Implement zero waste practices in your farming operations.
+                </Text>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: '70%' }]} />
+                </View>
+                <Text style={styles.progressText}>5/7 days completed • 500 XP</Text>
+              </View>
+            </View>
+
+            <View style={styles.challengeCard}>
+              <Text style={styles.challengeEmoji}>💧</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.challengeTitle}>Smart Irrigation Challenge</Text>
+                <Text style={styles.challengeDesc}>Save water with smart irrigation.</Text>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: '40%' }]} />
+                </View>
+                <Text style={styles.progressText}>3/7 days completed • 750 XP</Text>
+              </View>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* LEADERBOARD */}
+        {selectedTab === 'leaderboard' && (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+          >
+            <View style={styles.podiumContainer}>
+              <View style={styles.secondCard}>
+                <Text style={styles.podiumEmoji}>🥈</Text>
+                <Text style={styles.podiumName}>Kavitha</Text>
+                <Text style={styles.podiumPoints}>2180 XP</Text>
+              </View>
+              <View style={styles.firstCard}>
+                <Text style={styles.podiumEmoji}>🥇</Text>
+                <Text style={styles.podiumName}>Suresh</Text>
+                <Text style={styles.podiumPoints}>2450 XP</Text>
+              </View>
+              <View style={styles.thirdCard}>
+                <Text style={styles.podiumEmoji}>🥉</Text>
+                <Text style={styles.podiumName}>Ravi</Text>
+                <Text style={styles.podiumPoints}>1890 XP</Text>
+              </View>
+            </View>
+
+            <View style={styles.leaderCard}>
+              <Text style={styles.leaderText}>#4 Rajesh Kumar</Text>
+              <Text style={styles.leaderXp}>1720 XP</Text>
+            </View>
+            <View style={styles.leaderCard}>
+              <Text style={styles.leaderText}>#5 Priya Sharma</Text>
+              <Text style={styles.leaderXp}>1640 XP</Text>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* FAB MENU */}
+        <View style={styles.fabMenu}>
+          <TouchableOpacity style={styles.smallFab}>
+            <Ionicons name="camera" size={20} color="#1B4332" />
           </TouchableOpacity>
-        </Animated.View>
+          <TouchableOpacity style={styles.smallFab}>
+            <Ionicons name="videocam" size={20} color="#1B4332" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fab} onPress={() => setShowCreatePost(true)}>
+            <LinearGradient colors={['#5B7553', '#1B4332']} style={styles.fabGradient}>
+              <Feather name="edit-2" size={22} color="white" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
 
         {/* CREATE POST MODAL */}
         <Modal visible={showCreatePost} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                {/* ✅ Translated */}
-                <Text style={styles.modalTitle}>{t.community.createPost}</Text>
-                <TouchableOpacity onPress={() => setShowCreatePost(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={24} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
+              <View style={styles.dragBar} />
+              <Text style={styles.modalTitle}>Create Post</Text>
               <RNTextInput
                 style={styles.textarea}
-                // ✅ Translated
-                placeholder={t.community.sharePlaceholder}
+                placeholder="Share something..."
+                placeholderTextColor="#9CA3AF"
+                multiline
                 value={newPostContent}
                 onChangeText={setNewPostContent}
-                multiline numberOfLines={5}
-                placeholderTextColor="#9ca3af" autoFocus
               />
-              <View style={styles.modalFooter}>
-                <TouchableOpacity style={styles.photoButton}>
-                  <Ionicons name="image-outline" size={24} color="#10B981" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionPrimary, (!newPostContent.trim() || isPosting) && styles.disabled]}
-                  onPress={handleCreatePost} disabled={!newPostContent.trim() || isPosting}
-                >
-                  {isPosting ? <ActivityIndicator color="#ffffff" /> : (
-                    // ✅ Translated
-                    <Text style={styles.actionPrimaryText}>{t.community.post}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={styles.postButton}
+                onPress={() => {
+                  setNewPostContent('');
+                  setShowCreatePost(false);
+                }}
+              >
+                <Text style={styles.postButtonText}>Post</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
+        {/* COMMENTS MODAL */}
+        <Modal visible={showComments} transparent animationType="slide">
+          <View style={styles.commentOverlay}>
+            <View style={styles.commentSheet}>
+              <View style={styles.dragBar} />
+              <Text style={styles.commentTitle}>Comments</Text>
+              <View style={styles.commentCard}>
+                <Text style={styles.commentUser}>Ravi Kumar</Text>
+                <Text style={styles.commentText}>Neem oil spray worked really well 🌱</Text>
+              </View>
+              <View style={styles.commentCard}>
+                <Text style={styles.commentUser}>Priya Sharma</Text>
+                <Text style={styles.commentText}>
+                  I had the same issue and solved it with drip irrigation 💧
+                </Text>
+              </View>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Write a comment..."
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity style={styles.commentSend} onPress={() => setShowComments(false)}>
+                <Text style={styles.postButtonText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -365,87 +411,331 @@ export default function CommunityDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: Platform.OS === 'android' ? 16 : 0, paddingHorizontal: 20, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerTitle: { flex: 1 },
-  title: { fontSize: 28, fontWeight: '900', color: '#14532d', letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: '#166534', marginTop: 2, fontWeight: '600' },
-  rightContainer: { alignItems: 'flex-end' },
-  iconButton: { padding: 10, backgroundColor: '#ffffff', borderRadius: 14, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  badge: { position: 'absolute', right: -4, top: -4, backgroundColor: '#EF4444', borderRadius: 12, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 2, borderColor: '#ffffff' },
-  badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900' },
-  searchRow: { paddingHorizontal: 16, paddingBottom: 12 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 16, paddingHorizontal: 16, height: 50, borderWidth: 1.5, borderColor: 'rgba(34,197,94,0.2)', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-  searchContainerFocused: { borderColor: '#22c55e' },
-  searchInput: { flex: 1, fontSize: 15, color: '#1f2937', fontWeight: '500' },
-  tabsContainer: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
-  tabItem: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999, backgroundColor: '#ffffff', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 3, elevation: 2 },
-  tabItemActive: { backgroundColor: '#14532d', borderColor: '#14532d' },
-  tabText: { color: '#166534', fontSize: 14, fontWeight: '700' },
-  tabTextActive: { color: '#ffffff' },
-  listContent: { paddingHorizontal: 16, paddingBottom: 110 },
-  trendingSection: { marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#14532d', marginBottom: 10 },
-  trendingCard: { backgroundColor: '#fffbeb', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#fde68a' },
-  trendingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-  trendingText: { color: '#92400E', fontWeight: '700', fontSize: 15 },
-  trendingMeta: { color: '#b45309', fontSize: 13, fontWeight: '600' },
-  postCard: { backgroundColor: '#ffffff', borderRadius: 24, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
-  postCardSuccess: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
-  successBadge: { alignSelf: 'flex-start', backgroundColor: '#fef3c7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#fde68a' },
-  successBadgeText: { color: '#92400e', fontSize: 11, fontWeight: '800' },
-  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 24 },
-  postMeta: { marginLeft: 12, flex: 1 },
-  postAuthor: { fontWeight: '800', fontSize: 16, color: '#1f2937' },
-  postSub: { color: '#6b7280', fontSize: 12, marginTop: 2, fontWeight: '500' },
-  levelBadge: { marginLeft: 8, backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  levelText: { fontSize: 11, color: '#166534', fontWeight: '800' },
-  postContent: { color: '#374151', marginBottom: 14, fontSize: 15, lineHeight: 22 },
-  postActions: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#f3f4f6', paddingTop: 12 },
-  actionButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8 },
-  actionText: { color: '#6b7280', fontWeight: '600', fontSize: 14, marginLeft: 6 },
-  likeActive: { color: '#EF4444' },
-  challengeCard: { flexDirection: 'row', backgroundColor: '#ffffff', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
-  challengeLeft: { width: 60, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0fdf4', borderRadius: 14, marginRight: 14 },
-  challengeEmoji: { fontSize: 32 },
-  challengeBody: { flex: 1 },
-  challengeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  challengeTitle: { fontWeight: '800', fontSize: 16, color: '#14532d', flex: 1, paddingRight: 10 },
-  challengeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  badgeHard: { backgroundColor: '#fee2e2' },
-  badgeMedium: { backgroundColor: '#fef3c7' },
-  challengeBadgeText: { fontSize: 11, fontWeight: '800', color: '#1f2937', textTransform: 'capitalize' },
-  challengeDesc: { color: '#4b5563', marginVertical: 8, fontSize: 13, lineHeight: 18 },
-  challengeMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  metaText: { color: '#6b7280', fontSize: 12, fontWeight: '600' },
-  metaTextGold: { color: '#d97706', fontSize: 12, fontWeight: '800' },
-  outlineButton: { borderWidth: 1.5, borderColor: '#22c55e', paddingVertical: 10, borderRadius: 12, backgroundColor: '#f0fdf4' },
-  outlineButtonText: { color: '#166534', fontWeight: '800', textAlign: 'center', fontSize: 13 },
-  leaderCard: { flexDirection: 'row', backgroundColor: '#ffffff', borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
-  rankOne: { borderColor: '#fbbf24', borderWidth: 2, backgroundColor: '#fffbeb' },
-  rankTwo: { borderColor: '#9ca3af', borderWidth: 2, backgroundColor: '#f9fafb' },
-  rankThree: { borderColor: '#f97316', borderWidth: 2, backgroundColor: '#fff7ed' },
-  leaderLeft: { width: 70, alignItems: 'center', justifyContent: 'center' },
-  leaderAvatar: { fontSize: 36 },
-  rankCircle: { marginTop: -10, backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
-  rankText: { fontSize: 12, fontWeight: '900', color: '#1f2937' },
-  leaderBody: { flex: 1, paddingLeft: 12, justifyContent: 'center' },
-  leaderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  leaderName: { fontSize: 16, fontWeight: '800', color: '#1f2937' },
-  leaderPoints: { color: '#d97706', fontWeight: '900', fontSize: 15 },
-  leaderSub: { color: '#6b7280', fontSize: 13, fontWeight: '600' },
-  fabContainer: { position: 'absolute', right: 20, bottom: 90 },
-  fab: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#021F0F', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 8, borderWidth: 1, borderColor: 'rgba(34,197,94,0.4)' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  modalContent: { backgroundColor: '#ffffff', padding: 24, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#14532d' },
-  modalCloseBtn: { padding: 4 },
-  textarea: { backgroundColor: '#f9fafb', minHeight: 120, borderRadius: 16, padding: 16, fontSize: 16, borderWidth: 1, borderColor: '#e5e7eb', color: '#1f2937', textAlignVertical: 'top' },
-  modalFooter: { marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  photoButton: { padding: 10, backgroundColor: '#dcfce7', borderRadius: 12 },
-  actionPrimary: { backgroundColor: '#22c55e', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
-  actionPrimaryText: { color: '#ffffff', fontWeight: '900', fontSize: 16 },
-  disabled: { opacity: 0.5 },
+
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE9DC',
+  },
+  title: { fontSize: 32, fontWeight: '900', color: '#0d3d0d', letterSpacing: -1 },
+  subtitle: { color: '#4a7c4e', marginTop: 3, fontSize: 14, fontWeight: '600' },
+  iconButton: {
+    backgroundColor: '#22c55e',
+    padding: 12,
+    borderRadius: 14,
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ff5722',
+    borderRadius: 20,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#ff5722',
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  badgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+
+  searchRow: { paddingHorizontal: 16, marginTop: 12, marginBottom: 6 },
+  searchContainer: {
+    backgroundColor: '#fff',
+    height: 52,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#22c55e',
+  },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#0d3d0d', fontWeight: '600' },
+
+  // STORIES
+  storySection: { marginTop: 20, paddingLeft: 16, marginBottom: 8 },
+  storyCard: { alignItems: 'center', marginRight: 14, width: 64 },
+  storyRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyInner: {
+    flex: 1,
+    width: '100%',
+    borderRadius: 29,
+    backgroundColor: '#FAF7F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addStoryCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E5E0D5',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storyName: { marginTop: 6, fontSize: 11, fontWeight: '600', color: '#57534E' },
+
+  // TAB BAR
+  tabBarWrap: { paddingHorizontal: 16, marginTop: 8, marginBottom: 12 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: 'transparent',
+    borderRadius: 14,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    justifyContent: 'flex-start',
+    gap: 16,
+  },
+  tabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 4,
+  },
+  tabPillActive: { backgroundColor: 'rgba(34, 197, 94, 0.1)' },
+  tabPillLabel: { color: '#22c55e', fontWeight: '800', fontSize: 12 },
+
+  // TRENDING
+  trendingSection: { paddingHorizontal: 16, marginTop: 6, marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#0d3d0d', marginBottom: 8, letterSpacing: -0.3 },
+  trendingChip: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  trendingChipText: { fontWeight: '700', fontSize: 12, color: '#0d3d0d' },
+
+  // MASONRY FEED (Pinterest)
+  masonryRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 8, marginBottom: 32, gap: 14 },
+  masonryColumn: { flex: 1, gap: 14 },
+  pinCard: {
+    width: COLUMN_WIDTH,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  pinImage: { width: '100%' },
+  pinGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '75%',
+    justifyContent: 'flex-end',
+    padding: 12,
+    background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.5), transparent)',
+  },
+  pinContent: { color: '#fff', fontSize: 13, fontWeight: '800', lineHeight: 18, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
+  bigHeart: {
+    position: 'absolute',
+    top: '40%',
+    left: '50%',
+    marginLeft: -32,
+    marginTop: -32,
+  },
+  pinFooter: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fff' },
+  pinAuthorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  pinAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  pinAuthorName: { fontSize: 13, fontWeight: '700', color: '#0d3d0d', flexShrink: 1 },
+  pinStatsRow: { flexDirection: 'row', gap: 12, paddingTop: 2 },
+  pinStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pinStatText: { fontSize: 11, fontWeight: '600', color: '#666' },
+
+  // REELS
+  reelCard: {
+    height: 340,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  reelImage: { height: '100%', width: '100%' },
+  reelGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 18,
+    height: '50%',
+    justifyContent: 'flex-end',
+  },
+  reelPlayBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  reelTitle: { fontSize: 19, fontWeight: '800', color: 'white' },
+  reelSubtitle: { color: 'rgba(255,255,255,0.85)', marginTop: 4, fontSize: 12.5 },
+
+  // CHALLENGES
+  challengeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    flexDirection: 'row',
+    shadowColor: '#1B4332',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  challengeEmoji: { fontSize: 34, marginRight: 16 },
+  challengeTitle: { fontSize: 15.5, fontWeight: '800', color: '#1B4332' },
+  challengeDesc: { marginTop: 6, color: '#8C8579', lineHeight: 19, fontSize: 12.5 },
+  progressBarBg: { height: 8, backgroundColor: '#EFE9DC', borderRadius: 20, marginTop: 14 },
+  progressBarFill: { height: 8, backgroundColor: '#5B7553', borderRadius: 20 },
+  progressText: { marginTop: 8, fontWeight: '700', color: '#1B4332', fontSize: 12 },
+
+  // LEADERBOARD
+  podiumContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    marginBottom: 28,
+    marginTop: 16,
+    gap: 10,
+  },
+  firstCard: {
+    width: 104,
+    height: 168,
+    backgroundColor: '#1B4332',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondCard: {
+    width: 94,
+    height: 138,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFE9DC',
+  },
+  thirdCard: {
+    width: 94,
+    height: 128,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFE9DC',
+  },
+  podiumEmoji: { fontSize: 34 },
+  podiumName: { marginTop: 8, fontWeight: '800', fontSize: 13 },
+  podiumPoints: { marginTop: 4, fontWeight: '700', fontSize: 11, opacity: 0.7 },
+  leaderCard: {
+    backgroundColor: '#fff',
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#EFE9DC',
+  },
+  leaderText: { fontWeight: '700', fontSize: 14, color: '#1B4332' },
+  leaderXp: { fontWeight: '800', color: '#5B7553' },
+
+  // FAB
+  fabMenu: { position: 'absolute', right: 18, bottom: 24, alignItems: 'center' },
+  smallFab: {
+    height: 46,
+    width: 46,
+    borderRadius: 23,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#1B4332',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  fab: { borderRadius: 30, overflow: 'hidden', elevation: 6 },
+  fabGradient: { height: 60, width: 60, alignItems: 'center', justifyContent: 'center' },
+
+  // MODALS
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(27,67,50,0.35)' },
+  modalContent: { backgroundColor: 'white', padding: 22, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  modalTitle: { fontSize: 19, fontWeight: '800', marginBottom: 16, color: '#1B4332' },
+  textarea: {
+    backgroundColor: '#FAF7F2',
+    height: 130,
+    borderRadius: 16,
+    padding: 16,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    color: '#1B4332',
+  },
+  postButton: { marginTop: 16, backgroundColor: '#1B4332', paddingVertical: 14, borderRadius: 16 },
+  postButtonText: { color: 'white', fontWeight: '800', fontSize: 15, textAlign: 'center' },
+
+  commentOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(27,67,50,0.35)' },
+  commentSheet: { backgroundColor: 'white', padding: 22, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
+  dragBar: { width: 44, height: 5, backgroundColor: '#EFE9DC', borderRadius: 3, alignSelf: 'center', marginBottom: 14 },
+  commentTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12, color: '#1B4332' },
+  commentCard: { padding: 13, backgroundColor: '#FAF7F2', borderRadius: 14, marginBottom: 10 },
+  commentUser: { fontWeight: '800', fontSize: 13, color: '#1B4332' },
+  commentText: { marginTop: 5, color: '#8C8579', fontSize: 13 },
+  commentInput: { backgroundColor: '#FAF7F2', borderRadius: 14, padding: 13, marginTop: 8, fontSize: 13 },
+  commentSend: { marginTop: 14, backgroundColor: '#1B4332', paddingVertical: 13, borderRadius: 14 },
 });
