@@ -21,7 +21,19 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.107:4000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.51:4000/api';
+
+// ─── Auth header helper ───────────────────────────────
+// Reads the JWT saved at login and returns headers including the
+// Authorization bearer token. Backend derives identity from this token,
+// so userId no longer needs to be sent in request bodies.
+const authHeaders = async () => {
+  const token = await AsyncStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
 
 // ─── Types ────────────────────────────────────────────
 interface Comment {
@@ -102,7 +114,9 @@ export default function CommunityDashboard() {
   // ─── Fetch posts ──────────────────────────────────
   const fetchPosts = async () => {
     try {
-      const res = await fetch(`${API_URL}/community`);
+      const res = await fetch(`${API_URL}/community`, {
+        headers: await authHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setPosts(json.data);
@@ -132,8 +146,8 @@ export default function CommunityDashboard() {
     try {
       const res = await fetch(`${API_URL}/community`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId, content: newPostText.trim() }),
+        headers: await authHeaders(),
+        body: JSON.stringify({ content: newPostText.trim() }),
       });
       const json = await res.json();
       if (json.success) {
@@ -174,8 +188,7 @@ export default function CommunityDashboard() {
     try {
       const res = await fetch(`${API_URL}/community/${post._id}/like`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId }),
+        headers: await authHeaders(),
       });
       const json = await res.json();
       if (!json.success) {
@@ -210,8 +223,8 @@ export default function CommunityDashboard() {
     try {
       const res = await fetch(`${API_URL}/community/${activePost._id}/comment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId, text: commentText.trim() }),
+        headers: await authHeaders(),
+        body: JSON.stringify({ text: commentText.trim() }),
       });
       const json = await res.json();
       if (json.success) {
