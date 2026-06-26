@@ -1,17 +1,14 @@
 import express from 'express';
+import { auth } from '../middleware/auth.js';
 import { getFeed, createPost, likePost, addComment } from '../controllers/community.controller.js';
 
 const router = express.Router();
 
-// Get feed and create post
 router.route('/')
-    .get(getFeed)
-    .post(createPost); // Frontend hits this when user clicks "Post"
+    .get(auth, getFeed)
+    .post(auth, createPost);
 
-// Toggle Like on a post
-router.post('/:id/like', likePost);
-
-// Add a comment to a post
-router.post('/:id/comment', addComment);
+router.post('/:id/like', auth, likePost);
+router.post('/:id/comment', auth, addComment);
 
 export default router;

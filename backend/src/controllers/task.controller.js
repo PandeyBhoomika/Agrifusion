@@ -1,13 +1,12 @@
-import mongoose from 'mongoose'; // ✅ ADDED: Required to check ObjectId validity
+import mongoose from 'mongoose'; // Required to check ObjectId validity
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 
-// Get all active tasks
 // Get all active tasks, with per-user status (locked / active / approved)
 // based on stageOrder — only one task is unlocked at a time.
 export const getTasks = async (req, res) => {
     try {
-        const userId = req.user?.userId || req.query.userId;
+        const userId = req.user.userId;
 
         const tasks = await Task.find({ isActive: true }).sort({ stageOrder: 1, createdAt: 1 });
 
@@ -60,7 +59,7 @@ export const createTask = async (req, res) => {
 export const completeTask = async (req, res) => {
     try {
         const taskId = req.params.id;
-        const userId = req.user?.userId || req.body.userId;
+        const userId = req.user.userId; // from the verified token, not the client
 
         if (!mongoose.Types.ObjectId.isValid(taskId)) {
             return res.status(400).json({ success: false, message: 'Invalid task id.' });

@@ -18,7 +18,8 @@ export const getFeed = async (req, res) => {
 // Create a new post
 export const createPost = async (req, res) => {
     try {
-        const { userId, content, imageUrl } = req.body;
+        const userId = req.user.userId; // from the verified token, not the client
+        const { content, imageUrl } = req.body;
 
         const newPost = await Post.create({
             userId,
@@ -40,7 +41,7 @@ export const createPost = async (req, res) => {
 export const likePost = async (req, res) => {
     try {
         const { id } = req.params; // Post ID from the URL
-        const { userId } = req.body; // Assuming you pass userId in the body
+        const userId = req.user.userId; // from the verified token, not the client
 
         const post = await Post.findById(id);
 
@@ -77,7 +78,8 @@ export const likePost = async (req, res) => {
 export const addComment = async (req, res) => {
     try {
         const { id } = req.params; // Post ID from the URL
-        const { userId, text } = req.body;
+        const userId = req.user.userId; // from the verified token, not the client
+        const { text } = req.body;
 
         if (!text || text.trim() === '') {
             return res.status(400).json({ success: false, message: 'Comment text is required' });

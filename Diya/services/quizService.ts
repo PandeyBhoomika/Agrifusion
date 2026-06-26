@@ -1,5 +1,5 @@
 // Quiz Service - Fetch quiz questions from API by category
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mockQuizCategories, QuizCategory, QuizQuestion } from '../data/quizMockData';
 
 // Fallback to laptop's IP if env var is missing. 
@@ -26,10 +26,12 @@ export interface AllQuizzesResponse {
 export const fetchQuizByCategory = async (categoryId: string): Promise<QuizCategory | null> => {
   try {
     console.log(`Fetching quiz from: ${API_BASE_URL}/quiz/${categoryId}`);
+    const token = await AsyncStorage.getItem('authToken');
     const response = await fetch(`${API_BASE_URL}/quiz/${categoryId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
 
@@ -58,10 +60,12 @@ export const fetchQuizByCategory = async (categoryId: string): Promise<QuizCateg
 export const fetchAllQuizzes = async (): Promise<QuizCategory[]> => {
   try {
     console.log(`Fetching all quizzes from: ${API_BASE_URL}/quiz/all`);
+    const token = await AsyncStorage.getItem('authToken');
     const response = await fetch(`${API_BASE_URL}/quiz/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
 
@@ -93,10 +97,12 @@ export const submitQuizAnswers = async (
   answers: { [questionId: string]: number }
 ): Promise<{ score: number; totalPoints: number; percentage: number } | null> => {
   try {
+    const token = await AsyncStorage.getItem('authToken');
     const response = await fetch(`${API_BASE_URL}/quiz/${categoryId}/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       body: JSON.stringify({ answers }),
     });

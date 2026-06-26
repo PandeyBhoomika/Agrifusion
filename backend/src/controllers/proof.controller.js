@@ -5,7 +5,7 @@ import User from '../models/User.js'; // Assuming you are converting User.js to 
 // Submit proof for a task
 export const submitProof = async (req, res) => {
     try {
-        const userId = req.user?.userId || req.body.userId;
+        const userId = req.user.userId; // from the verified token, not the client
         const { taskId, location } = req.body;
 
         if (!userId) {
@@ -36,7 +36,7 @@ export const submitProof = async (req, res) => {
             location: parsedLocation,
         });
 
-        // ✅ Auto-approve for now (per project decision) — no manual review yet.
+        // Auto-approve for now (per project decision) — no manual review yet.
         // This grants XP/coins immediately and unlocks the next stage task.
         const task = await Task.findById(taskId);
         if (task) {
