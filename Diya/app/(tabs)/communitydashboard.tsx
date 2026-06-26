@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
@@ -6,736 +6,572 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  TextInput as RNTextInput,
   ScrollView,
   StyleSheet,
   Image,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 16 * 2 - 12) / 2; // 16px screen padding, 12px gap
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.107:4000/api';
 
-// --- Mock data ---
-const STORIES = [
-  { id: 'me', name: 'Your Story', avatar: '➕', isMe: true },
-  { id: '1', name: 'Suresh', avatar: '👨‍🌾' },
-  { id: '2', name: 'Kavitha', avatar: '👩‍🌾' },
-  { id: '3', name: 'Ravi', avatar: '👨‍🌾' },
-  { id: '4', name: 'Meena', avatar: '👩‍🌾' },
+// ─── Types ────────────────────────────────────────────
+interface Comment {
+  _id: string;
+  userId: { _id: string; fullName: string };
+  text: string;
+  createdAt: string;
+}
+
+interface Post {
+  _id: string;
+  userId: { _id: string; fullName: string; state: string; level?: number };
+  content: string;
+  imageUrl?: string;
+  likes: string[];
+  comments: Comment[];
+  createdAt: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────
+const getInitials = (name: string) =>
+  name
+    ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'F';
+
+const avatarColors = [
+  '#2D6A4F', '#1B4332', '#40916C', '#52B788',
+  '#74C69D', '#B7E4C7', '#D8F3DC', '#081C15',
 ];
 
-const POSTS = [
-  {
-    id: '1',
-    author: { name: 'Ravi Kumar', avatar: '👨‍🌾', level: 4, location: 'Nashik' },
-    timestamp: '2h ago',
-    content: 'Neem oil spray worked really well against aphids this season 🌱',
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800',
-    height: 220,
-    likes: 24,
-    comments: 2,
-    shares: 3,
-  },
-  {
-    id: '2',
-    author: { name: 'Meena Patil', avatar: '👩‍🌾', level: 6, location: 'Pune' },
-    timestamp: '4h ago',
-    content: 'Drip irrigation setup cut my water usage by 40% 💧',
-    image: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=800',
-    height: 300,
-    likes: 58,
-    comments: 9,
-    shares: 6,
-  },
-  {
-    id: '3',
-    author: { name: 'Suresh Naik', avatar: '👨‍🌾', level: 8, location: 'Kolhapur' },
-    timestamp: '6h ago',
-    content: 'Harvest day! Organic turmeric finally ready 🌾',
-    image: 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=800',
-    height: 260,
-    likes: 91,
-    comments: 14,
-    shares: 11,
-  },
-  {
-    id: '4',
-    author: { name: 'Kavitha Rao', avatar: '👩‍🌾', level: 5, location: 'Belagavi' },
-    timestamp: '1d ago',
-    content: 'Composting setup for the new season 🍂',
-    image: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800',
-    height: 190,
-    likes: 33,
-    comments: 5,
-    shares: 2,
-  },
-];
+const getAvatarColor = (name: string) =>
+  avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
 
-const REELS = [
-  {
-    id: 'r1',
-    title: '🎥 Organic Fertilizer Tips',
-    sub: '240 likes • 12 comments',
-    image: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=1200',
-  },
-  {
-    id: 'r2',
-    title: '💧 Smart Irrigation Hacks',
-    sub: '185 likes • 9 comments',
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200',
-  },
-];
+const timeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+};
 
-type TabKey = 'feed' | 'reels' | 'challenges' | 'leaderboard';
+// ─── Main Component ───────────────────────────────────
+export default function CommunityDashboard() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newPostText, setNewPostText] = useState('');
+  const [posting, setPosting] = useState(false);
 
-const TABS: { key: TabKey; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'feed', icon: 'grid-outline' },
-  { key: 'reels', icon: 'play-circle-outline' },
-  { key: 'challenges', icon: 'flag-outline' },
-  { key: 'leaderboard', icon: 'trophy-outline' },
-];
+  // Comment modal
+  const [commentModal, setCommentModal] = useState(false);
+  const [activePost, setActivePost] = useState<Post | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
 
-export default function CommunityScreen() {
-  const [selectedTab, setSelectedTab] = useState<TabKey>('feed');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [notifications] = useState(3);
-  const [posts] = useState(POSTS);
+  // Current user from storage
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [newPostContent, setNewPostContent] = useState('');
+  // ─── Load current user ────────────────────────────
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const parsed = JSON.parse(userData);
+          setCurrentUserId(parsed._id || parsed.id || null);
+        }
+      } catch (e) {
+        console.log('Could not load user from storage');
+      }
+    };
+    loadUser();
+    fetchPosts();
+  }, []);
 
-  const [showComments, setShowComments] = useState(false);
-  const [heartPostId, setHeartPostId] = useState<string | null>(null);
-
-  const handleDoubleTap = (id: string) => {
-    setHeartPostId(id);
-    setTimeout(() => setHeartPostId(null), 800);
+  // ─── Fetch posts ──────────────────────────────────
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/community`);
+      const json = await res.json();
+      if (json.success) {
+        setPosts(json.data);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not load posts. Check your connection.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  // Split posts into two masonry columns
-  const leftColumn = posts.filter((_, i) => i % 2 === 0);
-  const rightColumn = posts.filter((_, i) => i % 2 === 1);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPosts();
+  }, []);
 
-  const renderPostCard = (item: (typeof POSTS)[0]) => (
-    <View key={item.id} style={styles.pinCard}>
-      <TouchableOpacity activeOpacity={0.95} onPress={() => handleDoubleTap(item.id)}>
-        <Image source={{ uri: item.image }} style={[styles.pinImage, { height: item.height }]} />
-        {heartPostId === item.id && (
-          <Animated.View entering={ZoomIn.duration(250)} style={styles.bigHeart}>
-            <Ionicons name="heart" size={64} color="#fff" />
-          </Animated.View>
-        )}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.55)']}
-          style={styles.pinGradient}
-        >
-          <Text style={styles.pinContent} numberOfLines={2}>
-            {item.content}
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+  // ─── Create post ──────────────────────────────────
+  const handlePost = async () => {
+    if (!newPostText.trim()) return;
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to post.');
+      return;
+    }
 
-      <View style={styles.pinFooter}>
-        <View style={styles.pinAuthorRow}>
-          <View style={styles.pinAvatar}>
-            <Text style={{ fontSize: 14 }}>{item.author.avatar}</Text>
+    setPosting(true);
+    try {
+      const res = await fetch(`${API_URL}/community`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, content: newPostText.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPosts((prev) => [json.data, ...prev]);
+        setNewPostText('');
+      } else {
+        Alert.alert('Error', json.message || 'Could not create post.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not create post. Check your connection.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // ─── Like / Unlike ────────────────────────────────
+  const handleLike = async (post: Post) => {
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to like posts.');
+      return;
+    }
+
+    const isLiked = post.likes.includes(currentUserId);
+
+    // Optimistic update
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p._id !== post._id) return p;
+        return {
+          ...p,
+          likes: isLiked
+            ? p.likes.filter((id) => id !== currentUserId)
+            : [...p.likes, currentUserId],
+        };
+      })
+    );
+
+    try {
+      const res = await fetch(`${API_URL}/community/${post._id}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        // Revert if failed
+        setPosts((prev) =>
+          prev.map((p) => (p._id === post._id ? post : p))
+        );
+      }
+    } catch {
+      // Revert on network error
+      setPosts((prev) =>
+        prev.map((p) => (p._id === post._id ? post : p))
+      );
+    }
+  };
+
+  // ─── Open comment modal ───────────────────────────
+  const openComments = (post: Post) => {
+    setActivePost(post);
+    setCommentModal(true);
+  };
+
+  // ─── Add comment ──────────────────────────────────
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !activePost) return;
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to comment.');
+      return;
+    }
+
+    setCommentLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/community/${activePost._id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId, text: commentText.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        // Update posts list with new comments
+        setPosts((prev) =>
+          prev.map((p) =>
+            p._id === activePost._id ? { ...p, comments: json.data } : p
+          )
+        );
+        // Update active post for modal
+        setActivePost((prev) =>
+          prev ? { ...prev, comments: json.data } : prev
+        );
+        setCommentText('');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not add comment.');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  // ─── Post Card ────────────────────────────────────
+  const PostCard = ({ post }: { post: Post }) => {
+    const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
+    const authorName = post.userId?.fullName || 'Farmer';
+
+    return (
+      <View style={styles.card}>
+        {/* Author row */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.avatar, { backgroundColor: getAvatarColor(authorName) }]}>
+            <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
           </View>
-          <Text style={styles.pinAuthorName} numberOfLines={1}>
-            {item.author.name}
-          </Text>
+          <View style={styles.authorInfo}>
+            <Text style={styles.authorName}>{authorName}</Text>
+            <Text style={styles.authorMeta}>
+              {post.userId?.state || 'India'} · {timeAgo(post.createdAt)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.pinStatsRow}>
-          <TouchableOpacity style={styles.pinStat}>
-            <Ionicons name="heart-outline" size={15} color="#5B7553" />
-            <Text style={styles.pinStatText}>{item.likes}</Text>
+
+        {/* Content */}
+        <Text style={styles.postContent}>{post.content}</Text>
+
+        {/* Image if present */}
+        {post.imageUrl ? (
+          <Image
+            source={{ uri: post.imageUrl }}
+            style={styles.postImage}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        {/* Actions */}
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleLike(post)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isLiked ? '#E63946' : '#6B7280'}
+            />
+            <Text style={[styles.actionCount, isLiked && styles.likedText]}>
+              {post.likes.length}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.pinStat} onPress={() => setShowComments(true)}>
-            <Ionicons name="chatbubble-outline" size={14} color="#5B7553" />
-            <Text style={styles.pinStatText}>{item.comments}</Text>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => openComments(post)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color="#6B7280" />
+            <Text style={styles.actionCount}>{post.comments.length}</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
+  // ─── Render ───────────────────────────────────────
   return (
-    <LinearGradient colors={['#F0FFF4', '#E8F5E9', '#F1F8E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>AgriFusion</Text>
-            <Text style={styles.subtitle}>Grow together, harvest together</Text>
-          </View>
+    <SafeAreaView style={styles.container}>
+      <LinearGradient colors={['#1B4332', '#2D6A4F']} style={styles.header}>
+        <Text style={styles.headerTitle}>🌾 Community</Text>
+        <Text style={styles.headerSubtitle}>Share knowledge with farmers</Text>
+      </LinearGradient>
 
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="notifications-outline" size={22} color="#1B4332" />
-            {notifications > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{notifications}</Text>
-              </View>
+      <ScrollView
+        style={styles.feed}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2D6A4F"
+          />
+        }
+      >
+        {/* Compose Box */}
+        <View style={styles.composeBox}>
+          <TextInput
+            style={styles.composeInput}
+            placeholder="Share a farming tip or question..."
+            placeholderTextColor="#9CA3AF"
+            value={newPostText}
+            onChangeText={setNewPostText}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[styles.postBtn, !newPostText.trim() && styles.postBtnDisabled]}
+            onPress={handlePost}
+            disabled={!newPostText.trim() || posting}
+            activeOpacity={0.8}
+          >
+            {posting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.postBtnText}>Post</Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* SEARCH */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color="#9CA3AF" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search farmers, tips, crops..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+        {/* Feed */}
+        {loading ? (
+          <ActivityIndicator size="large" color="#2D6A4F" style={{ marginTop: 40 }} />
+        ) : posts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🌱</Text>
+            <Text style={styles.emptyTitle}>No posts yet</Text>
+            <Text style={styles.emptySubtitle}>Be the first to share something!</Text>
           </View>
-        </View>
-
-        {/* TABS — compact icon only bar at top */}
-        <View style={styles.tabBarWrap}>
-          <View style={styles.tabBar}>
-            {TABS.map((tab) => {
-              const active = selectedTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tabPill, active && styles.tabPillActive]}
-                  onPress={() => setSelectedTab(tab.key)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={tab.icon}
-                    size={18}
-                    color={active ? '#10b981' : '#9ca3af'}
-                  />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* FEED — Pinterest masonry */}
-        {selectedTab === 'feed' && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-            <View style={styles.trendingSection}>
-              <Text style={styles.sectionTitle}>🔥 Trending</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {['🌱 Organic Farming', '💧 Drip Irrigation', '🐛 Pest Control', '🍂 Composting'].map(
-                  (tag) => (
-                    <View key={tag} style={styles.trendingChip}>
-                      <Text style={styles.trendingChipText}>{tag}</Text>
-                    </View>
-                  )
-                )}
-              </ScrollView>
-            </View>
-
-            <View style={styles.masonryRow}>
-              <View style={styles.masonryColumn}>{leftColumn.map(renderPostCard)}</View>
-              <View style={styles.masonryColumn}>{rightColumn.map(renderPostCard)}</View>
-            </View>
-          </ScrollView>
+        ) : (
+          posts.map((post) => <PostCard key={post._id} post={post} />)
         )}
 
-        {/* REELS */}
-        {selectedTab === 'reels' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          >
-            {REELS.map((reel) => (
-              <View key={reel.id} style={styles.reelCard}>
-                <Image source={{ uri: reel.image }} style={styles.reelImage} />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.75)']}
-                  style={styles.reelGradient}
-                >
-                  <View style={styles.reelPlayBtn}>
-                    <Ionicons name="play" size={22} color="#fff" />
-                  </View>
-                  <Text style={styles.reelTitle}>{reel.title}</Text>
-                  <Text style={styles.reelSubtitle}>{reel.sub}</Text>
-                </LinearGradient>
-              </View>
-            ))}
-          </ScrollView>
-        )}
+        <View style={{ height: 80 }} />
+      </ScrollView>
 
-        {/* CHALLENGES */}
-        {selectedTab === 'challenges' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          >
-            <View style={styles.challengeCard}>
-              <Text style={styles.challengeEmoji}>🌱</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.challengeTitle}>Zero Waste Week</Text>
-                <Text style={styles.challengeDesc}>
-                  Implement zero waste practices in your farming operations.
-                </Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '70%' }]} />
-                </View>
-                <Text style={styles.progressText}>5/7 days completed • 500 XP</Text>
-              </View>
-            </View>
-
-            <View style={styles.challengeCard}>
-              <Text style={styles.challengeEmoji}>💧</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.challengeTitle}>Smart Irrigation Challenge</Text>
-                <Text style={styles.challengeDesc}>Save water with smart irrigation.</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '40%' }]} />
-                </View>
-                <Text style={styles.progressText}>3/7 days completed • 750 XP</Text>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* LEADERBOARD */}
-        {selectedTab === 'leaderboard' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          >
-            <View style={styles.podiumContainer}>
-              <View style={styles.secondCard}>
-                <Text style={styles.podiumEmoji}>🥈</Text>
-                <Text style={styles.podiumName}>Kavitha</Text>
-                <Text style={styles.podiumPoints}>2180 XP</Text>
-              </View>
-              <View style={styles.firstCard}>
-                <Text style={styles.podiumEmoji}>🥇</Text>
-                <Text style={styles.podiumName}>Suresh</Text>
-                <Text style={styles.podiumPoints}>2450 XP</Text>
-              </View>
-              <View style={styles.thirdCard}>
-                <Text style={styles.podiumEmoji}>🥉</Text>
-                <Text style={styles.podiumName}>Ravi</Text>
-                <Text style={styles.podiumPoints}>1890 XP</Text>
-              </View>
-            </View>
-
-            <View style={styles.leaderCard}>
-              <Text style={styles.leaderText}>#4 Rajesh Kumar</Text>
-              <Text style={styles.leaderXp}>1720 XP</Text>
-            </View>
-            <View style={styles.leaderCard}>
-              <Text style={styles.leaderText}>#5 Priya Sharma</Text>
-              <Text style={styles.leaderXp}>1640 XP</Text>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* FAB MENU */}
-        <View style={styles.fabMenu}>
-          <TouchableOpacity style={styles.smallFab}>
-            <Ionicons name="camera" size={20} color="#1B4332" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.smallFab}>
-            <Ionicons name="videocam" size={20} color="#1B4332" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.fab} onPress={() => setShowCreatePost(true)}>
-            <LinearGradient colors={['#5B7553', '#1B4332']} style={styles.fabGradient}>
-              <Feather name="edit-2" size={22} color="white" />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* CREATE POST MODAL */}
-        <Modal visible={showCreatePost} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.dragBar} />
-              <Text style={styles.modalTitle}>Create Post</Text>
-              <RNTextInput
-                style={styles.textarea}
-                placeholder="Share something..."
-                placeholderTextColor="#9CA3AF"
-                multiline
-                value={newPostContent}
-                onChangeText={setNewPostContent}
-              />
-              <TouchableOpacity
-                style={styles.postButton}
-                onPress={() => {
-                  setNewPostContent('');
-                  setShowCreatePost(false);
-                }}
-              >
-                <Text style={styles.postButtonText}>Post</Text>
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCommentModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Comments</Text>
+              <TouchableOpacity onPress={() => setCommentModal(false)}>
+                <Ionicons name="close" size={24} color="#374151" />
               </TouchableOpacity>
             </View>
-          </View>
-        </Modal>
 
-        {/* COMMENTS MODAL */}
-        <Modal visible={showComments} transparent animationType="slide">
-          <View style={styles.commentOverlay}>
-            <View style={styles.commentSheet}>
-              <View style={styles.dragBar} />
-              <Text style={styles.commentTitle}>Comments</Text>
-              <View style={styles.commentCard}>
-                <Text style={styles.commentUser}>Ravi Kumar</Text>
-                <Text style={styles.commentText}>Neem oil spray worked really well 🌱</Text>
-              </View>
-              <View style={styles.commentCard}>
-                <Text style={styles.commentUser}>Priya Sharma</Text>
-                <Text style={styles.commentText}>
-                  I had the same issue and solved it with drip irrigation 💧
-                </Text>
-              </View>
+            {/* Comments list */}
+            <ScrollView style={styles.commentsList}>
+              {activePost?.comments.length === 0 ? (
+                <Text style={styles.noComments}>No comments yet. Be the first!</Text>
+              ) : (
+                activePost?.comments.map((c) => (
+                  <View key={c._id} style={styles.commentItem}>
+                    <View
+                      style={[
+                        styles.commentAvatar,
+                        { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
+                      ]}
+                    >
+                      <Text style={styles.commentAvatarText}>
+                        {getInitials(c.userId?.fullName || 'F')}
+                      </Text>
+                    </View>
+                    <View style={styles.commentBody}>
+                      <Text style={styles.commentAuthor}>
+                        {c.userId?.fullName || 'Farmer'}
+                      </Text>
+                      <Text style={styles.commentText}>{c.text}</Text>
+                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            {/* Add comment */}
+            <View style={styles.commentInputRow}>
               <TextInput
                 style={styles.commentInput}
-                placeholder="Write a comment..."
+                placeholder="Add a comment..."
                 placeholderTextColor="#9CA3AF"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={300}
               />
-              <TouchableOpacity style={styles.commentSend} onPress={() => setShowComments(false)}>
-                <Text style={styles.postButtonText}>Send</Text>
+              <TouchableOpacity
+                style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
+                onPress={handleAddComment}
+                disabled={!commentText.trim() || commentLoading}
+              >
+                {commentLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="#fff" />
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </SafeAreaView>
-    </LinearGradient>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFE9DC',
-  },
-  title: { fontSize: 32, fontWeight: '900', color: '#0d3d0d', letterSpacing: -1 },
-  subtitle: { color: '#4a7c4e', marginTop: 3, fontSize: 14, fontWeight: '600' },
-  iconButton: {
-    backgroundColor: '#22c55e',
-    padding: 12,
-    borderRadius: 14,
-    shadowColor: '#22c55e',
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  badge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#ff5722',
-    borderRadius: 20,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#ff5722',
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  badgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+  // Header
+  header: { paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20 },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  headerSubtitle: { fontSize: 13, color: '#B7E4C7', marginTop: 2 },
 
-  searchRow: { paddingHorizontal: 16, marginTop: 12, marginBottom: 6 },
-  searchContainer: {
+  // Feed
+  feed: { flex: 1 },
+
+  // Compose
+  composeBox: {
     backgroundColor: '#fff',
-    height: 52,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
+    margin: 16,
+    borderRadius: 14,
+    padding: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    borderWidth: 2,
-    borderColor: '#22c55e',
-  },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#0d3d0d', fontWeight: '600' },
-
-  // STORIES
-  storySection: { marginTop: 20, paddingLeft: 16, marginBottom: 8 },
-  storyCard: { alignItems: 'center', marginRight: 14, width: 64 },
-  storyRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    padding: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  storyInner: {
-    flex: 1,
-    width: '100%',
-    borderRadius: 29,
-    backgroundColor: '#FAF7F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addStoryCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E5E0D5',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  storyName: { marginTop: 6, fontSize: 11, fontWeight: '600', color: '#57534E' },
-
-  // TAB BAR
-  tabBarWrap: { paddingHorizontal: 16, marginTop: 8, marginBottom: 12 },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'transparent',
-    borderRadius: 14,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    justifyContent: 'flex-start',
-    gap: 16,
-  },
-  tabPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    gap: 4,
-  },
-  tabPillActive: { backgroundColor: 'rgba(34, 197, 94, 0.1)' },
-  tabPillLabel: { color: '#22c55e', fontWeight: '800', fontSize: 12 },
-
-  // TRENDING
-  trendingSection: { paddingHorizontal: 16, marginTop: 6, marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#0d3d0d', marginBottom: 8, letterSpacing: -0.3 },
-  trendingChip: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1.5,
-    borderColor: '#22c55e',
-    shadowColor: '#22c55e',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  trendingChipText: { fontWeight: '700', fontSize: 12, color: '#0d3d0d' },
-
-  // MASONRY FEED (Pinterest)
-  masonryRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 8, marginBottom: 32, gap: 14 },
-  masonryColumn: { flex: 1, gap: 14 },
-  pinCard: {
-    width: COLUMN_WIDTH,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  pinImage: { width: '100%' },
-  pinGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '75%',
-    justifyContent: 'flex-end',
-    padding: 12,
-    background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.5), transparent)',
-  },
-  pinContent: { color: '#fff', fontSize: 13, fontWeight: '800', lineHeight: 18, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
-  bigHeart: {
-    position: 'absolute',
-    top: '40%',
-    left: '50%',
-    marginLeft: -32,
-    marginTop: -32,
-  },
-  pinFooter: { padding: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0', backgroundColor: '#fff' },
-  pinAuthorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  pinAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  pinAuthorName: { fontSize: 13, fontWeight: '700', color: '#0d3d0d', flexShrink: 1 },
-  pinStatsRow: { flexDirection: 'row', gap: 12, paddingTop: 2 },
-  pinStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pinStatText: { fontSize: 11, fontWeight: '600', color: '#666' },
-
-  // REELS
-  reelCard: {
-    height: 340,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  reelImage: { height: '100%', width: '100%' },
-  reelGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 18,
-    height: '50%',
-    justifyContent: 'flex-end',
-  },
-  reelPlayBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  reelTitle: { fontSize: 19, fontWeight: '800', color: 'white' },
-  reelSubtitle: { color: 'rgba(255,255,255,0.85)', marginTop: 4, fontSize: 12.5 },
-
-  // CHALLENGES
-  challengeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
-    flexDirection: 'row',
-    shadowColor: '#1B4332',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  challengeEmoji: { fontSize: 34, marginRight: 16 },
-  challengeTitle: { fontSize: 15.5, fontWeight: '800', color: '#1B4332' },
-  challengeDesc: { marginTop: 6, color: '#8C8579', lineHeight: 19, fontSize: 12.5 },
-  progressBarBg: { height: 8, backgroundColor: '#EFE9DC', borderRadius: 20, marginTop: 14 },
-  progressBarFill: { height: 8, backgroundColor: '#5B7553', borderRadius: 20 },
-  progressText: { marginTop: 8, fontWeight: '700', color: '#1B4332', fontSize: 12 },
-
-  // LEADERBOARD
-  podiumContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    marginBottom: 28,
-    marginTop: 16,
-    gap: 10,
-  },
-  firstCard: {
-    width: 104,
-    height: 168,
-    backgroundColor: '#1B4332',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  secondCard: {
-    width: 94,
-    height: 138,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#EFE9DC',
-  },
-  thirdCard: {
-    width: 94,
-    height: 128,
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#EFE9DC',
-  },
-  podiumEmoji: { fontSize: 34 },
-  podiumName: { marginTop: 8, fontWeight: '800', fontSize: 13 },
-  podiumPoints: { marginTop: 4, fontWeight: '700', fontSize: 11, opacity: 0.7 },
-  leaderCard: {
-    backgroundColor: '#fff',
-    padding: 18,
-    borderRadius: 18,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#EFE9DC',
-  },
-  leaderText: { fontWeight: '700', fontSize: 14, color: '#1B4332' },
-  leaderXp: { fontWeight: '800', color: '#5B7553' },
-
-  // FAB
-  fabMenu: { position: 'absolute', right: 18, bottom: 24, alignItems: 'center' },
-  smallFab: {
-    height: 46,
-    width: 46,
-    borderRadius: 23,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#1B4332',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
   },
-  fab: { borderRadius: 30, overflow: 'hidden', elevation: 6 },
-  fabGradient: { height: 60, width: 60, alignItems: 'center', justifyContent: 'center' },
-
-  // MODALS
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(27,67,50,0.35)' },
-  modalContent: { backgroundColor: 'white', padding: 22, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
-  modalTitle: { fontSize: 19, fontWeight: '800', marginBottom: 16, color: '#1B4332' },
-  textarea: {
-    backgroundColor: '#FAF7F2',
-    height: 130,
-    borderRadius: 16,
-    padding: 16,
+  composeInput: {
+    fontSize: 15,
+    color: '#111827',
+    minHeight: 70,
     textAlignVertical: 'top',
-    fontSize: 14,
-    color: '#1B4332',
   },
-  postButton: { marginTop: 16, backgroundColor: '#1B4332', paddingVertical: 14, borderRadius: 16 },
-  postButtonText: { color: 'white', fontWeight: '800', fontSize: 15, textAlign: 'center' },
+  postBtn: {
+    backgroundColor: '#2D6A4F',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  postBtnDisabled: { backgroundColor: '#9CA3AF' },
+  postBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 
-  commentOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(27,67,50,0.35)' },
-  commentSheet: { backgroundColor: 'white', padding: 22, borderTopLeftRadius: 28, borderTopRightRadius: 28 },
-  dragBar: { width: 44, height: 5, backgroundColor: '#EFE9DC', borderRadius: 3, alignSelf: 'center', marginBottom: 14 },
-  commentTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12, color: '#1B4332' },
-  commentCard: { padding: 13, backgroundColor: '#FAF7F2', borderRadius: 14, marginBottom: 10 },
-  commentUser: { fontWeight: '800', fontSize: 13, color: '#1B4332' },
-  commentText: { marginTop: 5, color: '#8C8579', fontSize: 13 },
-  commentInput: { backgroundColor: '#FAF7F2', borderRadius: 14, padding: 13, marginTop: 8, fontSize: 13 },
-  commentSend: { marginTop: 14, backgroundColor: '#1B4332', paddingVertical: 13, borderRadius: 14 },
+  // Card
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  authorInfo: { flex: 1 },
+  authorName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  authorMeta: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  postContent: { fontSize: 15, color: '#374151', lineHeight: 22, marginBottom: 12 },
+  postImage: { width: '100%', height: 200, borderRadius: 10, marginBottom: 12 },
+
+  // Actions
+  cardActions: { flexDirection: 'row', gap: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  actionCount: { fontSize: 14, color: '#6B7280' },
+  likedText: { color: '#E63946' },
+
+  // Empty
+  emptyState: { alignItems: 'center', marginTop: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151' },
+  emptySubtitle: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  noComments: { textAlign: 'center', color: '#9CA3AF', marginTop: 30, fontSize: 14 },
+  commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentAvatarText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  commentBody: { flex: 1 },
+  commentAuthor: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  commentText: { fontSize: 14, color: '#374151', marginTop: 2, lineHeight: 20 },
+  commentTime: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 10,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    maxHeight: 100,
+  },
+  sendBtn: {
+    backgroundColor: '#2D6A4F',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendBtnDisabled: { backgroundColor: '#9CA3AF' },
 });
