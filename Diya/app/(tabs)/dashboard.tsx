@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef, useFocusEffect } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   RefreshControl, SafeAreaView, ActivityIndicator, Animated, Easing,
