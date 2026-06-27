@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,10 +17,12 @@ import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+// ⚠️ IMPORTANT: Change 192.168.X.X to your computer's actual IPv4 address if testing on a real phone!
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.X:4000/api";
 
 export default function ProofSubmissionScreen() {
   const router = useRouter();
@@ -32,17 +35,18 @@ export default function ProofSubmissionScreen() {
   const [status, setStatus] = useState("Awaiting Submission");
   const [isLoading, setIsLoading] = useState(false);
 
-  /* ------------------ PICK IMAGE ------------------ */
+  /* ------------------ PICK IMAGE (LIVE CAMERA ONLY) ------------------ */
   const pickImage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      alert("Sorry, we need camera permissions to make this work!");
+      Alert.alert("Permission Required", "Sorry, we need camera permissions to verify your work!");
       return;
     }
 
+    // launchCameraAsync forces a live photo (anti-cheat)
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      quality: 0.5, // Compressed slightly for faster uploads
     });
 
     if (!res.canceled) {
@@ -82,59 +86,88 @@ export default function ProofSubmissionScreen() {
 
     const loc = await Location.getCurrentPositionAsync({});
     setLocation({
-      lat: loc.coords.latitude.toFixed(5),
-      lon: loc.coords.longitude.toFixed(5),
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
       time: new Date().toISOString(),
       displayTime: new Date().toLocaleString(),
     });
   };
 
-  /* ------------------ SUBMIT PROOF (BUG 5 FIX) ------------------ */
+  /* ------------------ HELPER: UPLOAD TO CLOUDINARY ------------------ */
+  const uploadToCloudinary = async (fileUri: string, resourceType: 'image' | 'video' = 'image') => {
+    const data = new FormData();
+    const filename = fileUri.split("/").pop() || `upload.${resourceType === 'image' ? 'jpg' : 'm4a'}`;
+    const type = resourceType === 'image' ? 'image/jpeg' : 'audio/m4a';
+
+    data.append('file', { uri: fileUri, type, name: filename } as any);
+    data.append('upload_preset', 'agrifusion_proofs');
+    data.append('cloud_name', 'dujotdx5w');
+
+    // Cloudinary uses the 'video' endpoint for audio files too
+    const uploadUrl = `https://api.cloudinary.com/v1_1/dujotdx5w/${resourceType}/upload`;
+
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: data,
+    });
+
+    const result = await response.json();
+    if (!result.secure_url) throw new Error(`Cloudinary ${resourceType} upload failed`);
+    return result.secure_url;
+  };
+
+  /* ------------------ SUBMIT PROOF (CLOUDINARY + BACKEND) ------------------ */
   const submitProof = async () => {
-    if (!photo) return;
+    if (!photo || !location) {
+      Alert.alert("Missing Data", "Please capture a photo and ensure GPS is loaded.");
+      return;
+    }
 
     setIsLoading(true);
-    setStatus("Uploading proof... 📡");
+    setStatus("Uploading to Cloudinary... ☁️");
 
     try {
-      const formData = new FormData();
+      // 1. Upload Photo to Cloudinary
+      const imageUrl = await uploadToCloudinary(photo, 'image');
 
-      // 1. Append Photo
-      const filename = photo.split("/").pop() || "proof.jpg";
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
-      formData.append("photo", { uri: photo, name: filename, type } as any);
-
-      // 2. Append Audio (if exists)
+      // 2. Upload Audio to Cloudinary (if exists)
+      let finalAudioUrl = null;
       if (audioUri) {
-        const audioName = audioUri.split("/").pop() || "audio.m4a";
-        formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
+        setStatus("Uploading audio note... 🎙️");
+        finalAudioUrl = await uploadToCloudinary(audioUri, 'video'); // Audio uses video endpoint
       }
 
-      // 3. Append Metadata
-      if (location) {
-        formData.append("location", JSON.stringify(location));
-      }
-      formData.append("missionId", "mission_mulching_01"); // Replace with dynamic ID if passed via params
+      setStatus("Verifying with server... 📡");
 
-      console.log(`🚀 Submitting proof to: ${API_BASE_URL}/proofs/submit`);
+      // 3. Get Auth Token
+      const token = await AsyncStorage.getItem('authToken');
 
-      const response = await fetch(`${API_BASE_URL}/proofs/submit`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          // fetch handles multipart/form-data boundary automatically
-          "Accept": "application/json",
+      // 4. Send final secure URLs and GPS to your Node.js Backend
+      const payload = {
+        taskId: "mission_mulching_01", // Replace with dynamic ID if passed via params
+        imageUrl: imageUrl,
+        audioUrl: finalAudioUrl,
+        location: {
+          latitude: location.latitude,
+          longitude: location.longitude
         },
+        notes: "Uploaded via React Native App"
+      };
+
+      const response = await fetch(`${API_BASE_URL}/proofs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit proof to the server.");
+        throw new Error("Failed to save proof to the server.");
       }
 
-      const data = await response.json();
-
-      setStatus("Approved ✔️ +50 XP");
+      setStatus("Approved ✔️ XP Awarded!");
 
       // Navigate back to tasks after success
       setTimeout(() => {
@@ -144,6 +177,7 @@ export default function ProofSubmissionScreen() {
     } catch (error) {
       console.error("Submission Error:", error);
       setStatus("Submission Failed ❌");
+      Alert.alert("Upload Error", "There was a problem submitting your proof.");
     } finally {
       setIsLoading(false);
     }
@@ -185,8 +219,8 @@ export default function ProofSubmissionScreen() {
               <View style={styles.iconCircle}>
                 <Feather name="camera" size={28} color="#16a34a" />
               </View>
-              <Text style={styles.uploadTitle}>Capture Photo Proof</Text>
-              <Text style={styles.uploadSub}>Tap to open camera</Text>
+              <Text style={styles.uploadTitle}>{photo ? "Retake Photo" : "Capture Photo Proof"}</Text>
+              <Text style={styles.uploadSub}>Tap to open live camera</Text>
 
               {photo && (
                 <View style={styles.previewContainer}>
@@ -233,7 +267,7 @@ export default function ProofSubmissionScreen() {
                 <Feather name="map-pin" size={16} color="#166534" />
               </View>
               <Text style={styles.metaValue}>
-                {location ? `${location.lat}, ${location.lon}` : "Location pending..."}
+                {location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : "Location pending..."}
               </Text>
             </View>
 
