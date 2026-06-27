@@ -1,602 +1,590 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
   Modal,
-  TextInput as RNTextInput,
   ScrollView,
   StyleSheet,
   Image,
+  Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- Mock data (replace with real data / API calls) ---
-const STORIES = [
-  { id: '1', name: 'Suresh', avatar: '👨‍🌾' },
-  { id: '2', name: 'Kavitha', avatar: '👩‍🌾' },
-  { id: '3', name: 'Ravi', avatar: '👨‍🌾' },
+const { width } = Dimensions.get('window');
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.51:4000/api';
+
+// ─── Auth header helper ───────────────────────────────
+// Reads the JWT saved at login and returns headers including the
+// Authorization bearer token. Backend derives identity from this token,
+// so userId no longer needs to be sent in request bodies.
+const authHeaders = async () => {
+  const token = await AsyncStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
+
+// ─── Types ────────────────────────────────────────────
+interface Comment {
+  _id: string;
+  userId: { _id: string; fullName: string };
+  text: string;
+  createdAt: string;
+}
+
+interface Post {
+  _id: string;
+  userId: { _id: string; fullName: string; state: string; level?: number };
+  content: string;
+  imageUrl?: string;
+  likes: string[];
+  comments: Comment[];
+  createdAt: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────
+const getInitials = (name: string) =>
+  name
+    ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'F';
+
+const avatarColors = [
+  '#2D6A4F', '#1B4332', '#40916C', '#52B788',
+  '#74C69D', '#B7E4C7', '#D8F3DC', '#081C15',
 ];
 
-const POSTS = [
-  {
-    id: '1',
-    author: { name: 'Ravi Kumar', avatar: '👨‍🌾', level: 4, location: 'Nashik' },
-    timestamp: '2h ago',
-    content: 'Neem oil spray worked really well against aphids this season 🌱',
-    image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200',
-    likes: 24,
-    comments: 2,
-    shares: 3,
-  },
-];
+const getAvatarColor = (name: string) =>
+  avatarColors[(name?.charCodeAt(0) || 0) % avatarColors.length];
 
-type TabKey = 'feed' | 'reels' | 'challenges' | 'leaderboard';
+const timeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+};
 
-export default function CommunityScreen() {
-  const [selectedTab, setSelectedTab] = useState<TabKey>('feed');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [notifications] = useState(3);
-  const [posts] = useState(POSTS);
+// ─── Main Component ───────────────────────────────────
+export default function CommunityDashboard() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newPostText, setNewPostText] = useState('');
+  const [posting, setPosting] = useState(false);
 
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [newPostContent, setNewPostContent] = useState('');
+  // Comment modal
+  const [commentModal, setCommentModal] = useState(false);
+  const [activePost, setActivePost] = useState<Post | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
 
-  const [showComments, setShowComments] = useState(false);
-  const [showHeart, setShowHeart] = useState(false);
+  // Current user from storage
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const handleDoubleTap = () => {
-    setShowHeart(true);
-    setTimeout(() => setShowHeart(false), 900);
+  // ─── Load current user ────────────────────────────
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        if (userData) {
+          const parsed = JSON.parse(userData);
+          setCurrentUserId(parsed._id || parsed.id || null);
+        }
+      } catch (e) {
+        console.log('Could not load user from storage');
+      }
+    };
+    loadUser();
+    fetchPosts();
+  }, []);
+
+  // ─── Fetch posts ──────────────────────────────────
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch(`${API_URL}/community`, {
+        headers: await authHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPosts(json.data);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not load posts. Check your connection.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  return (
-    <LinearGradient colors={['#F5F3EE', '#FFFDFB']} style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* HEADER */}
-        <Animated.View style={styles.header}>
-          <View>
-            <Text style={styles.title}>AgriFusion</Text>
-            <Text style={styles.subtitle}>Grow together with farmers across India</Text>
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPosts();
+  }, []);
+
+  // ─── Create post ──────────────────────────────────
+  const handlePost = async () => {
+    if (!newPostText.trim()) return;
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to post.');
+      return;
+    }
+
+    setPosting(true);
+    try {
+      const res = await fetch(`${API_URL}/community`, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ content: newPostText.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPosts((prev) => [json.data, ...prev]);
+        setNewPostText('');
+      } else {
+        Alert.alert('Error', json.message || 'Could not create post.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not create post. Check your connection.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // ─── Like / Unlike ────────────────────────────────
+  const handleLike = async (post: Post) => {
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to like posts.');
+      return;
+    }
+
+    const isLiked = post.likes.includes(currentUserId);
+
+    // Optimistic update
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p._id !== post._id) return p;
+        return {
+          ...p,
+          likes: isLiked
+            ? p.likes.filter((id) => id !== currentUserId)
+            : [...p.likes, currentUserId],
+        };
+      })
+    );
+
+    try {
+      const res = await fetch(`${API_URL}/community/${post._id}/like`, {
+        method: 'POST',
+        headers: await authHeaders(),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        // Revert if failed
+        setPosts((prev) =>
+          prev.map((p) => (p._id === post._id ? post : p))
+        );
+      }
+    } catch {
+      // Revert on network error
+      setPosts((prev) =>
+        prev.map((p) => (p._id === post._id ? post : p))
+      );
+    }
+  };
+
+  // ─── Open comment modal ───────────────────────────
+  const openComments = (post: Post) => {
+    setActivePost(post);
+    setCommentModal(true);
+  };
+
+  // ─── Add comment ──────────────────────────────────
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !activePost) return;
+    if (!currentUserId) {
+      Alert.alert('Login required', 'Please log in to comment.');
+      return;
+    }
+
+    setCommentLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/community/${activePost._id}/comment`, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ text: commentText.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        // Update posts list with new comments
+        setPosts((prev) =>
+          prev.map((p) =>
+            p._id === activePost._id ? { ...p, comments: json.data } : p
+          )
+        );
+        // Update active post for modal
+        setActivePost((prev) =>
+          prev ? { ...prev, comments: json.data } : prev
+        );
+        setCommentText('');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not add comment.');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  // ─── Post Card ────────────────────────────────────
+  const PostCard = ({ post }: { post: Post }) => {
+    const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
+    const authorName = post.userId?.fullName || 'Farmer';
+
+    return (
+      <View style={styles.card}>
+        {/* Author row */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.avatar, { backgroundColor: getAvatarColor(authorName) }]}>
+            <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
           </View>
-
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="notifications-outline" size={24} color="#14532d" />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notifications}</Text>
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* SEARCH */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#166534" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search farmers..."
-              placeholderTextColor="#6b7280"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+          <View style={styles.authorInfo}>
+            <Text style={styles.authorName}>{authorName}</Text>
+            <Text style={styles.authorMeta}>
+              {post.userId?.state || 'India'} · {timeAgo(post.createdAt)}
+            </Text>
           </View>
         </View>
 
-        {/* STORIES */}
-        <View style={styles.storySection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {STORIES.map((story) => (
-              <View key={story.id} style={styles.storyCard}>
-                <View style={styles.storyCircle}>
-                  <Text style={{ fontSize: 30 }}>{story.avatar}</Text>
-                </View>
-                <Text style={styles.storyName}>{story.name}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+        {/* Content */}
+        <Text style={styles.postContent}>{post.content}</Text>
 
-        {/* TABS */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabsContainer}
-        >
-          {(['feed', 'reels', 'challenges', 'leaderboard'] as TabKey[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabItem, selectedTab === tab && styles.tabItemActive]}
-              onPress={() => setSelectedTab(tab)}
-            >
-              <Text style={[styles.tabText, selectedTab === tab && styles.tabTextActive]}>
-                {tab.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* FEED */}
-        {selectedTab === 'feed' && (
-          <FlatList
-            data={posts}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}
-            showsVerticalScrollIndicator={false}
-            ListHeaderComponent={
-              <View style={styles.trendingSection}>
-                <Text style={styles.sectionTitle}>🔥 Trending</Text>
-                <View style={styles.trendingCard}>
-                  <Text style={styles.trendingTag}>🌱 Organic Farming</Text>
-                  <Text style={styles.trendingTag}>💧 Drip Irrigation</Text>
-                  <Text style={styles.trendingTag}>🐛 Pest Control</Text>
-                </View>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={styles.postCard}>
-                <View style={styles.postHeader}>
-                  <View style={styles.avatar}>
-                    <Text style={{ fontSize: 28 }}>{item.author.avatar}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={styles.postAuthor}>{item.author.name}</Text>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={16}
-                        color="#10B981"
-                        style={{ marginLeft: 4 }}
-                      />
-                      <View style={styles.levelBadge}>
-                        <Text style={styles.levelText}>Lv.{item.author.level}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.postSub}>
-                      {item.author.location} • {item.timestamp}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.postContent}>{item.content}</Text>
-
-                {/* Double-tap to like */}
-                <TouchableOpacity activeOpacity={1} onPress={handleDoubleTap}>
-                  <Image source={{ uri: item.image }} style={styles.postImage} />
-                  {showHeart && (
-                    <Animated.View entering={ZoomIn.duration(300)} style={styles.bigHeart}>
-                      <Ionicons name="heart" size={90} color="#EF4444" />
-                    </Animated.View>
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.postActions}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Ionicons name="heart" size={22} color="#EF4444" />
-                    <Text style={styles.actionText}>{item.likes}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => setShowComments(true)}
-                  >
-                    <Ionicons name="chatbubble-outline" size={20} color="#6B7280" />
-                    <Text style={styles.actionText}>{item.comments}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Feather name="share-2" size={20} color="#6B7280" />
-                    <Text style={styles.actionText}>{item.shares}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+        {/* Image if present */}
+        {post.imageUrl ? (
+          <Image
+            source={{ uri: post.imageUrl }}
+            style={styles.postImage}
+            resizeMode="cover"
           />
-        )}
+        ) : null}
 
-        {/* REELS */}
-        {selectedTab === 'reels' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
+        {/* Actions */}
+        <View style={styles.cardActions}>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleLike(post)}
+            activeOpacity={0.7}
           >
-            <View style={styles.reelCard}>
-              <Image
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=1200',
-                }}
-                style={styles.reelImage}
-              />
-              <View style={styles.reelOverlay}>
-                <Text style={styles.reelTitle}>🎥 Organic Fertilizer Tips</Text>
-                <Text style={styles.reelSubtitle}>240 likes • 12 comments</Text>
-              </View>
-            </View>
-
-            <View style={styles.reelCard}>
-              <Image
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200',
-                }}
-                style={styles.reelImage}
-              />
-              <View style={styles.reelOverlay}>
-                <Text style={styles.reelTitle}>💧 Smart Irrigation Hacks</Text>
-                <Text style={styles.reelSubtitle}>185 likes • 9 comments</Text>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* CHALLENGES */}
-        {selectedTab === 'challenges' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          >
-            <View style={styles.challengeCard}>
-              <Text style={styles.challengeEmoji}>🌱</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.challengeTitle}>Zero Waste Week</Text>
-                <Text style={styles.challengeDesc}>
-                  Implement zero waste practices in your farming operations.
-                </Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '70%' }]} />
-                </View>
-                <Text style={styles.progressText}>5/7 days completed • 500 XP</Text>
-              </View>
-            </View>
-
-            <View style={styles.challengeCard}>
-              <Text style={styles.challengeEmoji}>💧</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.challengeTitle}>Smart Irrigation Challenge</Text>
-                <Text style={styles.challengeDesc}>Save water with smart irrigation.</Text>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: '40%' }]} />
-                </View>
-                <Text style={styles.progressText}>3/7 days completed • 750 XP</Text>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* LEADERBOARD */}
-        {selectedTab === 'leaderboard' && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          >
-            <View style={styles.podiumContainer}>
-              <View style={styles.secondCard}>
-                <Text style={styles.podiumEmoji}>🥈</Text>
-                <Text style={styles.podiumName}>Kavitha</Text>
-                <Text style={styles.podiumPoints}>2180 XP</Text>
-              </View>
-
-              <View style={styles.firstCard}>
-                <Text style={styles.podiumEmoji}>🥇</Text>
-                <Text style={styles.podiumName}>Suresh</Text>
-                <Text style={styles.podiumPoints}>2450 XP</Text>
-              </View>
-
-              <View style={styles.thirdCard}>
-                <Text style={styles.podiumEmoji}>🥉</Text>
-                <Text style={styles.podiumName}>Ravi</Text>
-                <Text style={styles.podiumPoints}>1890 XP</Text>
-              </View>
-            </View>
-
-            <View style={styles.leaderCard}>
-              <Text style={styles.leaderText}>#4 Rajesh Kumar</Text>
-              <Text style={styles.leaderXp}>1720 XP</Text>
-            </View>
-
-            <View style={styles.leaderCard}>
-              <Text style={styles.leaderText}>#5 Priya Sharma</Text>
-              <Text style={styles.leaderXp}>1640 XP</Text>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* FAB MENU */}
-        <View style={styles.fabMenu}>
-          <TouchableOpacity style={styles.smallFab}>
-            <Ionicons name="camera" size={22} color="#14532d" />
+            <Ionicons
+              name={isLiked ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isLiked ? '#E63946' : '#6B7280'}
+            />
+            <Text style={[styles.actionCount, isLiked && styles.likedText]}>
+              {post.likes.length}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.smallFab}>
-            <Ionicons name="videocam" size={22} color="#14532d" />
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => openComments(post)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color="#6B7280" />
+            <Text style={styles.actionCount}>{post.comments.length}</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
-          <TouchableOpacity style={styles.fab} onPress={() => setShowCreatePost(true)}>
-            <Feather name="edit-2" size={24} color="white" />
+  // ─── Render ───────────────────────────────────────
+  return (
+    <SafeAreaView style={styles.container}>
+      <LinearGradient colors={['#1B4332', '#2D6A4F']} style={styles.header}>
+        <Text style={styles.headerTitle}>🌾 Community</Text>
+        <Text style={styles.headerSubtitle}>Share knowledge with farmers</Text>
+      </LinearGradient>
+
+      <ScrollView
+        style={styles.feed}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2D6A4F"
+          />
+        }
+      >
+        {/* Compose Box */}
+        <View style={styles.composeBox}>
+          <TextInput
+            style={styles.composeInput}
+            placeholder="Share a farming tip or question..."
+            placeholderTextColor="#9CA3AF"
+            value={newPostText}
+            onChangeText={setNewPostText}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[styles.postBtn, !newPostText.trim() && styles.postBtnDisabled]}
+            onPress={handlePost}
+            disabled={!newPostText.trim() || posting}
+            activeOpacity={0.8}
+          >
+            {posting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.postBtnText}>Post</Text>
+            )}
           </TouchableOpacity>
         </View>
 
-        {/* CREATE POST MODAL */}
-        <Modal visible={showCreatePost} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Create Post</Text>
+        {/* Feed */}
+        {loading ? (
+          <ActivityIndicator size="large" color="#2D6A4F" style={{ marginTop: 40 }} />
+        ) : posts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🌱</Text>
+            <Text style={styles.emptyTitle}>No posts yet</Text>
+            <Text style={styles.emptySubtitle}>Be the first to share something!</Text>
+          </View>
+        ) : (
+          posts.map((post) => <PostCard key={post._id} post={post} />)
+        )}
 
-              <RNTextInput
-                style={styles.textarea}
-                placeholder="Share something..."
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* Comment Modal */}
+      <Modal
+        visible={commentModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCommentModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            {/* Modal header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Comments</Text>
+              <TouchableOpacity onPress={() => setCommentModal(false)}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Comments list */}
+            <ScrollView style={styles.commentsList}>
+              {activePost?.comments.length === 0 ? (
+                <Text style={styles.noComments}>No comments yet. Be the first!</Text>
+              ) : (
+                activePost?.comments.map((c) => (
+                  <View key={c._id} style={styles.commentItem}>
+                    <View
+                      style={[
+                        styles.commentAvatar,
+                        { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
+                      ]}
+                    >
+                      <Text style={styles.commentAvatarText}>
+                        {getInitials(c.userId?.fullName || 'F')}
+                      </Text>
+                    </View>
+                    <View style={styles.commentBody}>
+                      <Text style={styles.commentAuthor}>
+                        {c.userId?.fullName || 'Farmer'}
+                      </Text>
+                      <Text style={styles.commentText}>{c.text}</Text>
+                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            {/* Add comment */}
+            <View style={styles.commentInputRow}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Add a comment..."
+                placeholderTextColor="#9CA3AF"
+                value={commentText}
+                onChangeText={setCommentText}
                 multiline
-                value={newPostContent}
-                onChangeText={setNewPostContent}
+                maxLength={300}
               />
-
               <TouchableOpacity
-                style={styles.postButton}
-                onPress={() => {
-                  setNewPostContent('');
-                  setShowCreatePost(false);
-                }}
+                style={[styles.sendBtn, !commentText.trim() && styles.sendBtnDisabled]}
+                onPress={handleAddComment}
+                disabled={!commentText.trim() || commentLoading}
               >
-                <Text style={styles.postButtonText}>Post</Text>
+                {commentLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="#fff" />
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-
-        {/* COMMENTS MODAL */}
-        <Modal visible={showComments} transparent animationType="slide">
-          <View style={styles.commentOverlay}>
-            <View style={styles.commentSheet}>
-              <View style={styles.dragBar} />
-              <Text style={styles.commentTitle}>Comments</Text>
-
-              <View style={styles.commentCard}>
-                <Text style={styles.commentUser}>Ravi Kumar</Text>
-                <Text style={styles.commentText}>Neem oil spray worked really well 🌱</Text>
-              </View>
-
-              <View style={styles.commentCard}>
-                <Text style={styles.commentUser}>Priya Sharma</Text>
-                <Text style={styles.commentText}>
-                  I had the same issue and solved it with drip irrigation 💧
-                </Text>
-              </View>
-
-              <TextInput style={styles.commentInput} placeholder="Write a comment..." />
-
-              <TouchableOpacity
-                style={styles.commentSend}
-                onPress={() => setShowComments(false)}
-              >
-                <Text style={styles.postButtonText}>Send</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      </SafeAreaView>
-    </LinearGradient>
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: { fontSize: 30, fontWeight: '900', color: '#1B4332' },
-  subtitle: { color: '#6B7280', marginTop: 4 },
-  iconButton: { backgroundColor: '#fff', padding: 14, borderRadius: 20 },
-  badge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#EF4444',
-    borderRadius: 20,
-    paddingHorizontal: 6,
-  },
-  badgeText: { color: 'white' },
-  searchRow: { paddingHorizontal: 16 },
-  searchContainer: {
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+
+  // Header
+  header: { paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20 },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  headerSubtitle: { fontSize: 13, color: '#B7E4C7', marginTop: 2 },
+
+  // Feed
+  feed: { flex: 1 },
+
+  // Compose
+  composeBox: {
     backgroundColor: '#fff',
-    height: 55,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  searchInput: { flex: 1, marginLeft: 10 },
-  storySection: { marginTop: 20, paddingLeft: 16 },
-  storyCard: { alignItems: 'center', marginRight: 16 },
-  storyCircle: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: '#FFFDF8',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  storyName: { marginTop: 8, fontWeight: '700' },
-  tabsContainer: { paddingHorizontal: 16, paddingTop: 20, gap: 10 },
-  tabItem: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25 },
-  tabItemActive: { backgroundColor: '#14532d' },
-  tabText: { fontWeight: '700' },
-  tabTextActive: { color: 'white' },
-  trendingSection: { margin: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '800' },
-  trendingCard: { backgroundColor: '#FFF8D6', padding: 18, borderRadius: 20 },
-  trendingTag: { fontWeight: '700', marginBottom: 10 },
-  postCard: {
-    backgroundColor: '#FFFDFB',
-    borderRadius: 30,
-    padding: 20,
-    marginBottom: 18,
+    margin: 16,
+    borderRadius: 14,
+    padding: 14,
     shadowColor: '#000',
     shadowOpacity: 0.06,
-    shadowRadius: 15,
-    elevation: 6,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#DFF5E3',
-    justifyContent: 'center',
-    alignItems: 'center',
+  composeInput: {
+    fontSize: 15,
+    color: '#111827',
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
-  postAuthor: { fontWeight: '800', fontSize: 16, color: '#1B4332' },
-  postSub: { fontSize: 12, color: '#6B7280', marginTop: 3 },
-  levelBadge: {
-    backgroundColor: '#DFF5E3',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  postBtn: {
+    backgroundColor: '#2D6A4F',
     borderRadius: 10,
-    marginLeft: 8,
-  },
-  levelText: { fontWeight: '700', fontSize: 11, color: '#14532d' },
-  postContent: { fontSize: 15, lineHeight: 23, color: '#374151', marginBottom: 15 },
-  postImage: { height: 220, width: '100%', borderRadius: 24, marginBottom: 15 },
-  bigHeart: { position: 'absolute', top: '35%', left: '40%' },
-  postActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 15,
-  },
-  actionButton: { flexDirection: 'row', alignItems: 'center' },
-  actionText: { marginLeft: 6, fontWeight: '700', color: '#6B7280' },
-  reelCard: { height: 320, borderRadius: 30, overflow: 'hidden', marginBottom: 20 },
-  reelImage: { height: '100%', width: '100%' },
-  reelOverlay: { position: 'absolute', bottom: 20, left: 20 },
-  reelTitle: { fontSize: 22, fontWeight: '900', color: 'white' },
-  reelSubtitle: { color: 'white', marginTop: 5 },
-  challengeCard: {
-    backgroundColor: '#FFFDFB',
-    borderRadius: 28,
-    padding: 20,
-    marginBottom: 18,
-    flexDirection: 'row',
-  },
-  challengeEmoji: { fontSize: 40, marginRight: 20 },
-  challengeTitle: { fontSize: 17, fontWeight: '800', color: '#14532d' },
-  challengeDesc: { marginTop: 8, color: '#6B7280', lineHeight: 20 },
-  progressBarBg: { height: 10, backgroundColor: '#E5E7EB', borderRadius: 20, marginTop: 18 },
-  progressBarFill: { height: 10, backgroundColor: '#A7D7A8', borderRadius: 20 },
-  progressText: { marginTop: 10, fontWeight: '700', color: '#14532d' },
-  podiumContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    marginBottom: 35,
-    marginTop: 25,
-  },
-  firstCard: {
-    width: 110,
-    height: 180,
-    backgroundColor: '#FFF8D6',
-    borderRadius: 30,
-    justifyContent: 'center',
+    paddingVertical: 10,
     alignItems: 'center',
+    marginTop: 10,
   },
-  secondCard: {
-    width: 100,
-    height: 150,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 30,
+  postBtnDisabled: { backgroundColor: '#9CA3AF' },
+  postBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+
+  // Card
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
-  thirdCard: {
-    width: 100,
-    height: 140,
-    backgroundColor: '#FFE8D6',
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  authorInfo: { flex: 1 },
+  authorName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  authorMeta: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  postContent: { fontSize: 15, color: '#374151', lineHeight: 22, marginBottom: 12 },
+  postImage: { width: '100%', height: 200, borderRadius: 10, marginBottom: 12 },
+
+  // Actions
+  cardActions: { flexDirection: 'row', gap: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  actionCount: { fontSize: 14, color: '#6B7280' },
+  likedText: { color: '#E63946' },
+
+  // Empty
+  emptyState: { alignItems: 'center', marginTop: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151' },
+  emptySubtitle: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
+
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
   },
-  podiumEmoji: { fontSize: 40 },
-  podiumName: { marginTop: 10, fontWeight: '800', color: '#1B4332' },
-  podiumPoints: { marginTop: 8, fontWeight: '700', color: '#6B7280' },
-  leaderCard: {
-    backgroundColor: '#FFFDFB',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 15,
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  leaderText: { fontWeight: '800', fontSize: 15 },
-  leaderXp: { fontWeight: '900', color: '#14532d' },
-  fabMenu: { position: 'absolute', right: 20, bottom: 100, alignItems: 'center' },
-  smallFab: {
-    height: 50,
-    width: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFFDF8',
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  noComments: { textAlign: 'center', color: '#9CA3AF', marginTop: 30, fontSize: 14 },
+  commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    elevation: 5,
   },
-  fab: {
-    height: 65,
-    width: 65,
-    borderRadius: 33,
-    backgroundColor: '#021F0F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
+  commentAvatarText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  commentBody: { flex: 1 },
+  commentAuthor: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  commentText: { fontSize: 14, color: '#374151', marginTop: 2, lineHeight: 20 },
+  commentTime: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 10,
   },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.5)' },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: 25,
-    borderTopLeftRadius: 35,
-    borderTopRightRadius: 35,
-  },
-  modalTitle: { fontSize: 24, fontWeight: '900', marginBottom: 20, color: '#14532d' },
-  textarea: {
+  commentInput: {
+    flex: 1,
     backgroundColor: '#F9FAFB',
-    height: 140,
     borderRadius: 20,
-    padding: 20,
-    textAlignVertical: 'top',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    maxHeight: 100,
   },
-  postButton: { marginTop: 20, backgroundColor: '#14532d', paddingVertical: 15, borderRadius: 20 },
-  postButtonText: { color: 'white', fontWeight: '900', fontSize: 16, textAlign: 'center' },
-  commentOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  commentSheet: { backgroundColor: 'white', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  dragBar: { width: 60, height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, alignSelf: 'center', marginBottom: 10 },
-  commentTitle: { fontSize: 18, fontWeight: '800', marginBottom: 10 },
-  commentCard: { padding: 12, backgroundColor: '#FFFDFB', borderRadius: 12, marginBottom: 10 },
-  commentUser: { fontWeight: '800' },
-  commentText: { marginTop: 6, color: '#6B7280' },
-  commentInput: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginTop: 10 },
-  commentSend: { marginTop: 12, backgroundColor: '#14532d', paddingVertical: 12, borderRadius: 12 },
-  expertBadge: {
-    backgroundColor: '#FFF8D6',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginTop: 10,
+  sendBtn: {
+    backgroundColor: '#2D6A4F',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  expertText: {
-    fontWeight: '700',
-    color: '#92400E',
-  },
+  sendBtnDisabled: { backgroundColor: '#9CA3AF' },
 });
-
-
-
-

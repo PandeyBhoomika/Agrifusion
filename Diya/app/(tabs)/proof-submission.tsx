@@ -16,16 +16,22 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ⚠️ IMPORTANT: Change 192.168.X.X to your computer's actual IPv4 address if testing on a real phone!
+// ⚠️ IMPORTANT: set EXPO_PUBLIC_API_URL in Diya/.env to your machine's IPv4
+// when testing on a real phone (localhost only works in the browser).
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.X:4000/api";
 
 export default function ProofSubmissionScreen() {
   const router = useRouter();
+  const { taskId, title, xpReward } = useLocalSearchParams<{
+    taskId?: string;
+    title?: string;
+    xpReward?: string;
+  }>();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export default function ProofSubmissionScreen() {
     // launchCameraAsync forces a live photo (anti-cheat)
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5, // Compressed slightly for faster uploads
+      quality: 0.5,
     });
 
     if (!res.canceled) {
@@ -93,91 +99,99 @@ export default function ProofSubmissionScreen() {
     });
   };
 
-  /* ------------------ HELPER: UPLOAD TO CLOUDINARY ------------------ */
-  const uploadToCloudinary = async (fileUri: string, resourceType: 'image' | 'video' = 'image') => {
-    const data = new FormData();
-    const filename = fileUri.split("/").pop() || `upload.${resourceType === 'image' ? 'jpg' : 'm4a'}`;
-    const type = resourceType === 'image' ? 'image/jpeg' : 'audio/m4a';
-
-    data.append('file', { uri: fileUri, type, name: filename } as any);
-    data.append('upload_preset', 'agrifusion_proofs');
-    data.append('cloud_name', 'dujotdx5w');
-
-    // Cloudinary uses the 'video' endpoint for audio files too
-    const uploadUrl = `https://api.cloudinary.com/v1_1/dujotdx5w/${resourceType}/upload`;
-
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      body: data,
-    });
-
-    const result = await response.json();
-    if (!result.secure_url) throw new Error(`Cloudinary ${resourceType} upload failed`);
-    return result.secure_url;
-  };
-
-  /* ------------------ SUBMIT PROOF (CLOUDINARY + BACKEND) ------------------ */
+  /* ------------------ SUBMIT PROOF (FormData → multer backend) ------------------ */
   const submitProof = async () => {
-    if (!photo || !location) {
-      Alert.alert("Missing Data", "Please capture a photo and ensure GPS is loaded.");
+    if (!photo) return;
+    if (!taskId) {
+      setStatus("No task selected ❌");
+      Alert.alert("No task", "This screen was opened without a task. Go back and tap 'Submit Proof' on a specific task.");
       return;
     }
 
     setIsLoading(true);
-    setStatus("Uploading to Cloudinary... ☁️");
+    setStatus("Uploading proof... ☁️");
 
     try {
-      // 1. Upload Photo to Cloudinary
-      const imageUrl = await uploadToCloudinary(photo, 'image');
+      const token = await AsyncStorage.getItem("authToken");
 
-      // 2. Upload Audio to Cloudinary (if exists)
-      let finalAudioUrl = null;
-      if (audioUri) {
-        setStatus("Uploading audio note... 🎙️");
-        finalAudioUrl = await uploadToCloudinary(audioUri, 'video'); // Audio uses video endpoint
+      const formData = new FormData();
+
+      // ✅ Web fix: on web, expo-image-picker gives a blob: URI, and
+      // React Native Web's FormData polyfill needs a real Blob/File object,
+      // not the { uri, name, type } shorthand that only works on native.
+      const filename = photo.split("/").pop()?.split("?")[0] || "proof.jpg";
+      const photoMatch = /\.(\w+)$/.exec(filename);
+      const photoType = photoMatch ? `image/${photoMatch[1]}` : `image/jpeg`;
+
+      if (Platform.OS === "web") {
+        const photoBlob = await (await fetch(photo)).blob();
+        formData.append("photo", photoBlob, filename);
+      } else {
+        formData.append("photo", { uri: photo, name: filename, type: photoType } as any);
       }
 
-      setStatus("Verifying with server... 📡");
+      if (audioUri) {
+        const audioName = audioUri.split("/").pop()?.split("?")[0] || "audio.m4a";
+        if (Platform.OS === "web") {
+          const audioBlob = await (await fetch(audioUri)).blob();
+          formData.append("audio", audioBlob, audioName);
+        } else {
+          formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
+        }
+      }
 
-      // 3. Get Auth Token
-      const token = await AsyncStorage.getItem('authToken');
+      // Backend parses location JSON and reads loc.lat / loc.lon, so send
+      // those keys (not latitude/longitude) or GPS saves empty.
+      if (location) {
+        formData.append(
+          "location",
+          JSON.stringify({
+            lat: location.latitude,
+            lon: location.longitude,
+            time: location.time,
+          })
+        );
+      }
 
-      // 4. Send final secure URLs and GPS to your Node.js Backend
-      const payload = {
-        taskId: "mission_mulching_01", // Replace with dynamic ID if passed via params
-        imageUrl: imageUrl,
-        audioUrl: finalAudioUrl,
-        location: {
-          latitude: location.latitude,
-          longitude: location.longitude
-        },
-        notes: "Uploaded via React Native App"
-      };
+      formData.append("taskId", taskId);
+      // NOTE: userId is intentionally NOT sent — the backend derives it
+      // from the verified token (req.user.userId).
 
-      const response = await fetch(`${API_BASE_URL}/proofs`, {
+      const response = await fetch(`${API_BASE_URL}/proofs/submit`, {
         method: "POST",
+        body: formData,
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Accept: "application/json",
+          // Do NOT set Content-Type manually for FormData — the runtime
+          // sets the multipart boundary automatically.
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save proof to the server.");
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || "Failed to save proof to the server.");
       }
 
-      setStatus("Approved ✔️ XP Awarded!");
+      // Status reflects what the backend actually did. The current backend
+      // auto-approves and awards XP immediately, so this will usually be
+      // "Approved". If manual review is added later, it'll show "Pending".
+      const backendStatus = json.data?.status;
+      if (backendStatus === "Approved") {
+        const xp = json.data?.xpAwarded ?? 0;
+        setStatus(`Approved ✔️  +${xp} XP awarded!`);
+      } else {
+        setStatus("Submitted — awaiting review ⏳");
+      }
 
-      // Navigate back to tasks after success
       setTimeout(() => {
         router.back();
       }, 2000);
-
-    } catch (error) {
+    } catch (error: any) {
       console.error("Submission Error:", error);
       setStatus("Submission Failed ❌");
-      Alert.alert("Upload Error", "There was a problem submitting your proof.");
+      Alert.alert("Upload Error", error?.message || "There was a problem submitting your proof.");
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +201,6 @@ export default function ProofSubmissionScreen() {
     <LinearGradient colors={["#d4efdd", "#c8e8d4", "#b8dfc8"]} style={styles.gradient}>
       <StatusBar style="dark" backgroundColor="transparent" />
       <SafeAreaView style={styles.safe}>
-
         {/* --- HEADER --- */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
@@ -201,7 +214,6 @@ export default function ProofSubmissionScreen() {
         </Animated.View>
 
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-
           {/* --- MISSION BADGE --- */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.missionCard}>
             <View style={styles.missionIconWrap}>
@@ -209,7 +221,7 @@ export default function ProofSubmissionScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.missionLabel}>Current Mission</Text>
-              <Text style={styles.missionTitleText}>Organic Mulching Application</Text>
+              <Text style={styles.missionTitleText}>{title || "Field Task"}</Text>
             </View>
           </Animated.View>
 
@@ -285,11 +297,15 @@ export default function ProofSubmissionScreen() {
           <Animated.View entering={FadeInUp.delay(500).duration(400)}>
             <View style={styles.statusCard}>
               <Text style={styles.statusLabel}>Verification Status</Text>
-              <Text style={[
-                styles.statusValue,
-                status.includes("Failed") && { color: "#ef4444" },
-                status.includes("Approved") && { color: "#16a34a" }
-              ]}>{status}</Text>
+              <Text
+                style={[
+                  styles.statusValue,
+                  status.includes("Failed") && { color: "#ef4444" },
+                  status.includes("Approved") && { color: "#16a34a" },
+                ]}
+              >
+                {status}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -321,50 +337,141 @@ const styles = StyleSheet.create({
   gradient: { flex: 1 },
   safe: { flex: 1 },
 
-  /* HEADER */
   header: {
-    paddingHorizontal: 20, paddingTop: Platform.OS === "android" ? 16 : 8, paddingBottom: 16,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? 16 : 8,
+    paddingBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: { fontSize: 22, fontWeight: "800", color: "#14532d", letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: "#166534", marginTop: 2, fontWeight: "600" },
-  headerButton: { padding: 10, backgroundColor: "#ffffff", borderRadius: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  headerButton: {
+    padding: 10,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
 
   container: { padding: 20 },
 
-  /* MISSION BADGE */
-  missionCard: { flexDirection: "row", backgroundColor: "#ffffff", padding: 16, borderRadius: 20, marginBottom: 20, alignItems: "center", borderWidth: 1, borderColor: "rgba(34,197,94,0.3)", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  missionIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", marginRight: 14 },
+  missionCard: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.3)",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  missionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#dcfce7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
   missionLabel: { fontSize: 12, color: "#6b7280", fontWeight: "600", textTransform: "uppercase", marginBottom: 2 },
   missionTitleText: { fontSize: 16, fontWeight: "800", color: "#1f2937" },
 
-  /* UPLOAD CARDS */
-  uploadCard: { backgroundColor: "#ffffff", padding: 20, borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.3)", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3, alignItems: "center" },
+  uploadCard: {
+    backgroundColor: "#ffffff",
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.3)",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+    alignItems: "center",
+  },
   recordingActive: { borderColor: "#ef4444", backgroundColor: "#fef2f2" },
-  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: "#f0fdf4", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#f0fdf4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   iconCircleRecording: { backgroundColor: "#fecaca" },
   uploadTitle: { fontSize: 16, fontWeight: "800", color: "#1f2937", marginBottom: 4 },
   uploadSub: { fontSize: 13, color: "#6b7280", fontWeight: "500" },
 
-  /* PREVIEWS */
   previewContainer: { width: "100%", marginTop: 16, alignItems: "center" },
   previewImage: { width: "100%", height: 200, borderRadius: 16 },
-  successPill: { flexDirection: "row", alignItems: "center", backgroundColor: "#dcfce7", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginTop: 12, borderWidth: 1, borderColor: "#bbf7d0" },
+  successPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#dcfce7",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
   successPillText: { marginLeft: 6, color: "#166534", fontSize: 13, fontWeight: "700" },
 
-  /* METADATA */
-  metaCard: { backgroundColor: "rgba(255,255,255,0.6)", padding: 18, borderRadius: 20, marginBottom: 20, borderWidth: 1, borderColor: "rgba(34,197,94,0.2)" },
+  metaCard: {
+    backgroundColor: "rgba(255,255,255,0.6)",
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.2)",
+  },
   metaTitle: { fontSize: 15, fontWeight: "800", color: "#14532d", marginBottom: 12 },
   metaRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  metaIconBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  metaIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#dcfce7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
   metaValue: { flex: 1, fontSize: 13, color: "#374151", fontWeight: "600" },
 
-  /* STATUS & BUTTON */
-  statusCard: { backgroundColor: "#ffffff", padding: 16, borderRadius: 16, alignItems: "center", marginBottom: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.2)" },
+  statusCard: {
+    backgroundColor: "#ffffff",
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.2)",
+  },
   statusLabel: { fontSize: 12, color: "#6b7280", fontWeight: "600", textTransform: "uppercase", marginBottom: 4 },
   statusValue: { fontSize: 16, fontWeight: "800", color: "#14532d" },
 
-  submitBtn: { flexDirection: "row", backgroundColor: "#22c55e", paddingVertical: 16, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: "#22c55e", shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  submitBtn: {
+    flexDirection: "row",
+    backgroundColor: "#22c55e",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#22c55e",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
   submitBtnDisabled: { backgroundColor: "#9ca3af", shadowOpacity: 0, elevation: 0 },
   submitText: { color: "#ffffff", fontSize: 16, fontWeight: "800", letterSpacing: 0.5 },
 });
