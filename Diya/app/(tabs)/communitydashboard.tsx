@@ -19,14 +19,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import StoriesBar from '../../components/Stories'; // ✅ NEW
 
 const { width } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.51:4000/api';
 
 // ─── Auth header helper ───────────────────────────────
-// Reads the JWT saved at login and returns headers including the
-// Authorization bearer token. Backend derives identity from this token,
-// so userId no longer needs to be sent in request bodies.
 const authHeaders = async () => {
   const token = await AsyncStorage.getItem('authToken');
   return {
@@ -192,13 +190,11 @@ export default function CommunityDashboard() {
       });
       const json = await res.json();
       if (!json.success) {
-        // Revert if failed
         setPosts((prev) =>
           prev.map((p) => (p._id === post._id ? post : p))
         );
       }
     } catch {
-      // Revert on network error
       setPosts((prev) =>
         prev.map((p) => (p._id === post._id ? post : p))
       );
@@ -228,13 +224,11 @@ export default function CommunityDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        // Update posts list with new comments
         setPosts((prev) =>
           prev.map((p) =>
             p._id === activePost._id ? { ...p, comments: json.data } : p
           )
         );
-        // Update active post for modal
         setActivePost((prev) =>
           prev ? { ...prev, comments: json.data } : prev
         );
@@ -254,7 +248,6 @@ export default function CommunityDashboard() {
 
     return (
       <View style={styles.card}>
-        {/* Author row */}
         <View style={styles.cardHeader}>
           <View style={[styles.avatar, { backgroundColor: getAvatarColor(authorName) }]}>
             <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
@@ -267,10 +260,8 @@ export default function CommunityDashboard() {
           </View>
         </View>
 
-        {/* Content */}
         <Text style={styles.postContent}>{post.content}</Text>
 
-        {/* Image if present */}
         {post.imageUrl ? (
           <Image
             source={{ uri: post.imageUrl }}
@@ -279,7 +270,6 @@ export default function CommunityDashboard() {
           />
         ) : null}
 
-        {/* Actions */}
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.actionBtn}
@@ -328,6 +318,9 @@ export default function CommunityDashboard() {
           />
         }
       >
+        {/* ✅ NEW — Stories bar appears right at the top of the feed */}
+        <StoriesBar />
+
         {/* Compose Box */}
         <View style={styles.composeBox}>
           <TextInput
@@ -381,7 +374,6 @@ export default function CommunityDashboard() {
           style={styles.modalOverlay}
         >
           <View style={styles.modalSheet}>
-            {/* Modal header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Comments</Text>
               <TouchableOpacity onPress={() => setCommentModal(false)}>
@@ -389,7 +381,6 @@ export default function CommunityDashboard() {
               </TouchableOpacity>
             </View>
 
-            {/* Comments list */}
             <ScrollView style={styles.commentsList}>
               {activePost?.comments.length === 0 ? (
                 <Text style={styles.noComments}>No comments yet. Be the first!</Text>
@@ -418,7 +409,6 @@ export default function CommunityDashboard() {
               )}
             </ScrollView>
 
-            {/* Add comment */}
             <View style={styles.commentInputRow}>
               <TextInput
                 style={styles.commentInput}
@@ -451,140 +441,47 @@ export default function CommunityDashboard() {
 // ─── Styles ───────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
-
-  // Header
   header: { paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
   headerSubtitle: { fontSize: 13, color: '#B7E4C7', marginTop: 2 },
-
-  // Feed
   feed: { flex: 1 },
-
-  // Compose
-  composeBox: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  composeInput: {
-    fontSize: 15,
-    color: '#111827',
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  postBtn: {
-    backgroundColor: '#2D6A4F',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
+  composeBox: { backgroundColor: '#fff', margin: 16, borderRadius: 14, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  composeInput: { fontSize: 15, color: '#111827', minHeight: 70, textAlignVertical: 'top' },
+  postBtn: { backgroundColor: '#2D6A4F', borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   postBtnDisabled: { backgroundColor: '#9CA3AF' },
   postBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-
-  // Card
-  card: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+  card: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
+  avatar: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   avatarText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   authorInfo: { flex: 1 },
   authorName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   authorMeta: { fontSize: 12, color: '#6B7280', marginTop: 1 },
   postContent: { fontSize: 15, color: '#374151', lineHeight: 22, marginBottom: 12 },
   postImage: { width: '100%', height: 200, borderRadius: 10, marginBottom: 12 },
-
-  // Actions
   cardActions: { flexDirection: 'row', gap: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   actionCount: { fontSize: 14, color: '#6B7280' },
   likedText: { color: '#E63946' },
-
-  // Empty
   emptyState: { alignItems: 'center', marginTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151' },
   emptySubtitle: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
-
-  // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
+  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%', paddingBottom: Platform.OS === 'ios' ? 30 : 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
   commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   noComments: { textAlign: 'center', color: '#9CA3AF', marginTop: 30, fontSize: 14 },
   commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
-  commentAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  commentAvatar: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   commentAvatarText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   commentBody: { flex: 1 },
   commentAuthor: { fontSize: 13, fontWeight: '600', color: '#111827' },
   commentText: { fontSize: 14, color: '#374151', marginTop: 2, lineHeight: 20 },
   commentTime: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    gap: 10,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    maxHeight: 100,
-  },
-  sendBtn: {
-    backgroundColor: '#2D6A4F',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  commentInputRow: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
+  commentInput: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#111827', maxHeight: 100 },
+  sendBtn: { backgroundColor: '#2D6A4F', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { backgroundColor: '#9CA3AF' },
 });
