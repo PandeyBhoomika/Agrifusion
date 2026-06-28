@@ -1,28 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { mockVideos, VideoModule } from '../data/videoMockData';
 
-// ⚠️ IMPORTANT: Change 192.168.1.X to your computer's actual IPv4 address if testing on a real phone!
-// If using an Android Emulator, use 'http://10.0.2.2:4000'
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.X:4000';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface VideoResponse {
-  success: boolean;
-  data?: VideoModule;
-  error?: string;
-}
-
-export interface VideosListResponse {
-  success: boolean;
-  data?: VideoModule[];
-  error?: string;
-}
-
-export interface VideoProgressUpdate {
-  videoId: string;
-  progress: number;
-  currentTime: number;
-  duration: number;
+export interface VideoModule {
+  // From MongoDB
+  id: string;
+  _id?: string;
+  title: string;
+  description: string;
+  duration: string;
+  category: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  videoUrl: string;
+  youtubeId: string;    // NEW: extracted ID — used directly by YoutubePlayer
+  thumbnail: string;    // either stored URL or built from youtubeId
+  thumbnailUrl?: string; // virtual from backend
+  instructor: string;
+  points: number;
+  isActive?: boolean;
+  // Frontend-only (not in DB, tracked locally via AsyncStorage)
   completed: boolean;
+  progress: number;
 }
 
 export interface VideoProgressData {
@@ -34,194 +32,213 @@ export interface VideoProgressData {
   lastUpdated: string;
 }
 
-/**
- * Helper to get the Auth Token for Protected Backend Routes
- */
-const getAuthHeaders = async () => {
-  try {
-    const token = await AsyncStorage.getItem('authToken');
-    if (token) {
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      };
-    }
-  } catch (error) {
-    console.warn("Error getting auth token", error);
-  }
-  return { 'Content-Type': 'application/json' };
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+// ─── Normaliser ───────────────────────────────────────────────────────────────
+// Maps the backend Video document to the VideoModule shape the screen expects.
+
+const extractYoutubeId = (url: string): string => {
+  const match = url?.match(/(?:v=|youtu\.be\/)([^&?/\s]{11})/);
+  return match ? match[1] : '';
 };
 
-/**
- * Fetch all learning videos from API
- * Falls back to mock data if API fails
- */
+export const normaliseVideo = (raw: any): VideoModule => {
+  const ytId = raw.youtubeId || extractYoutubeId(raw.videoUrl || '');
+  const thumb =
+    raw.thumbnailUrl ||
+    raw.thumbnail ||
+    (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '');
+
+  return {
+    id:          raw._id   || raw.id || '',
+    title:       raw.title || '',
+    description: raw.description || '',
+    duration:    raw.duration  || '',
+    category:    raw.category  || '',
+    difficulty:  raw.difficulty || 'beginner',
+    videoUrl:    raw.videoUrl  || '',
+    youtubeId:   ytId,
+    thumbnail:   thumb,
+    instructor:  raw.instructor || '',
+    points:      raw.points ?? 100,
+    isActive:    raw.isActive !== false,
+    // Progress is local-only — load from AsyncStorage separately
+    completed:   false,
+    progress:    0,
+  };
+};
+
+// ─── Fallback mock data ───────────────────────────────────────────────────────
+
+export const mockVideos: VideoModule[] = [
+  {
+    id: 'video-1', title: 'Sustainable Crop Rotation',
+    description: 'Fundamentals of crop rotation for improved soil health and higher yields.',
+    duration: '8 min', category: 'crop-rotation', difficulty: 'beginner',
+    videoUrl: 'https://www.youtube.com/watch?v=XzSchrmBt8g', youtubeId: 'XzSchrmBt8g',
+    thumbnail: 'https://img.youtube.com/vi/XzSchrmBt8g/hqdefault.jpg',
+    instructor: 'Dr. Rajesh Kumar', points: 120, completed: true, progress: 100,
+  },
+  {
+    id: 'video-2', title: 'Smart Irrigation Techniques',
+    description: 'Master modern irrigation methods including drip and sprinkler systems.',
+    duration: '12 min', category: 'irrigation', difficulty: 'intermediate',
+    videoUrl: 'https://www.youtube.com/watch?v=TboW5yVrLrQ', youtubeId: 'TboW5yVrLrQ',
+    thumbnail: 'https://img.youtube.com/vi/TboW5yVrLrQ/hqdefault.jpg',
+    instructor: 'Dr. Priya Sharma', points: 150, completed: false, progress: 45,
+  },
+  {
+    id: 'video-3', title: 'Organic Pest Management',
+    description: 'Natural methods to protect crops using companion planting and neem-based sprays.',
+    duration: '15 min', category: 'pest-control', difficulty: 'intermediate',
+    videoUrl: 'https://www.youtube.com/watch?v=VjWgNmjaRq4', youtubeId: 'VjWgNmjaRq4',
+    thumbnail: 'https://img.youtube.com/vi/VjWgNmjaRq4/hqdefault.jpg',
+    instructor: 'Prof. Amit Patel', points: 180, completed: false, progress: 0,
+  },
+  {
+    id: 'video-4', title: 'Soil Testing & Analysis',
+    description: 'Understanding soil composition and nutrient levels for optimal farming.',
+    duration: '10 min', category: 'soil-health', difficulty: 'beginner',
+    videoUrl: 'https://www.youtube.com/watch?v=QqjLGSv-gHM', youtubeId: 'QqjLGSv-gHM',
+    thumbnail: 'https://img.youtube.com/vi/QqjLGSv-gHM/hqdefault.jpg',
+    instructor: 'Dr. Sunita Verma', points: 130, completed: false, progress: 0,
+  },
+];
+
+// ─── Fetch all videos ─────────────────────────────────────────────────────────
+
 export const fetchAllVideos = async (): Promise<VideoModule[]> => {
   try {
     const response = await fetch(`${API_BASE_URL}/videos`, {
       method: 'GET',
-      headers: await getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      console.warn('Failed to fetch videos from API, using mock data');
+      console.warn('⚠️ Failed to fetch videos from API, using mock data');
       return mockVideos;
     }
 
-    const data = await response.json();
+    const json = await response.json();
 
-    if (data.videos && Array.isArray(data.videos)) {
-      return data.videos;
+    // ✅ KEY FIX: backend returns { success, count, data: [...] }
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      console.log(`✅ Loaded ${json.data.length} videos from API`);
+      // Merge local progress into each video
+      const normalised = json.data.map(normaliseVideo);
+      return await mergeLocalProgress(normalised);
     }
 
+    console.warn('⚠️ API returned empty data, using mock data');
     return mockVideos;
   } catch (error) {
-    console.warn('Error fetching videos, using mock data:', error);
+    console.error(`🚨 Connection failed: ${API_BASE_URL}/videos — check EXPO_PUBLIC_API_URL`);
     return mockVideos;
   }
 };
 
-/**
- * Fetch videos by category
- * @param category - Category to filter by (e.g., 'irrigation', 'pest-control')
- */
+// ─── Fetch by category ────────────────────────────────────────────────────────
+
 export const fetchVideosByCategory = async (category: string): Promise<VideoModule[]> => {
   try {
     const response = await fetch(`${API_BASE_URL}/videos/category/${category}`, {
       method: 'GET',
-      headers: await getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      console.warn(`Failed to fetch videos for category ${category}, using mock data`);
-      return getMockVideosByCategory(category);
+      console.warn(`⚠️ Failed to fetch category ${category}, filtering mock data`);
+      return mockVideos.filter(v => v.category === category);
     }
 
-    const data = await response.json();
+    const json = await response.json();
 
-    if (data.videos && Array.isArray(data.videos)) {
-      return data.videos;
+    if (json.success && Array.isArray(json.data)) {
+      const normalised = json.data.map(normaliseVideo);
+      return await mergeLocalProgress(normalised);
     }
 
-    return getMockVideosByCategory(category);
+    return mockVideos.filter(v => v.category === category);
   } catch (error) {
-    console.warn(`Error fetching videos for category ${category}, using mock data:`, error);
-    return getMockVideosByCategory(category);
+    console.warn(`Error fetching category ${category}:`, error);
+    return mockVideos.filter(v => v.category === category);
   }
 };
 
-/**
- * Fetch a specific video by ID
- * @param videoId - The video ID
- */
+// ─── Fetch single video ───────────────────────────────────────────────────────
+
 export const fetchVideoById = async (videoId: string): Promise<VideoModule | null> => {
   try {
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}`, {
       method: 'GET',
-      headers: await getAuthHeaders(),
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
-      console.warn(`Failed to fetch video ${videoId}, using mock data`);
-      return getMockVideoById(videoId);
+      return mockVideos.find(v => v.id === videoId) || null;
     }
 
-    const data = await response.json();
+    const json = await response.json();
 
-    if (data.video) {
-      return data.video;
+    if (json.success && json.data) {
+      // ✅ KEY FIX: backend returns { success, data: {...} } not { video: {...} }
+      const normalised = normaliseVideo(json.data);
+      const saved = await getProgressFromAsyncStorage(normalised.id);
+      if (saved) {
+        normalised.progress  = saved.progress;
+        normalised.completed = saved.completed;
+      }
+      return normalised;
     }
 
-    return getMockVideoById(videoId);
+    return mockVideos.find(v => v.id === videoId) || null;
   } catch (error) {
-    console.warn(`Error fetching video ${videoId}, using mock data:`, error);
-    return getMockVideoById(videoId);
+    console.warn(`Error fetching video ${videoId}:`, error);
+    return mockVideos.find(v => v.id === videoId) || null;
   }
 };
 
-/**
- * Update video progress with timestamp
- * @param videoId - The video ID
- * @param progress - Progress percentage (0-100)
- * @param currentTime - Current playback time in seconds
- * @param duration - Total video duration in seconds
- * @param completed - Whether video is completed
- */
-export const updateVideoProgress = async (
-  videoId: string,
-  progress: number,
-  currentTime: number,
-  duration: number,
-  completed: boolean
-): Promise<boolean> => {
-  console.log('📹 updateVideoProgress called:', { videoId, progress, currentTime, duration, completed });
+// ─── Search videos ────────────────────────────────────────────────────────────
 
-  // Always save to AsyncStorage immediately (React Native fallback)
-  await saveProgressToAsyncStorage(videoId, progress, currentTime, duration, completed);
-
+export const searchVideos = async (query: string): Promise<VideoModule[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
-      method: 'POST',
-      headers: await getAuthHeaders(),
-      body: JSON.stringify({
-        progress,
-        currentTime,
-        duration,
-        completed,
-        lastUpdated: new Date().toISOString()
-      }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/videos/search?q=${encodeURIComponent(query)}`,
+      { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+    );
 
-    if (!response.ok) {
-      console.warn('⚠️ Failed to update video progress on server, using AsyncStorage');
-      return false;
+    if (!response.ok) return searchLocalVideos(mockVideos, query);
+
+    const json = await response.json();
+
+    if (json.success && Array.isArray(json.data)) {
+      const normalised = json.data.map(normaliseVideo);
+      return await mergeLocalProgress(normalised);
     }
 
-    console.log('✅ Progress saved to server:', { videoId, progress, currentTime });
-    return true;
-  } catch (error) {
-    console.warn('❌ Error updating video progress on server, using AsyncStorage:', error);
-    return false;
+    return searchLocalVideos(mockVideos, query);
+  } catch {
+    return searchLocalVideos(mockVideos, query);
   }
 };
 
-/**
- * Get video progress from server or async storage
- * @param videoId - The video ID
- */
-export const getVideoProgress = async (videoId: string): Promise<VideoProgressData | null> => {
-  // First try async storage (faster local load)
-  const localProgress = await getProgressFromAsyncStorage(videoId);
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/progress`, {
-      method: 'GET',
-      headers: await getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      console.warn('Failed to fetch video progress from server, using async storage');
-      return localProgress;
-    }
-
-    const data = await response.json();
-
-    if (data.progress) {
-      console.log('Loaded progress from server:', data.progress);
-      return data.progress;
-    }
-
-    return localProgress;
-  } catch (error) {
-    console.warn('Error fetching video progress from server, using async storage:', error);
-    return localProgress;
-  }
+const searchLocalVideos = (videos: VideoModule[], query: string): VideoModule[] => {
+  const q = query.toLowerCase().trim();
+  if (!q) return videos;
+  return videos.filter(v =>
+    v.title.toLowerCase().includes(q) ||
+    v.description.toLowerCase().includes(q) ||
+    v.category.toLowerCase().includes(q)
+  );
 };
 
-/**
- * Save progress to AsyncStorage (fallback/offline mode for React Native)
- */
-const saveProgressToAsyncStorage = async (
+// ─── Progress: AsyncStorage (local) ──────────────────────────────────────────
+
+const PROGRESS_KEY = (id: string) => `video_progress_${id}`;
+
+export const saveProgressToLocal = async (
   videoId: string,
   progress: number,
   currentTime: number,
@@ -229,99 +246,68 @@ const saveProgressToAsyncStorage = async (
   completed: boolean
 ): Promise<void> => {
   try {
-    const progressData: VideoProgressData = {
-      videoId,
-      progress,
-      currentTime,
-      duration,
-      completed,
+    const data: VideoProgressData = {
+      videoId, progress, currentTime, duration, completed,
       lastUpdated: new Date().toISOString(),
     };
-    await AsyncStorage.setItem(`video_progress_${videoId}`, JSON.stringify(progressData));
-    console.log('✅ Saved to AsyncStorage:', progressData);
+    await AsyncStorage.setItem(PROGRESS_KEY(videoId), JSON.stringify(data));
   } catch (error) {
-    console.warn('❌ Error saving to AsyncStorage:', error);
+    console.warn('Error saving progress to AsyncStorage:', error);
   }
 };
 
-/**
- * Get progress from AsyncStorage
- */
-const getProgressFromAsyncStorage = async (videoId: string): Promise<VideoProgressData | null> => {
+const getProgressFromAsyncStorage = async (
+  videoId: string
+): Promise<VideoProgressData | null> => {
   try {
-    const data = await AsyncStorage.getItem(`video_progress_${videoId}`);
-    if (data) {
-      const parsed = JSON.parse(data) as VideoProgressData;
-      console.log('✅ Loaded from AsyncStorage:', parsed);
-      return parsed;
-    } else {
-      console.log('ℹ️ No saved progress found for:', videoId);
-    }
-  } catch (error) {
-    console.warn('❌ Error reading from AsyncStorage:', error);
-  }
-  return null;
-};
-
-/**
- * Get mock videos by category (for offline/testing)
- */
-export const getMockVideosByCategory = (category: string): VideoModule[] => {
-  return mockVideos.filter(video => video.category === category);
-};
-
-/**
- * Get mock video by ID (for offline/testing)
- */
-export const getMockVideoById = (videoId: string): VideoModule | null => {
-  return mockVideos.find(video => video.id === videoId) || null;
-};
-
-/**
- * Get all mock videos (for offline/testing)
- */
-export const getAllMockVideos = (): VideoModule[] => {
-  return mockVideos;
-};
-
-/**
- * Search videos by title or description
- * @param query - Search query string
- */
-export const searchVideos = async (query: string): Promise<VideoModule[]> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/videos/search?q=${encodeURIComponent(query)}`, {
-      method: 'GET',
-      headers: await getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      console.warn('Failed to search videos, using mock data');
-      return searchMockVideos(query);
-    }
-
-    const data = await response.json();
-
-    if (data.videos && Array.isArray(data.videos)) {
-      return data.videos;
-    }
-
-    return searchMockVideos(query);
-  } catch (error) {
-    console.warn('Error searching videos, using mock data:', error);
-    return searchMockVideos(query);
+    const raw = await AsyncStorage.getItem(PROGRESS_KEY(videoId));
+    return raw ? (JSON.parse(raw) as VideoProgressData) : null;
+  } catch {
+    return null;
   }
 };
 
-/**
- * Search mock videos locally
- */
-const searchMockVideos = (query: string): VideoModule[] => {
-  const lowerQuery = query.toLowerCase();
-  return mockVideos.filter(
-    video =>
-      video.title.toLowerCase().includes(lowerQuery) ||
-      video.description.toLowerCase().includes(lowerQuery) ||
-      video.category.toLowerCase().includes(lowerQuery)
+// Merge locally saved progress into a list of videos
+const mergeLocalProgress = async (videos: VideoModule[]): Promise<VideoModule[]> => {
+  return Promise.all(
+    videos.map(async (v) => {
+      const saved = await getProgressFromAsyncStorage(v.id);
+      if (saved) {
+        return { ...v, progress: saved.progress, completed: saved.completed };
+      }
+      return v;
+    })
   );
 };
+
+// ─── updateVideoProgress (saves locally; extend later for server sync) ────────
+
+export const updateVideoProgress = async (
+  videoId: string,
+  progress: number,
+  currentTime: number,
+  duration: number,
+  completed: boolean
+): Promise<boolean> => {
+  await saveProgressToLocal(videoId, progress, currentTime, duration, completed);
+  // TODO: POST to /api/videos/:id/progress when that endpoint is ready
+  return true;
+};
+
+// ─── getVideoProgress (reads from local storage) ─────────────────────────────
+
+export const getVideoProgress = async (
+  videoId: string
+): Promise<VideoProgressData | null> => {
+  return getProgressFromAsyncStorage(videoId);
+};
+
+// ─── Helpers for mock compatibility ──────────────────────────────────────────
+
+export const getMockVideosByCategory = (category: string): VideoModule[] =>
+  mockVideos.filter(v => v.category === category);
+
+export const getMockVideoById = (id: string): VideoModule | null =>
+  mockVideos.find(v => v.id === id) || null;
+
+export const getAllMockVideos = (): VideoModule[] => mockVideos;
