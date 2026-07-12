@@ -12,6 +12,7 @@ import videoRoutes from "./routes/video.routes.js";
 import quizRoutes from "./routes/quiz.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import schemeRoutes from "./routes/scheme.routes.js";
+import storyRoutes from "./routes/story.routes.js";   // ✅ NEW
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -46,6 +47,7 @@ app.use("/api/videos", videoRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/schemes", schemeRoutes);
+app.use("/api/stories", storyRoutes);               // ✅ NEW
 
 // ─── States API ───────────────────────────────────────
 app.get("/api/states", (req, res) => {

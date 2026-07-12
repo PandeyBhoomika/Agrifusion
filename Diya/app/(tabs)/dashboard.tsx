@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   RefreshControl, SafeAreaView, ActivityIndicator, Animated, Easing,
@@ -13,7 +13,6 @@ import Svg, { Circle } from 'react-native-svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserContext';
 import { useTasks } from '../../context/TaskContext';
-
 const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
 
 interface WeatherData {

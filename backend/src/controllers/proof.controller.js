@@ -1,12 +1,12 @@
 import Proof from '../models/Proof.js';
 import Task from '../models/Task.js';
-import User from '../models/User.js'; // Assuming you are converting User.js to ES modules too
+import User from '../models/User.js';
 import UserCropTask from '../models/UserCropTask.js';
 
 // Submit proof for a task
 export const submitProof = async (req, res) => {
     try {
-        const userId = req.user?.userId || req.body.userId;
+        const userId = req.user?.userId || req.user?.id;
         const { taskId, location } = req.body;
 
         if (!userId) {
@@ -31,14 +31,13 @@ export const submitProof = async (req, res) => {
 
         const newProof = await Proof.create({
             userId,
-            taskId,
+            taskId: taskId || null,
             proofUrl: `/uploads/proofs/${photoFile.filename}`,
             audioUrl: audioFile ? `/uploads/proofs/${audioFile.filename}` : '',
             location: parsedLocation,
         });
 
-        // ✅ Auto-approve for now (per project decision) — no manual review yet.
-        // This grants XP/coins immediately and unlocks the next stage.
+        // ✅ Auto-approve for now — no manual review yet.
         const { userCropTaskId } = req.body;
 
         if (userCropTaskId) {
@@ -62,8 +61,8 @@ export const submitProof = async (req, res) => {
                 newProof.coinsAwarded = row.taskId?.coinReward || 0;
                 await newProof.save();
             }
-        } else {
-            // Legacy universal-task flow (unchanged)
+        } else if (taskId) {
+            // Legacy universal-task flow
             const task = await Task.findById(taskId);
             if (task) {
                 const alreadyApproved = task.completedBy.some((entry) => entry.userId.toString() === userId.toString());
@@ -97,7 +96,7 @@ export const submitProof = async (req, res) => {
 export const getPendingProofs = async (req, res) => {
     try {
         const proofs = await Proof.find({ status: 'Pending' })
-            .populate('userId', 'fullName email') // Assuming you want basic user info
+            .populate('userId', 'fullName email')
             .populate('taskId', 'title xpReward coinReward');
 
         res.status(200).json({ success: true, count: proofs.length, data: proofs });
@@ -107,14 +106,13 @@ export const getPendingProofs = async (req, res) => {
     }
 };
 
-// Review proof (Admin only - updates user XP/Coins if approved)
+// Review proof (Admin only)
 export const reviewProof = async (req, res) => {
     try {
-        const { status, feedback } = req.body; // status must be 'Approved' or 'Rejected'
+        const { status, feedback } = req.body;
         const proofId = req.params.id;
 
         const proof = await Proof.findById(proofId).populate('taskId');
-
         if (!proof) {
             return res.status(404).json({ success: false, message: 'Proof not found' });
         }
@@ -122,24 +120,17 @@ export const reviewProof = async (req, res) => {
         proof.status = status;
         proof.feedback = feedback || '';
 
-        // If approved, award XP and Coins to the user
         if (status === 'Approved') {
             const task = proof.taskId;
             proof.xpAwarded = task.xpReward;
             proof.coinsAwarded = task.coinReward;
-
-            // Find user and update their stats
-            await User.findByIdAndUpdate(
-                proof.userId,
-                {
-                    $inc: { xp: task.xpReward, greenCoins: task.coinReward }
-                }
-            );
+            await User.findByIdAndUpdate(proof.userId, {
+                $inc: { xp: task.xpReward, greenCoins: task.coinReward }
+            });
         }
 
         await proof.save();
         res.status(200).json({ success: true, data: proof });
-
     } catch (error) {
         console.error('Error reviewing proof:', error);
         res.status(500).json({ success: false, message: 'Server Error' });

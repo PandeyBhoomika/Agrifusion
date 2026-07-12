@@ -18,7 +18,8 @@ export const getQuizzes = async (req, res) => {
 export const submitQuiz = async (req, res) => {
     try {
         // The frontend sends the user's ID and whether they passed
-        const { userId, passed } = req.body;
+        const userId = req.user.userId;     // from the verified token, not the client
+        const { passed } = req.body;
         const quizId = req.params.id;
 
         const quiz = await Quiz.findById(quizId);
