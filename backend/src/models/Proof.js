@@ -10,7 +10,12 @@ const proofSchema = new mongoose.Schema(
         taskId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Task',
-            required: true,
+            required: false, // optional now — crop-chain proofs use userCropTaskId instead
+        },
+        userCropTaskId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'UserCropTask',
+            required: false, // set when this proof belongs to a crop-chain step
         },
         proofUrl: {
             type: String,

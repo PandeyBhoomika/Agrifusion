@@ -8,6 +8,7 @@ import Video from "./models/Video.js";
 dotenv.config();
 
 const tasks = [
+    // ── UNIVERSAL STAGES (shown in every crop's chain, stages 1-4) ──────
     {
         title: "Test Soil pH",
         description: "Use a pH testing kit on 3 different sections of your farm.",
@@ -15,7 +16,33 @@ const tasks = [
         coinReward: 20,
         category: "Soil Health",
         difficulty: "Easy",
+        stage: "Soil Test",
         stageOrder: 1,
+        cropTypes: [],
+        requiresProof: true
+    },
+    {
+        title: "Prepare the Land",
+        description: "Plough and level the field, clearing debris and weeds before sowing.",
+        xpReward: 150,
+        coinReward: 25,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Land Preparation",
+        stageOrder: 2,
+        cropTypes: [],
+        requiresProof: true
+    },
+    {
+        title: "Sow the Seeds",
+        description: "Sow seeds at the recommended spacing and depth for your chosen crop.",
+        xpReward: 200,
+        coinReward: 30,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Sowing",
+        stageOrder: 3,
+        cropTypes: [],
         requiresProof: true
     },
     {
@@ -25,9 +52,163 @@ const tasks = [
         coinReward: 50,
         category: "Water Conservation",
         difficulty: "Hard",
-        stageOrder: 2,
+        stage: "First Irrigation",
+        stageOrder: 4,
+        cropTypes: [],
         requiresProof: true
-    }
+    },
+
+    // ── WHEAT-SPECIFIC STAGES (stages 5-7) ───────────────────────────
+    {
+        title: "Apply Fertilizer",
+        description: "Apply the recommended NPK fertilizer mix for your wheat crop.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Fertilizing",
+        stageOrder: 5,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+    {
+        title: "Weed the Field",
+        description: "Remove weeds competing with your wheat crop for nutrients and water.",
+        xpReward: 150,
+        coinReward: 25,
+        category: "Crop Management",
+        difficulty: "Easy",
+        stage: "Weeding",
+        stageOrder: 6,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Wheat",
+        description: "Harvest the wheat crop once grains have fully matured and dried.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+
+    // ── RICE-SPECIFIC STAGES (stages 5-7) ────────────────────────────
+    {
+        title: "Transplant Seedlings",
+        description: "Transplant rice seedlings from the nursery bed into the main flooded field.",
+        xpReward: 250,
+        coinReward: 40,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Transplanting",
+        stageOrder: 5,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+    {
+        title: "Pest Control Check",
+        description: "Inspect for common rice pests (stem borer, leaf folder) and apply control measures if needed.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 6,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Rice",
+        description: "Harvest the rice crop once grains have reached full maturity.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+
+    // ── MAIZE-SPECIFIC STAGES (stages 5-7) ───────────────────────────
+    {
+        title: "Apply Fertilizer",
+        description: "Apply the recommended fertilizer dose for your maize crop at the right growth stage.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Fertilizing",
+        stageOrder: 5,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+    {
+        title: "Pest Control Check",
+        description: "Inspect for fall armyworm and other common maize pests, and treat if necessary.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 6,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Maize",
+        description: "Harvest maize cobs once kernels have hardened and husks have dried.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+
+    // ── COTTON-SPECIFIC STAGES (stages 5-7) ──────────────────────────
+    {
+        title: "Pest Control Check",
+        description: "Inspect for bollworm and whitefly infestation on your cotton crop and treat if necessary.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 5,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
+    {
+        title: "Prune the Plants",
+        description: "Prune excess vegetative growth to encourage boll development on your cotton crop.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Pruning",
+        stageOrder: 6,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Cotton",
+        description: "Pick cotton bolls once they have fully opened and fibers are dry and fluffy.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
 ];
 
 const schemes = [
@@ -206,12 +387,20 @@ const importData = async () => {
         await mongoose.connect(process.env.MONGO_URI);
         console.log("MongoDB Connected for Seeding...");
 
-        await Task.deleteMany();
+        // Tasks use upsert instead of delete+insert so existing _ids are
+        // preserved — UserCropTask rows reference these _ids, and deleting
+        // Tasks would break all existing user progress chains.
         await Scheme.deleteMany();
         await Quiz.deleteMany();
         console.log("Old data cleared.");
 
-        await Task.insertMany(tasks);
+        for (const task of tasks) {
+            await Task.updateOne(
+                { title: task.title, cropTypes: task.cropTypes },
+                { $set: task },
+                { upsert: true }
+            );
+        }
         await Scheme.insertMany(schemes);
         await Quiz.insertMany(quizzes);
 

@@ -1,10 +1,11 @@
 import User from "../models/User.js";
+import { generateChainsForUser } from "../utils/generateCropTasks.js";
 
 // POST /api/user/profile
 export const updateProfile = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
-
+      const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
     const {
       fullName,
       primaryCrops,
@@ -45,6 +46,19 @@ export const updateProfile = async (req, res) => {
 
     await user.save();
 
+     // Generate (or extend) a sequential task chain for each crop the user
+    // selected — safe to call even if chains already exist, since it only
+    // inserts the stages that are missing.
+    if (Array.isArray(user.profile.primaryCrops) && user.profile.primaryCrops.length > 0) {
+      try {
+        await generateChainsForUser(user._id, user.profile.primaryCrops);
+      } catch (chainError) {
+        console.error("Failed to generate crop task chains:", chainError);
+        // Don't fail the whole profile save just because chain generation
+        // hit an issue — the profile itself saved fine.
+      }
+    }
+
     return res.json({
       success: true,
       message: "Farm profile saved successfully",
@@ -59,7 +73,8 @@ export const updateProfile = async (req, res) => {
 // GET /api/user/profile
 export const getProfile = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+      const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
     
     // Check if it's a dev user (for testing without auth)
     if (userId === "dev-user-123") {

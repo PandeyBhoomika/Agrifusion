@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useFocusEffect } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   RefreshControl, SafeAreaView, ActivityIndicator, Animated, Easing,
@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { AntDesign, Feather, FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import Reanimated, { FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';

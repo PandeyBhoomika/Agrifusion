@@ -1,11 +1,25 @@
 import express from 'express';
-import { getTasks, createTask, completeTask } from '../controllers/task.controller.js';
+import {
+    getTasks,
+    createTask,
+    completeTask,
+    getCropTaskChain,
+    getMyCrops,
+    completeCropTask,
+} from '../controllers/task.controller.js';
 import { auth, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Legacy flat task list (the original 2 universal tasks) — kept working
+// exactly as before so nothing that already depends on it breaks.
 router.get('/', optionalAuth, getTasks);
 router.post('/', createTask);
 router.post('/:id/complete', auth, completeTask);
+
+// New crop-chain endpoints
+router.get('/my-crops', auth, getMyCrops);
+router.get('/crop-chain', optionalAuth, getCropTaskChain);
+router.post('/crop-chain/:userCropTaskId/complete', auth, completeCropTask);
 
 export default router;

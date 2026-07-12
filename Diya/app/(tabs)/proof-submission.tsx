@@ -24,8 +24,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/a
 
 export default function ProofSubmissionScreen() {
   const router = useRouter();
-  const { taskId, title, xpReward } = useLocalSearchParams<{ taskId?: string; title?: string; xpReward?: string }>();
-
+  const { taskId, userCropTaskId, title, xpReward } = useLocalSearchParams<{ taskId?: string; userCropTaskId?: string; title?: string; xpReward?: string }>();
   const [photo, setPhoto] = useState<string | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [location, setLocation] = useState<any>(null);
@@ -94,7 +93,7 @@ export default function ProofSubmissionScreen() {
   /* ------------------ SUBMIT PROOF ------------------ */
   const submitProof = async () => {
     if (!photo) return;
-    if (!taskId) {
+    if (!taskId && !userCropTaskId) {
       setStatus("No task selected ❌");
       return;
     }
@@ -138,7 +137,8 @@ export default function ProofSubmissionScreen() {
       if (location) {
         formData.append("location", JSON.stringify(location));
       }
-      formData.append("taskId", taskId);
+      if (taskId) formData.append("taskId", taskId);
+      if (userCropTaskId) formData.append("userCropTaskId", userCropTaskId);
       if (userId) formData.append("userId", userId);
 
       const response = await fetch(`${API_BASE_URL}/proofs/submit`, {

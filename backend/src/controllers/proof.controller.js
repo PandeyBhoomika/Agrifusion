@@ -1,6 +1,7 @@
 import Proof from '../models/Proof.js';
 import Task from '../models/Task.js';
 import User from '../models/User.js'; // Assuming you are converting User.js to ES modules too
+import UserCropTask from '../models/UserCropTask.js';
 
 // Submit proof for a task
 export const submitProof = async (req, res) => {
@@ -11,8 +12,8 @@ export const submitProof = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ success: false, message: 'A valid logged-in user is required to submit proof.' });
         }
-        if (!taskId) {
-            return res.status(400).json({ success: false, message: 'taskId is required.' });
+        if (!taskId && !req.body.userCropTaskId) {
+            return res.status(400).json({ success: false, message: 'taskId or userCropTaskId is required.' });
         }
         const photoFile = req.files?.photo?.[0];
         if (!photoFile) {
@@ -37,25 +38,51 @@ export const submitProof = async (req, res) => {
         });
 
         // ✅ Auto-approve for now (per project decision) — no manual review yet.
-        // This grants XP/coins immediately and unlocks the next stage task.
-        const task = await Task.findById(taskId);
-        if (task) {
-            const alreadyApproved = task.completedBy.some((entry) => entry.userId.toString() === userId.toString());
-            if (!alreadyApproved) {
-                task.completedBy.push({ userId, completedAt: new Date() });
-                await task.save();
+        // This grants XP/coins immediately and unlocks the next stage.
+        const { userCropTaskId } = req.body;
+
+        if (userCropTaskId) {
+            // New crop-chain flow
+            const row = await UserCropTask.findById(userCropTaskId).populate('taskId');
+            if (row && row.userId.toString() === userId.toString() && row.status !== 'approved') {
+                row.status = 'approved';
+                row.completedAt = new Date();
+                row.proofId = newProof._id;
+                await row.save();
 
                 await User.findByIdAndUpdate(userId, {
                     $inc: {
-                        xp: task.xpReward || 0,
-                        greenCoins: task.coinReward || 0,
+                        xp: row.taskId?.xpReward || 0,
+                        greenCoins: row.taskId?.coinReward || 0,
                     },
                 });
 
                 newProof.status = 'Approved';
-                newProof.xpAwarded = task.xpReward || 0;
-                newProof.coinsAwarded = task.coinReward || 0;
+                newProof.xpAwarded = row.taskId?.xpReward || 0;
+                newProof.coinsAwarded = row.taskId?.coinReward || 0;
                 await newProof.save();
+            }
+        } else {
+            // Legacy universal-task flow (unchanged)
+            const task = await Task.findById(taskId);
+            if (task) {
+                const alreadyApproved = task.completedBy.some((entry) => entry.userId.toString() === userId.toString());
+                if (!alreadyApproved) {
+                    task.completedBy.push({ userId, completedAt: new Date() });
+                    await task.save();
+
+                    await User.findByIdAndUpdate(userId, {
+                        $inc: {
+                            xp: task.xpReward || 0,
+                            greenCoins: task.coinReward || 0,
+                        },
+                    });
+
+                    newProof.status = 'Approved';
+                    newProof.xpAwarded = task.xpReward || 0;
+                    newProof.coinsAwarded = task.coinReward || 0;
+                    await newProof.save();
+                }
             }
         }
 
