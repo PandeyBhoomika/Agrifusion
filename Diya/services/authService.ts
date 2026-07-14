@@ -10,13 +10,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface SignupRequest {
-  fullName: string;
-  email: string;
-  state: string;
-  password: string;
-}
-
 export interface AuthResponse {
   success: boolean;
   message?: string;
@@ -53,13 +46,22 @@ export const sendOtp = async (
 
 /**
  * VERIFY OTP
+ * Carries the signup-form details (fullName, state, phone) through so a
+ * brand-new account is created with real info instead of blank/default fields.
  */
-export const verifyOtp = async (email: string, otp: string, password?: string) => {
+export const verifyOtp = async (
+  email: string,
+  otp: string,
+  password?: string,
+  fullName?: string,
+  state?: string,
+  phone?: string
+) => {
   try {
     const res = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp, password }),
+      body: JSON.stringify({ email, otp, password, fullName, state, phone }),
     });
 
     const data = await res.json();
@@ -101,37 +103,6 @@ export const loginUser = async (
     return { success: true, data };
   } catch (error) {
     console.error("Login error:", error);
-    return {
-      success: false,
-      error: "Network error",
-    };
-  }
-};
-
-// ---------------------- SIGNUP ----------------------
-
-export const signupUser = async (
-  userData: SignupRequest
-): Promise<AuthResponse> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.message || "Signup failed",
-      };
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    console.error("Signup error:", error);
     return {
       success: false,
       error: "Network error",

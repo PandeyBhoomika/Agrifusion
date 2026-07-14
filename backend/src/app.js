@@ -17,8 +17,21 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// ─── Development mode ─────────────────────────────────
-console.log("⚠️ Running without env validation");
+
+// ─── Env validation ────────────────────────────────────
+// Fail fast and clearly instead of running with silently broken pieces.
+const REQUIRED_ENV_VARS = ["JWT_SECRET", "MONGO_URI", "EMAIL_HOST", "EMAIL_USER", "EMAIL_PASS"];
+const missingVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+
+if (missingVars.length > 0) {
+  console.error(
+    `❌ Missing required environment variables: ${missingVars.join(", ")}\n` +
+    `   Check your backend/.env file before starting the server.`
+  );
+  process.exit(1);
+}
+
+console.log("✅ Environment variables validated");
 
 // ─── Express app ──────────────────────────────────────
 const app = express();
@@ -26,17 +39,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+
 // ─── MongoDB ──────────────────────────────────────────
-if (process.env.MONGO_URI) {
-  mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ MongoDB connected"))
-    .catch((err) => {
-      console.error("❌ MongoDB connection error:", err.message);
-    });
-} else {
-  console.log("⚠️ MongoDB disabled for development");
-}
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
+    process.exit(1); // Don't run with a dead database — fail loudly instead of serving broken requests.
+  });
 
 // ─── Routes ───────────────────────────────────────────
 app.use("/api/auth", authRoutes);
@@ -68,14 +79,6 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     message: "Backend running 🚜"
-  });
-});
-
-// ─── Debug route ──────────────────────────────────────
-app.post("/debug-hello", (req, res) => {
-  console.log("Hit /debug-hello route");
-  res.json({
-    message: "Hello from debug route"
   });
 });
 

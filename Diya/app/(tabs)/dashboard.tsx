@@ -13,7 +13,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserContext';
 import { useTasks } from '../../context/TaskContext';
-const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
+
+const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 
 interface WeatherData {
   temp: number;
@@ -27,6 +28,10 @@ interface WeatherData {
 }
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
+  if (!WEATHER_API_KEY) {
+    console.warn('Weather API key not configured — skipping weather fetch.');
+    return null;
+  }
   try {
     const url = `https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&aqi=yes`;
     const res = await fetch(url);
@@ -67,19 +72,16 @@ export default function PersonalizedDashboard() {
 
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Calculate XP progress to next level ─────────────────────────────
-  // Assuming each level needs ~1000 XP
   const XP_PER_LEVEL = 1000;
   const currentLevelXP = user ? (user.xp % XP_PER_LEVEL) : 0;
   const progressValue = user ? Math.round((currentLevelXP / XP_PER_LEVEL) * 100) : 72;
   const xpToNextLevel = user ? (XP_PER_LEVEL - currentLevelXP) : 180;
   const level = user?.level || 4;
-  const todaysXP = user?.xp ? (user.xp % 100) : 34; // Simplified calculation
+  const todaysXP = user?.xp ? (user.xp % 100) : 34;
   const streakDays = user?.streakDays || 3;
   const fullName = user?.fullName || 'Farmer';
   const avatarEmoji = '👨‍🌾';
-  
-  // ── Real pending tasks count ─────────────────────────────────
+
   const pendingTasksCount = pendingTasks.length;
 
   useEffect(() => {
@@ -87,13 +89,12 @@ export default function PersonalizedDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Refresh user data whenever dashboard comes into focus ─────────────
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Dashboard focused - refreshing user data');
-      refreshUser().catch(err => console.error('Failed to refresh user on focus:', err));
-    }, [refreshUser])
-  );
+   useFocusEffect(
+  useCallback(() => {
+    console.log('Dashboard focused - refreshing user data');
+    refreshUser().catch((err: any) => console.error('Failed to refresh user on focus:', err));
+  }, [refreshUser])
+);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -129,15 +130,13 @@ export default function PersonalizedDashboard() {
   }, [refreshUser, refreshTasks]);
 
   const goToTasks = () => router.push('/(tabs)/tasks');
-  // Proof submission needs a specific taskId, which only exists when you tap
-// "Mark Done" on a task that requires proof — so route here instead of
-// opening proof-submission with no task context.
-const goToProofSubmit = () => router.push('/tasks');
+  const goToProofSubmit = () => router.push('/tasks');
   const goToRewards = () => router.push('/rewards');
   const goToLearningHub = () => router.push('/(tabs)/learninghub');
   const goToCommunity = () => router.push('/(tabs)/communitydashboard');
   const goToGovSchemes = () => router.push('/schemes');
   const goToVirtualFarm = () => router.push('/(tabs)/virtualfarm');
+  const goToProfile = () => router.push('/profile');
 
   const displayTemp = weather ? `${weather.temp}°C` : '28°C';
   const displayCondition = weather ? weather.condition : 'Partly Cloudy';
@@ -149,7 +148,6 @@ const goToProofSubmit = () => router.push('/tasks');
   const displayScore = weather ? `${weather.score}/10` : '8.4/10';
 
   const hour = now.getHours();
-  // ✅ Translated greeting
   const greeting = hour < 12 ? t.dashboard.goodMorning
     : hour < 17 ? t.dashboard.goodAfternoon
     : t.dashboard.goodEvening;
@@ -164,11 +162,9 @@ const goToProofSubmit = () => router.push('/tasks');
       <StatusBar style="light" backgroundColor="#021F0F" />
       <SafeAreaView style={{ flex: 1 }}>
 
-        {/* HEADER */}
         <Reanimated.View entering={FadeInDown.duration(500)} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              {/* ✅ Translated */}
               <Text style={styles.greetingText}>{greeting}, 🌾</Text>
               {loading ? (
                 <>
@@ -184,20 +180,19 @@ const goToProofSubmit = () => router.push('/tasks');
                 </>
               )}
             </View>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity onPress={goToProfile} style={styles.avatarContainer} activeOpacity={0.75}>
               <View style={styles.avatarCircle}>
                 <Text style={{ fontSize: 24 }}>{avatarEmoji}</Text>
               </View>
               <View style={styles.levelBadge}>
                 <Text style={styles.levelBadgeText}>Lv.{level}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
           <View style={styles.headerBottomRow}>
             <View style={styles.headerXpTrack}>
               <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: `${progressValue}%` }]} />
             </View>
-            {/* ✅ Translated */}
             <Text style={styles.headerXpLabel}>{xpToNextLevel} {t.dashboard.xpToLevel} {level + 1}</Text>
           </View>
         </Reanimated.View>
@@ -206,7 +201,6 @@ const goToProofSubmit = () => router.push('/tasks');
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22c55e" />}
         >
-          {/* WEATHER CARD */}
           <Reanimated.View entering={FadeInUp.delay(100).duration(400)}>
             <LinearGradient colors={['#0F5E35', '#0A4228', '#063020']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.weatherHero}>
               <View style={styles.weatherTopRow}>
@@ -222,14 +216,12 @@ const goToProofSubmit = () => router.push('/tasks');
                 <View style={styles.weatherHeroRight}>
                   <View style={styles.irrigationChip}>
                     <Feather name="zap" size={12} color="#053B24" />
-                    {/* ✅ Translated */}
                     <Text style={styles.irrigationChipText}>{t.dashboard.goodForIrrigation}</Text>
                   </View>
                   <Animated.View style={{ transform: [{ rotate: rotation }], marginTop: 10 }}>
                     <Ionicons name="sunny" size={56} color="#fbbf24" />
                   </Animated.View>
                   <View style={styles.farmingScorePill}>
-                    {/* ✅ Translated */}
                     <Text style={styles.scorePillText}>{t.dashboard.farmingScore} {displayScore}</Text>
                   </View>
                 </View>
@@ -243,13 +235,11 @@ const goToProofSubmit = () => router.push('/tasks');
             </LinearGradient>
           </Reanimated.View>
 
-          {/* STREAK & XP ROW */}
           <View style={styles.rowCards}>
             <Reanimated.View entering={FadeInUp.delay(200).duration(400)} style={styles.halfCardWrapper}>
               <LinearGradient colors={['#92400e', '#78350f']} style={[styles.halfCard, styles.streakCard]}>
                 <Text style={styles.halfCardEmoji}>🔥</Text>
                 <View>
-                  {/* ✅ Translated */}
                   <Text style={styles.halfCardTitle}>{streakDays} {t.dashboard.streakDays}</Text>
                   <Text style={styles.halfCardSubGold}>{t.dashboard.xpBonus}</Text>
                 </View>
@@ -259,7 +249,6 @@ const goToProofSubmit = () => router.push('/tasks');
               <LinearGradient colors={['#14532d', '#0a3d1f']} style={[styles.halfCard, styles.xpCard]}>
                 <Text style={styles.halfCardEmoji}>⚡</Text>
                 <View>
-                  {/* ✅ Translated */}
                   <Text style={styles.halfCardTitle}>+{todaysXP} {t.dashboard.xpToday}</Text>
                   <View style={styles.miniProgressTrack}>
                     <View style={[styles.miniProgressFill, { width: '70%' }]} />
@@ -269,7 +258,6 @@ const goToProofSubmit = () => router.push('/tasks');
             </Reanimated.View>
           </View>
 
-          {/* MISSION PROGRESS CIRCLE */}
           <Reanimated.View entering={ZoomIn.delay(400).duration(500)} style={styles.missionCircleContainer}>
             <View style={styles.outerGlowRing}>
               <Svg width={150} height={150}>
@@ -281,7 +269,6 @@ const goToProofSubmit = () => router.push('/tasks');
               <View style={styles.circleInnerContent}>
                 <Text style={{ fontSize: 28 }}>{avatarEmoji}</Text>
                 <Text style={styles.circlePercentage}>{progressValue}%</Text>
-                {/* ✅ Translated */}
                 <Text style={styles.circleLabel}>{t.dashboard.missionProgress}</Text>
               </View>
             </View>
@@ -290,9 +277,7 @@ const goToProofSubmit = () => router.push('/tasks');
             </View>
           </Reanimated.View>
 
-          {/* SMART INSIGHTS */}
           <Reanimated.View entering={FadeInUp.delay(500).duration(400)} style={styles.glassCard}>
-            {/* ✅ Translated */}
             <Text style={styles.sectionTitle}>{t.dashboard.smartInsights}</Text>
             <View style={styles.insightRow}>
               <View style={styles.insightIcon}><Feather name="trending-up" size={16} color="#86efac" /></View>
@@ -311,9 +296,7 @@ const goToProofSubmit = () => router.push('/tasks');
             </View>
           </Reanimated.View>
 
-          {/* FARM HEALTH */}
           <Reanimated.View entering={FadeInUp.delay(600).duration(400)} style={styles.glassCard}>
-            {/* ✅ Translated */}
             <Text style={styles.sectionTitle}>{t.dashboard.farmHealth}</Text>
             <View style={styles.healthGrid}>
               <View style={styles.healthItem}>
@@ -339,11 +322,22 @@ const goToProofSubmit = () => router.push('/tasks');
             </View>
           </Reanimated.View>
 
-          {/* TOOLS GRID */}
           <Reanimated.View entering={FadeInUp.delay(700).duration(400)}>
-            {/* ✅ Translated */}
             <Text style={[styles.sectionTitle, { marginLeft: 4, marginTop: 10 }]}>{t.dashboard.yourTools}</Text>
             <View style={styles.toolsGrid}>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToProfile} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(96,165,250,0.15)' }]}>
+                    <Ionicons name="person" size={20} color="#60a5fa" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Text style={styles.toolBadgeText}>Lv.{level}</Text>
+                  </View>
+                </View>
+                <Text style={styles.toolTitle}>My Profile</Text>
+                <Text style={styles.toolSubtitle}>Your details & progress</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToTasks} activeOpacity={0.75}>
                 <View style={styles.toolHeader}>
