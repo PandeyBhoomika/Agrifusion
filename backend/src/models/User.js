@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema(
       type: String, required: true, unique: true, lowercase: true, trim: true,
     },
     fullName: { type: String, default: "" },
+    phone: { type: String, default: "" },
     state: { type: String, default: "" },
     passwordHash: { type: String, default: "" },
     emailVerified: { type: Boolean, default: false },

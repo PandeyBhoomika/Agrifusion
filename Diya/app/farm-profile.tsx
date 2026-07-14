@@ -257,21 +257,49 @@ export default function FarmProfile() {
     if (step > 1) { setGoBack(true); setStep(s => s - 1); }
   };
 
-  const handleSkip = () =>
-    Alert.alert(
-      t.farmProfile.skipConfirmTitle,
-      t.farmProfile.skipConfirmMessage,
-      [
-        { text: t.farmProfile.skipStay, style: 'cancel' },
-        {
-          text: t.farmProfile.skipConfirm, onPress: async () => {
-            await AsyncStorage.setItem('profileComplete', 'true');
-            router.replace('/(tabs)/dashboard');
+   const handleSkip = () =>
+  Alert.alert(
+    t.farmProfile.skipConfirmTitle,
+    t.farmProfile.skipConfirmMessage,
+    [
+      { text: t.farmProfile.skipStay, style: 'cancel' },
+      {
+        text: t.farmProfile.skipConfirm,
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('authToken');
+            if (token) {
+              await fetch(`${API_BASE}/user/profile`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                // Send whatever partial data they've entered so far, plus mark complete
+                body: JSON.stringify({
+                  primaryCrops: form.primaryCrops,
+                  farmSize: parseFloat(form.farmSize) || 0,
+                  soilType: form.soilType,
+                  region: [form.panchayat, form.district, form.state].filter(Boolean).join(', '),
+                  location: form.location,
+                  season: form.currentSeason,
+                  waterAvailability: form.waterAvailability,
+                  farmingGoals: form.farmingGoals,
+                  skillLevel: form.skillLevel,
+                  previousCrop: form.previousCrop,
+                }),
+              });
+            }
+          } catch (err) {
+            console.warn('Failed to sync skip with server:', err);
+            // Proceed anyway — don't block navigation on this
           }
-        }
-      ]
-    );
-
+          await AsyncStorage.setItem('profileComplete', 'true');
+          router.replace('/(tabs)/dashboard');
+        },
+      },
+    ]
+  );
   const handleSubmit = async () => {
     setIsLoading(true);
     try {

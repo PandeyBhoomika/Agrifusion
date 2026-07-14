@@ -21,6 +21,7 @@ export interface User {
   _id: string;
   email: string;
   fullName: string;
+  phone: string;
   state: string;
   profile: UserProfile;
   xp: number;
@@ -60,7 +61,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       // Check if user is logged in
       const token = await AsyncStorage.getItem('authToken');
-      
+
       if (!token) {
         // Not logged in, don't load anything
         setUser(null);
@@ -80,7 +81,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error initializing user:', err);
       setError(err instanceof Error ? err.message : 'Failed to load user data');
     } finally {
@@ -96,7 +97,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         await AsyncStorage.setItem('user', JSON.stringify(userData));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error refreshing user:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh user data');
     }
@@ -110,7 +111,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(updatedUser);
         await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to update profile');
       throw err;
