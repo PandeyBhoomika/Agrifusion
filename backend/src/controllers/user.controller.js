@@ -1,10 +1,11 @@
 import User from "../models/User.js";
+import { generateChainsForUser } from "../utils/generateCropTasks.js";
 
 // POST /api/user/profile
 export const updateProfile = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
-
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
     const {
       fullName,
       primaryCrops,
@@ -45,6 +46,19 @@ export const updateProfile = async (req, res) => {
 
     await user.save();
 
+    // Generate (or extend) a sequential task chain for each crop the user
+    // selected — safe to call even if chains already exist, since it only
+    // inserts the stages that are missing.
+    if (Array.isArray(user.profile.primaryCrops) && user.profile.primaryCrops.length > 0) {
+      try {
+        await generateChainsForUser(user._id, user.profile.primaryCrops);
+      } catch (chainError) {
+        console.error("Failed to generate crop task chains:", chainError);
+        // Don't fail the whole profile save just because chain generation
+        // hit an issue — the profile itself saved fine.
+      }
+    }
+
     return res.json({
       success: true,
       message: "Farm profile saved successfully",
@@ -59,7 +73,8 @@ export const updateProfile = async (req, res) => {
 // GET /api/user/profile
 export const getProfile = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -80,7 +95,8 @@ export const getProfile = async (req, res) => {
 // Always live data from the authenticated user's own document.
 export const getMe = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -91,6 +107,7 @@ export const getMe = async (req, res) => {
         id: user._id,
         email: user.email,
         fullName: user.fullName,
+        phone: user.phone,
         state: user.state,
         level: user.level,
         xp: user.xp,
@@ -110,7 +127,9 @@ export const getMe = async (req, res) => {
 // Lets an OTP-created account set a password so it can also use POST /api/auth/login
 export const setPassword = async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authenticated" });
+
     const { password } = req.body;
 
     if (!password || password.length < 6) {
