@@ -19,10 +19,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import StoriesBar from '../../components/Stories'; // ✅ NEW
+import StoriesBar from '../../components/Stories';
 
 const { width } = Dimensions.get('window');
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.51:4000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // ─── Auth header helper ───────────────────────────────
 const authHeaders = async () => {
@@ -83,16 +83,13 @@ export default function CommunityDashboard() {
   const [newPostText, setNewPostText] = useState('');
   const [posting, setPosting] = useState(false);
 
-  // Comment modal
   const [commentModal, setCommentModal] = useState(false);
   const [activePost, setActivePost] = useState<Post | null>(null);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
 
-  // Current user from storage
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // ─── Load current user ────────────────────────────
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -109,7 +106,6 @@ export default function CommunityDashboard() {
     fetchPosts();
   }, []);
 
-  // ─── Fetch posts ──────────────────────────────────
   const fetchPosts = async () => {
     try {
       const res = await fetch(`${API_URL}/community`, {
@@ -132,7 +128,6 @@ export default function CommunityDashboard() {
     fetchPosts();
   }, []);
 
-  // ─── Create post ──────────────────────────────────
   const handlePost = async () => {
     if (!newPostText.trim()) return;
     if (!currentUserId) {
@@ -161,7 +156,6 @@ export default function CommunityDashboard() {
     }
   };
 
-  // ─── Like / Unlike ────────────────────────────────
   const handleLike = async (post: Post) => {
     if (!currentUserId) {
       Alert.alert('Login required', 'Please log in to like posts.');
@@ -170,7 +164,6 @@ export default function CommunityDashboard() {
 
     const isLiked = post.likes.includes(currentUserId);
 
-    // Optimistic update
     setPosts((prev) =>
       prev.map((p) => {
         if (p._id !== post._id) return p;
@@ -201,13 +194,11 @@ export default function CommunityDashboard() {
     }
   };
 
-  // ─── Open comment modal ───────────────────────────
   const openComments = (post: Post) => {
     setActivePost(post);
     setCommentModal(true);
   };
 
-  // ─── Add comment ──────────────────────────────────
   const handleAddComment = async () => {
     if (!commentText.trim() || !activePost) return;
     if (!currentUserId) {
@@ -241,7 +232,6 @@ export default function CommunityDashboard() {
     }
   };
 
-  // ─── Post Card ────────────────────────────────────
   const PostCard = ({ post }: { post: Post }) => {
     const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
     const authorName = post.userId?.fullName || 'Farmer';
@@ -299,7 +289,6 @@ export default function CommunityDashboard() {
     );
   };
 
-  // ─── Render ───────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#1B4332', '#2D6A4F']} style={styles.header}>
@@ -318,10 +307,8 @@ export default function CommunityDashboard() {
           />
         }
       >
-        {/* ✅ NEW — Stories bar appears right at the top of the feed */}
         <StoriesBar />
 
-        {/* Compose Box */}
         <View style={styles.composeBox}>
           <TextInput
             style={styles.composeInput}
@@ -346,7 +333,6 @@ export default function CommunityDashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Feed */}
         {loading ? (
           <ActivityIndicator size="large" color="#2D6A4F" style={{ marginTop: 40 }} />
         ) : posts.length === 0 ? (
@@ -362,7 +348,6 @@ export default function CommunityDashboard() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Comment Modal */}
       <Modal
         visible={commentModal}
         animationType="slide"
@@ -438,7 +423,6 @@ export default function CommunityDashboard() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   header: { paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20 },

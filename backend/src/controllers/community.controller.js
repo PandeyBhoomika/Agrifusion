@@ -21,9 +21,16 @@ export const createPost = async (req, res) => {
         const userId = req.user.userId; // from the verified token, not the client
         const { content, imageUrl } = req.body;
 
+        if (!content || content.trim().length === 0 || content.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message: 'Content must be between 1 and 500 characters'
+            });
+        }
+
         const newPost = await Post.create({
             userId,
-            content,
+            content: content.trim(),
             imageUrl
         });
 
@@ -81,8 +88,11 @@ export const addComment = async (req, res) => {
         const userId = req.user.userId; // from the verified token, not the client
         const { text } = req.body;
 
-        if (!text || text.trim() === '') {
-            return res.status(400).json({ success: false, message: 'Comment text is required' });
+        if (!text || text.trim().length === 0 || text.length > 300) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment must be between 1 and 300 characters'
+            });
         }
 
         const post = await Post.findById(id);
@@ -94,7 +104,7 @@ export const addComment = async (req, res) => {
         // Create the new comment object
         const newComment = {
             userId,
-            text,
+            text: text.trim(),
             createdAt: new Date()
         };
 
