@@ -4,6 +4,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
+// ─── Helper to get user ID from token ─────────────────────────────────────
+const getUserId = (req) => req.user.userId || req.user._id;
+
 // ─── Multer setup for image uploads ───────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -22,20 +25,21 @@ const fileFilter = (req, file, cb) => {
   allowed.includes(file.mimetype) ? cb(null, true) : cb(new Error('Images only'), false);
 };
 
-export const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB max
+// ✅ FIXED — bumped from 5MB to 25MB to support full-resolution, uncompressed
+// photos straight from a phone camera (which can easily be 8-15MB each).
+export const upload = multer({ storage, fileFilter, limits: { fileSize: 25 * 1024 * 1024 } });
 
 // ─── GET all active stories grouped by user ────────────────────────────────
-// Returns each user's stories so frontend can show story circles like Instagram
 export const getStories = async (req, res) => {
   try {
     const now = new Date();
+    const currentUserId = getUserId(req).toString();
 
     const stories = await Story.find({ expiresAt: { $gt: now } })
       .sort({ createdAt: -1 })
       .populate('userId', 'fullName state')
       .lean();
 
-    // Group by userId so each user appears once in the story bar
     const grouped = {};
     for (const story of stories) {
       const uid = story.userId._id.toString();
@@ -45,11 +49,10 @@ export const getStories = async (req, res) => {
           userName: story.userId.fullName,
           userState: story.userId.state || '',
           stories: [],
-          // Has current user seen ALL stories of this user?
           hasUnseenStory: false,
         };
       }
-      const seen = story.viewers.map(String).includes(req.user._id.toString());
+      const seen = story.viewers.map(String).includes(currentUserId);
       if (!seen) grouped[uid].hasUnseenStory = true;
 
       grouped[uid].stories.push({
@@ -74,7 +77,7 @@ export const getStories = async (req, res) => {
 export const getMyStories = async (req, res) => {
   try {
     const stories = await Story.find({
-      userId: req.user._id,
+      userId: getUserId(req),
       expiresAt: { $gt: new Date() },
     }).sort({ createdAt: -1 });
 
@@ -91,10 +94,11 @@ export const createStory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Image is required' });
     }
 
+    const userId = getUserId(req);
     const imageUrl = `${process.env.BASE_URL || 'http://localhost:4000'}/uploads/stories/${req.file.filename}`;
 
     const story = await Story.create({
-      userId: req.user._id,
+      userId,
       imageUrl,
       caption: req.body.caption || '',
     });
@@ -112,14 +116,13 @@ export const createStory = async (req, res) => {
 export const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
-    const userId = req.user._id;
+    const userId = getUserId(req);
 
     const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({ success: false, message: 'Story not found or expired' });
     }
 
-    // Add viewer if not already viewed
     if (!story.viewers.map(String).includes(userId.toString())) {
       story.viewers.push(userId);
       await story.save();
@@ -136,17 +139,17 @@ export const viewStory = async (req, res) => {
 export const deleteStory = async (req, res) => {
   try {
     const { storyId } = req.params;
-    const story = await Story.findById(storyId);
+    const userId = getUserId(req).toString();
 
+    const story = await Story.findById(storyId);
     if (!story) {
       return res.status(404).json({ success: false, message: 'Story not found' });
     }
 
-    if (story.userId.toString() !== req.user._id.toString()) {
+    if (story.userId.toString() !== userId) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Also delete file from disk
     const filePath = story.imageUrl.split('/uploads/')[1];
     if (filePath) {
       const fullPath = `uploads/${filePath}`;

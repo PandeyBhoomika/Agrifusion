@@ -1,6 +1,6 @@
 import express from 'express';
 import { auth } from '../middleware/auth.js';
-import { getFeed, createPost, likePost, addComment } from '../controllers/community.controller.js';
+import { getFeed, createPost, likePost, addComment, deleteComment } from '../controllers/community.controller.js';
 
 const router = express.Router();
 
@@ -10,5 +10,6 @@ router.route('/')
 
 router.post('/:id/like', auth, likePost);
 router.post('/:id/comment', auth, addComment);
+router.delete('/:id/comment/:commentId', auth, deleteComment);
 
 export default router;

@@ -87,6 +87,7 @@ export default function CommunityDashboard() {
   const [activePost, setActivePost] = useState<Post | null>(null);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -232,6 +233,51 @@ export default function CommunityDashboard() {
     }
   };
 
+  // ─── Delete comment ───────────────────────────────
+  const confirmDeleteComment = (comment: Comment) => {
+    Alert.alert(
+      'Delete comment?',
+      'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => handleDeleteComment(comment._id) },
+      ]
+    );
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!activePost) return;
+
+    setDeletingCommentId(commentId);
+    try {
+      const res = await fetch(
+        `${API_URL}/community/${activePost._id}/comment/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: await authHeaders(),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p._id === activePost._id ? { ...p, comments: json.data } : p
+          )
+        );
+        setActivePost((prev) =>
+          prev ? { ...prev, comments: json.data } : prev
+        );
+      } else {
+        Alert.alert('Error', json.message || 'Could not delete comment.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not delete comment. Check your connection.');
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
+  // ─── Post Card ────────────────────────────────────
   const PostCard = ({ post }: { post: Post }) => {
     const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
     const authorName = post.userId?.fullName || 'Farmer';
@@ -370,27 +416,48 @@ export default function CommunityDashboard() {
               {activePost?.comments.length === 0 ? (
                 <Text style={styles.noComments}>No comments yet. Be the first!</Text>
               ) : (
-                activePost?.comments.map((c) => (
-                  <View key={c._id} style={styles.commentItem}>
-                    <View
-                      style={[
-                        styles.commentAvatar,
-                        { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
-                      ]}
-                    >
-                      <Text style={styles.commentAvatarText}>
-                        {getInitials(c.userId?.fullName || 'F')}
-                      </Text>
+                activePost?.comments.map((c) => {
+                  const isOwnComment = currentUserId && c.userId?._id === currentUserId;
+                  const isDeleting = deletingCommentId === c._id;
+
+                  return (
+                    <View key={c._id} style={styles.commentItem}>
+                      <View
+                        style={[
+                          styles.commentAvatar,
+                          { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
+                        ]}
+                      >
+                        <Text style={styles.commentAvatarText}>
+                          {getInitials(c.userId?.fullName || 'F')}
+                        </Text>
+                      </View>
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentTopRow}>
+                          <Text style={styles.commentAuthor}>
+                            {c.userId?.fullName || 'Farmer'}
+                          </Text>
+
+                          {isOwnComment && (
+                            <TouchableOpacity
+                              onPress={() => confirmDeleteComment(c)}
+                              disabled={isDeleting}
+                              style={styles.commentDeleteBtn}
+                            >
+                              {isDeleting ? (
+                                <ActivityIndicator size="small" color="#9CA3AF" />
+                              ) : (
+                                <Ionicons name="trash-outline" size={15} color="#9CA3AF" />
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <Text style={styles.commentText}>{c.text}</Text>
+                        <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                      </View>
                     </View>
-                    <View style={styles.commentBody}>
-                      <Text style={styles.commentAuthor}>
-                        {c.userId?.fullName || 'Farmer'}
-                      </Text>
-                      <Text style={styles.commentText}>{c.text}</Text>
-                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </ScrollView>
 
@@ -452,7 +519,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151' },
   emptySubtitle: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%', paddingBottom: Platform.OS === 'ios' ? 30 : 16 },
+  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '80%', paddingBottom: Platform.OS === 'ios' ? 30 : 16 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
   commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
@@ -461,6 +528,8 @@ const styles = StyleSheet.create({
   commentAvatar: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   commentAvatarText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   commentBody: { flex: 1 },
+  commentTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  commentDeleteBtn: { padding: 4 },
   commentAuthor: { fontSize: 13, fontWeight: '600', color: '#111827' },
   commentText: { fontSize: 14, color: '#374151', marginTop: 2, lineHeight: 20 },
   commentTime: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },

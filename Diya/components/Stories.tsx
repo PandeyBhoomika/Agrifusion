@@ -1,4 +1,4 @@
-// components/Stories.tsx
+﻿// components/Stories.tsx
 // Drop this file into Diya/components/Stories.tsx
 // Then import StoriesBar into your communitydashboard.tsx
 
@@ -66,11 +66,21 @@ interface StoryViewerProps {
   userStories: UserStories;
   allUsers: UserStories[];
   startUserIndex: number;
+  currentUserId: string;
   onClose: () => void;
   onViewed: (storyId: string) => void;
+  onDelete: (storyId: string) => void;
 }
 
-function StoryViewer({ userStories, allUsers, startUserIndex, onClose, onViewed }: StoryViewerProps) {
+function StoryViewer({
+  userStories,
+  allUsers,
+  startUserIndex,
+  currentUserId,
+  onClose,
+  onViewed,
+  onDelete,
+}: StoryViewerProps) {
   const [userIndex, setUserIndex] = useState(startUserIndex);
   const [storyIndex, setStoryIndex] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -79,6 +89,15 @@ function StoryViewer({ userStories, allUsers, startUserIndex, onClose, onViewed 
   const currentUser = allUsers[userIndex];
   const currentStory = currentUser?.stories[storyIndex];
   const STORY_DURATION = 5000;
+
+  // ✅ FIXED — normalize both sides before comparing, in case one comes back
+  // as an ObjectId, a populated object, or has stray whitespace from the API.
+  const normalizeId = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'object') return String(val._id || val.id || '').trim();
+    return String(val).trim();
+  };
+  const isOwnStory = !!currentUser && normalizeId(currentUser.userId) === normalizeId(currentUserId);
 
   // Mark as viewed
   useEffect(() => {
@@ -102,6 +121,18 @@ function StoryViewer({ userStories, allUsers, startUserIndex, onClose, onViewed 
     return () => progressRef.current?.stop();
   }, [storyIndex, userIndex]);
 
+  const pauseProgress = () => progressRef.current?.stop();
+  const resumeProgress = () => {
+    progressRef.current = Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: STORY_DURATION * (1 - (progressAnim as any)._value),
+      useNativeDriver: false,
+    });
+    progressRef.current.start(({ finished }) => {
+      if (finished) goNext();
+    });
+  };
+
   const goNext = () => {
     const hasNextStory = storyIndex < currentUser.stories.length - 1;
     if (hasNextStory) {
@@ -121,6 +152,23 @@ function StoryViewer({ userStories, allUsers, startUserIndex, onClose, onViewed 
       setUserIndex(u => u - 1);
       setStoryIndex(allUsers[userIndex - 1].stories.length - 1);
     }
+  };
+
+  const handleDeletePress = () => {
+    if (!currentStory) return;
+    pauseProgress();
+    Alert.alert(
+      'Delete this story?',
+      'This will remove it immediately. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel', onPress: resumeProgress },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDelete(currentStory._id),
+        },
+      ],
+    );
   };
 
   if (!currentStory || !currentUser) return null;
@@ -167,9 +215,17 @@ function StoryViewer({ userStories, allUsers, startUserIndex, onClose, onViewed 
               </Text>
             </View>
           </View>
-          <TouchableOpacity onPress={onClose} style={sv.closeBtn}>
-            <Ionicons name="close" size={26} color="#fff" />
-          </TouchableOpacity>
+
+          <View style={sv.headerActions}>
+            {isOwnStory && (
+              <TouchableOpacity onPress={handleDeletePress} style={sv.deleteBtn}>
+                <Ionicons name="trash-outline" size={22} color="#fff" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={onClose} style={sv.closeBtn}>
+              <Ionicons name="close" size={26} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Caption */}
@@ -202,6 +258,8 @@ const sv = StyleSheet.create({
   authorInitials: { color: '#fff', fontSize: 13, fontWeight: '700' },
   authorName: { color: '#fff', fontWeight: '700', fontSize: 15 },
   storyMeta: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  deleteBtn: { padding: 6 },
   closeBtn: { padding: 6 },
   captionContainer: { position: 'absolute', bottom: 90, left: 0, right: 0, paddingHorizontal: 20, zIndex: 10 },
   caption: { color: '#fff', fontSize: 16, fontWeight: '600', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4, textAlign: 'center' },
@@ -265,7 +323,7 @@ function CreateStoryModal({ visible, onClose, onCreated, token, userId }: Create
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const pickImage = async () => {
+  const pickFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('Permission needed', 'Allow access to your photos to add a story.');
@@ -273,9 +331,26 @@ function CreateStoryModal({ visible, onClose, onCreated, token, userId }: Create
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      allowsEditing: true,
-      aspect: [9, 16],
+      quality: 1, // ✅ FIXED — no compression, original quality
+      allowsEditing: false, // no forced crop, captures the full photo
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setImage({ uri: asset.uri, type: asset.mimeType || 'image/jpeg', name: `story_${Date.now()}.jpg` });
+    }
+  };
+
+  // ✅ FIXED — capture a photo directly with the camera, no forced crop
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Allow camera access to take a photo for your story.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1, // ✅ FIXED — no compression, original quality
+      allowsEditing: false, // no forced crop — captures the full photo
     });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
@@ -320,18 +395,27 @@ function CreateStoryModal({ visible, onClose, onCreated, token, userId }: Create
           <View style={csm.dragBar} />
           <Text style={csm.title}>Add to Your Story</Text>
 
-          {/* Image preview / picker */}
-          <TouchableOpacity style={csm.imagePicker} onPress={pickImage} activeOpacity={0.8}>
-            {image ? (
+          {/* Image preview */}
+          {image ? (
+            <TouchableOpacity style={csm.imagePicker} onPress={pickFromGallery} activeOpacity={0.8}>
               <Image source={{ uri: image.uri }} style={csm.preview} resizeMode="cover" />
-            ) : (
-              <View style={csm.placeholder}>
-                <Ionicons name="image-outline" size={40} color="#9ca3af" />
-                <Text style={csm.placeholderText}>Tap to choose a photo</Text>
-                <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Will be cropped to 9:16</Text>
+              <View style={csm.changeBadge}>
+                <Ionicons name="refresh" size={13} color="#fff" />
+                <Text style={csm.changeBadgeText}>Change</Text>
               </View>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          ) : (
+            <View style={csm.pickerRow}>
+              <TouchableOpacity style={csm.pickerOption} onPress={takePhoto} activeOpacity={0.8}>
+                <Ionicons name="camera-outline" size={32} color="#1B4332" />
+                <Text style={csm.pickerOptionText}>Camera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={csm.pickerOption} onPress={pickFromGallery} activeOpacity={0.8}>
+                <Ionicons name="image-outline" size={32} color="#1B4332" />
+                <Text style={csm.pickerOptionText}>Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Caption */}
           <TextInput
@@ -377,10 +461,13 @@ const csm = StyleSheet.create({
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, paddingBottom: 36 },
   dragBar: { width: 44, height: 5, backgroundColor: '#e5e7eb', borderRadius: 3, alignSelf: 'center', marginBottom: 16 },
   title: { fontSize: 18, fontWeight: '800', color: '#1B4332', marginBottom: 16 },
-  imagePicker: { width: '100%', height: 220, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f9fafb', marginBottom: 14, borderWidth: 1.5, borderColor: '#e5e7eb', borderStyle: 'dashed' },
+  imagePicker: { width: '100%', height: 220, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f9fafb', marginBottom: 14, borderWidth: 1.5, borderColor: '#e5e7eb' },
   preview: { width: '100%', height: '100%' },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  placeholderText: { fontSize: 14, color: '#9ca3af', fontWeight: '500' },
+  changeBadge: { position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  changeBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  pickerRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  pickerOption: { flex: 1, height: 110, borderRadius: 16, backgroundColor: '#f9fafb', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: '#e5e7eb', borderStyle: 'dashed' },
+  pickerOptionText: { fontSize: 13, fontWeight: '700', color: '#1B4332' },
   captionInput: { backgroundColor: '#f9fafb', borderRadius: 14, padding: 13, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#e5e7eb' },
   charCount: { textAlign: 'right', fontSize: 11, color: '#9ca3af', marginTop: 4, marginBottom: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
@@ -428,9 +515,17 @@ export default function StoriesBar() {
       const json = await res.json();
       if (json.success) {
         const data: UserStories[] = json.data;
-        // Separate my stories from others
-        const me = data.find(u => u.userId === userId);
-        const others = data.filter(u => u.userId !== userId);
+        // ✅ FIXED — normalize IDs before splitting "me" from "others", so a
+        // type/shape mismatch (ObjectId vs string, stray whitespace, etc.)
+        // doesn't silently put your own story in the wrong bucket.
+        const normalizeId = (val: any): string => {
+          if (!val) return '';
+          if (typeof val === 'object') return String(val._id || val.id || '').trim();
+          return String(val).trim();
+        };
+        const myId = normalizeId(userId);
+        const me = data.find(u => normalizeId(u.userId) === myId);
+        const others = data.filter(u => normalizeId(u.userId) !== myId);
         setMyEntry(me || null);
         setStories(others);
       }
@@ -456,6 +551,32 @@ export default function StoriesBar() {
         hasUnseenStory: u.stories.some(s => s._id !== storyId && !s.hasSeen),
       })));
     } catch {}
+  };
+
+  const handleDelete = async (storyId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/stories/${storyId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!json.success) {
+        Alert.alert('Error', json.message || 'Could not delete story');
+        return;
+      }
+
+      // Remove it from myEntry locally
+      setMyEntry(prev => {
+        if (!prev) return prev;
+        const remaining = prev.stories.filter(s => s._id !== storyId);
+        return remaining.length ? { ...prev, stories: remaining } : null;
+      });
+
+      // Close the viewer — simplest, safest UX after a delete
+      setViewingUser(null);
+    } catch (err) {
+      Alert.alert('Error', 'Network error while deleting story.');
+    }
   };
 
   const openStories = (userStories: UserStories, index: number) => {
@@ -524,8 +645,10 @@ export default function StoriesBar() {
           userStories={viewingUser}
           allUsers={allForViewer}
           startUserIndex={viewingUserIndex}
+          currentUserId={userId}
           onClose={() => setViewingUser(null)}
           onViewed={handleViewed}
+          onDelete={handleDelete}
         />
       )}
 

@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const UserSchema = new mongoose.Schema(
   {
-    // ── Auth & Basic Info ─────────────────────────────
+    // ── Auth & Basic Info ─────────────────────────────────────
     email: {
       type: String, required: true, unique: true, lowercase: true, trim: true,
     },
@@ -13,7 +13,7 @@ const UserSchema = new mongoose.Schema(
     passwordHash: { type: String, default: "" },
     emailVerified: { type: Boolean, default: false },
 
-    // ── Farm Profile ──────────────────────────────────
+    // ── Farm Profile ──────────────────────────────────────────
     profile: {
       primaryCrops: { type: [String], default: [] },
       farmSize: { type: Number, default: 0 },
@@ -28,12 +28,29 @@ const UserSchema = new mongoose.Schema(
       profileCompleted: { type: Boolean, default: false },
     },
 
-    // ── Gamification ─────────────────────────────────
+    // ── Gamification ──────────────────────────────────────────
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
     greenCoins: { type: Number, default: 0 },
     streakDays: { type: Number, default: 0 },
     badges: { type: [String], default: [] },
+
+    // ── Quiz History ✅ NEW ───────────────────────────────────
+    quizHistory: [
+      {
+        quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
+        category: { type: String },
+        categoryName: { type: String },
+        difficulty: { type: String, enum: ['easy', 'medium', 'hard'] },
+        score: { type: Number },
+        totalPoints: { type: Number },
+        percentage: { type: Number },
+        passed: { type: Boolean },
+        xpEarned: { type: Number, default: 0 },
+        coinsEarned: { type: Number, default: 0 },
+        completedAt: { type: Date, default: Date.now },
+      }
+    ],
   },
   { timestamps: true }
 );
