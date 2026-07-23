@@ -59,6 +59,47 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
   }
 }
 
+// ── Farm Health scoring: derived from real profile + weather data ──────────
+function getSoilScore(soilType?: string): { score: number; label: string } {
+  const scores: Record<string, number> = {
+    'Loamy': 88, 'Alluvial': 82, 'Black (Regur)': 78,
+    'Clay': 65, 'Red': 60, 'Mountain': 55,
+    'Laterite': 50, 'Sandy': 45,
+  };
+  const score = soilType && scores[soilType] !== undefined ? scores[soilType] : 60;
+  const label = score >= 75 ? 'Good fertility' : score >= 55 ? 'Moderate fertility' : 'Needs attention';
+  return { score, label };
+}
+
+function getWaterScore(waterAvailability?: string, rainChance?: number): { score: number; label: string } {
+  const baseScores: Record<string, number> = {
+    'Drip Irrigation': 85,
+    'Abundant (River/Canal)': 82,
+    'Borewell': 70,
+    'Rainfed Only': 50,
+    'Limited': 35,
+  };
+  let score = waterAvailability && baseScores[waterAvailability] !== undefined
+    ? baseScores[waterAvailability] : 60;
+
+  if (waterAvailability === 'Rainfed Only' && rainChance !== undefined) {
+    score = Math.min(90, score + Math.round(rainChance / 5));
+  }
+
+  const label = score >= 75 ? 'Well managed' : score >= 55 ? 'Adequate' : 'Water stressed';
+  return { score, label };
+}
+
+function getSunScore(condition?: string): { score: number; label: string } {
+  if (!condition) return { score: 65, label: 'Unknown' };
+  const c = condition.toLowerCase();
+  if (c.includes('sunny') || c.includes('clear')) return { score: 90, label: 'Excellent sunlight' };
+  if (c.includes('partly')) return { score: 72, label: 'Good sunlight' };
+  if (c.includes('cloud') || c.includes('overcast')) return { score: 50, label: 'Limited sunlight' };
+  if (c.includes('rain') || c.includes('storm') || c.includes('mist') || c.includes('fog')) return { score: 30, label: 'Low sunlight' };
+  return { score: 65, label: condition };
+}
+
 export default function PersonalizedDashboard() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -84,17 +125,22 @@ export default function PersonalizedDashboard() {
 
   const pendingTasksCount = pendingTasks.length;
 
+  // Farm Health scores — derived from real farm profile + weather data
+  const soilInfo = getSoilScore(user?.profile?.soilType);
+  const waterInfo = getWaterScore(user?.profile?.waterAvailability, weather?.rainChance);
+  const sunInfo = getSunScore(weather?.condition);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-   useFocusEffect(
-  useCallback(() => {
-    console.log('Dashboard focused - refreshing user data');
-    refreshUser().catch((err: any) => console.error('Failed to refresh user on focus:', err));
-  }, [refreshUser])
-);
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Dashboard focused - refreshing user data');
+      refreshUser().catch((err: any) => console.error('Failed to refresh user on focus:', err));
+    }, [refreshUser])
+  );
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -301,23 +347,23 @@ export default function PersonalizedDashboard() {
             <View style={styles.healthGrid}>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🌱 Soil</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '82%', backgroundColor: '#22c55e' }]} /></View>
-                <Text style={styles.healthValue}>82% · {t.dashboard.soilHealthy}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${soilInfo.score}%`, backgroundColor: '#22c55e' }]} /></View>
+                <Text style={styles.healthValue}>{soilInfo.score}% · {soilInfo.label}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>💧 Water</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '74%', backgroundColor: '#3b82f6' }]} /></View>
-                <Text style={styles.healthValue}>74% · {t.dashboard.waterEfficient}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${waterInfo.score}%`, backgroundColor: '#3b82f6' }]} /></View>
+                <Text style={styles.healthValue}>{waterInfo.score}% · {waterInfo.label}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🐛 Pest</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '38%', backgroundColor: '#f97316' }]} /></View>
-                <Text style={styles.healthValue}>38% · {t.dashboard.pestLowRisk}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '0%', backgroundColor: '#9ca3af' }]} /></View>
+                <Text style={styles.healthValue}>Tracking coming soon</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>☀️ Sun</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '68%', backgroundColor: '#fbbf24' }]} /></View>
-                <Text style={styles.healthValue}>68% · {t.dashboard.sunGood}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${sunInfo.score}%`, backgroundColor: '#fbbf24' }]} /></View>
+                <Text style={styles.healthValue}>{sunInfo.score}% · {sunInfo.label}</Text>
               </View>
             </View>
           </Reanimated.View>
