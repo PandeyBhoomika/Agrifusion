@@ -280,7 +280,7 @@ const mergeLocalProgress = async (videos: VideoModule[]): Promise<VideoModule[]>
   );
 };
 
-// ─── updateVideoProgress (saves locally; extend later for server sync) ────────
+// ─── updateVideoProgress (saves locally) ──────────────────────────────────────
 
 export const updateVideoProgress = async (
   videoId: string,
@@ -290,7 +290,6 @@ export const updateVideoProgress = async (
   completed: boolean
 ): Promise<boolean> => {
   await saveProgressToLocal(videoId, progress, currentTime, duration, completed);
-  // TODO: POST to /api/videos/:id/progress when that endpoint is ready
   return true;
 };
 
@@ -300,6 +299,44 @@ export const getVideoProgress = async (
   videoId: string
 ): Promise<VideoProgressData | null> => {
   return getProgressFromAsyncStorage(videoId);
+};
+
+// ─── Complete video on backend (grants XP, records Activity) ─────────────────
+// ✅ NEW: previously nothing called the backend on completion — progress was
+// tracked purely locally (see updateVideoProgress above), so no XP was ever
+// actually granted despite the UI showing "+150 XP earned". This calls the
+// real POST /videos/:id/complete endpoint, which is idempotent server-side
+// (won't grant XP twice for the same video).
+export const completeVideoOnBackend = async (
+  videoId: string
+): Promise<{ success: boolean; xpEarned?: number; alreadyCompleted?: boolean; message?: string }> => {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    const json = await response.json();
+
+    if (!response.ok) {
+      console.warn('Failed to complete video on backend:', json.message);
+      return { success: false, message: json.message };
+    }
+
+    return {
+      success: true,
+      xpEarned: json.xpEarned,
+      alreadyCompleted: json.alreadyCompleted,
+      message: json.message,
+    };
+  } catch (error) {
+    console.warn('Error completing video on backend:', error);
+    return { success: false, message: 'Network error' };
+  }
 };
 
 // ─── Helpers for mock compatibility ──────────────────────────────────────────
