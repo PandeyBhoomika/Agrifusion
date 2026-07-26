@@ -1,30 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp, SlideInRight, ZoomIn } from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
-
-interface CropTask {
-  id: string;       // UserCropTask row id — used for completing/proof submission
-  taskId: string;    // underlying Task template id
-  title: string;
-  description: string;
-  category: string;
-  xpReward: number;
-  coinReward: number;
-  requiresProof: boolean;
-  difficulty: string;
-  stage: string;
-  stageOrder: number;
-  crop: string;
-  status: 'locked' | 'active' | 'approved';
-  isCompleted: boolean;
-}
+import { useTasks } from '../../context/TaskContext';
 
 const CATEGORY_CONFIG: Record<string, { color: string; icon: string }> = {
   'Water Conservation': { color: '#3b82f6', icon: '💧' },
@@ -41,96 +24,37 @@ const DIFFICULTY_EMOJI: Record<string, string> = {
 export default function TasksScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const {
+    crops,
+    activeCrop,
+    chain,
+    chainLoading,
+    setActiveCrop,
+    refreshChain,
+  } = useTasks();
 
-  const [crops, setCrops] = useState<string[]>([]);
-  const [activeCrop, setActiveCrop] = useState<string | null>(null);
-  const [chain, setChain] = useState<CropTask[]>([]);
-  const [isLoadingCrops, setIsLoadingCrops] = useState(true);
-  const [isLoadingChain, setIsLoadingChain] = useState(false);
-  const [loadError, setLoadError] = useState(false);
+  // Refresh chain every time this tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshChain();
+    }, [])
+  );
 
-  // ── Step 1: find out which crops this user has ────────────────────
-  const fetchCrops = useCallback(async () => {
-    setIsLoadingCrops(true);
-    setLoadError(false);
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/tasks/my-crops`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
-      const data = await response.json();
-      const cropList: string[] = data.crops || [];
-      setCrops(cropList);
-      if (cropList.length > 0) {
-        setActiveCrop((prev) => prev && cropList.includes(prev) ? prev : cropList[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load crops:', error);
-      setLoadError(true);
-    } finally {
-      setIsLoadingCrops(false);
-    }
-  }, []);
+  const completedCount = chain.filter(c => c.status === 'approved').length;
+  const earnedXP = chain
+    .filter(c => c.status === 'approved')
+    .reduce((sum, c) => sum + (c.xpReward || 0), 0);
 
-  // ── Step 2: fetch the chain for whichever crop tab is active ──────
-  const fetchChain = useCallback(async (crop: string) => {
-    setIsLoadingChain(true);
-    setLoadError(false);
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/tasks/crop-chain?crop=${encodeURIComponent(crop)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
-      const data = await response.json();
-      setChain(data.data || []);
-    } catch (error) {
-      console.error('Failed to load crop chain:', error);
-      setChain([]);
-      setLoadError(true);
-    } finally {
-      setIsLoadingChain(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchCrops(); }, [fetchCrops]);
-  useEffect(() => { if (activeCrop) fetchChain(activeCrop); }, [activeCrop, fetchChain]);
-
-  const completedCount = chain.filter((c) => c.status === 'approved').length;
-  const earnedXP = chain.filter((c) => c.status === 'approved').reduce((sum, c) => sum + (c.xpReward || 0), 0);
-
-  const handleMarkDone = (task: CropTask) => {
+  const handleMarkDone = (task: any) => {
     if (task.requiresProof) {
       router.push({
         pathname: '/proof-submission',
-        params: { userCropTaskId: task.id, xpReward: String(task.xpReward), title: task.title },
-      } as any);
-    } else {
-      completeStep(task.id);
-    }
-  };
-
-  const completeStep = async (userCropTaskId: string) => {
-    setChain((prev) => prev.map((c) => c.id === userCropTaskId ? { ...c, status: 'approved', isCompleted: true } : c));
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/tasks/crop-chain/${userCropTaskId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        params: {
+          userCropTaskId: task.id,
+          xpReward: String(task.xpReward),
+          title: task.title,
         },
-      });
-      if (!response.ok) {
-        console.warn('Failed to sync step completion with backend.');
-        if (activeCrop) fetchChain(activeCrop); // re-sync from server on failure
-      } else if (activeCrop) {
-        fetchChain(activeCrop); // re-fetch so the next step's "active" status shows correctly
-      }
-    } catch (error) {
-      console.error('Failed to connect to backend:', error);
-      if (activeCrop) fetchChain(activeCrop);
+      } as any);
     }
   };
 
@@ -144,15 +68,15 @@ export default function TasksScreen() {
           {activeCrop && <Text style={styles.headerDate}>{activeCrop} journey</Text>}
         </Animated.View>
 
-        {isLoadingCrops ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#166534" />
-          </View>
-        ) : crops.length === 0 ? (
+        {crops.length === 0 ? (
           <Animated.View entering={ZoomIn.duration(400)} style={styles.emptyState}>
             <Text style={styles.emptyStateEmoji}>🌾</Text>
             <Text style={styles.emptyStateText}>No crops selected yet</Text>
-            <TouchableOpacity style={[styles.markDoneBtn, { marginTop: 16 }]} onPress={() => router.push('/farm-profile' as any)} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={[styles.markDoneBtn, { marginTop: 16 }]}
+              onPress={() => router.push('/farm-profile' as any)}
+              activeOpacity={0.8}
+            >
               <Text style={styles.markDoneBtnText}>Complete Farm Profile</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -164,13 +88,16 @@ export default function TasksScreen() {
               style={styles.filterContainer}
               entering={SlideInRight.delay(200).duration(400)}
             >
-              {crops.map((crop) => (
+              {crops.map(crop => (
                 <TouchableOpacity
-                  key={crop} activeOpacity={0.75}
+                  key={crop}
+                  activeOpacity={0.75}
                   onPress={() => setActiveCrop(crop)}
                   style={[styles.filterChip, activeCrop === crop && styles.filterChipActive]}
                 >
-                  <Text style={[styles.filterText, activeCrop === crop && styles.filterTextActive]}>🌾 {crop}</Text>
+                  <Text style={[styles.filterText, activeCrop === crop && styles.filterTextActive]}>
+                    🌾 {crop}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </Animated.ScrollView>
@@ -180,7 +107,7 @@ export default function TasksScreen() {
               <View style={styles.summaryStats}>
                 <View>
                   <Text style={styles.summaryLabel}>{t.tasks.tasksDone}</Text>
-                  <Text style={styles.summaryValue}>{completedCount}/{chain.length || 0}</Text>
+                  <Text style={styles.summaryValue}>{completedCount}/{chain.length}</Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View>
@@ -189,53 +116,78 @@ export default function TasksScreen() {
                 </View>
               </View>
               <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: chain.length > 0 ? `${(completedCount / chain.length) * 100}%` : '0%' }]} />
+                <View style={[
+                  styles.progressBarFill,
+                  { width: chain.length > 0 ? `${(completedCount / chain.length) * 100}%` : '0%' }
+                ]} />
               </View>
             </Animated.View>
 
             {/* TASK LIST */}
             <View style={styles.taskList}>
-              {isLoadingChain ? (
+              {chainLoading ? (
                 <View style={{ paddingVertical: 40, alignItems: 'center' }}>
                   <ActivityIndicator size="large" color="#166534" />
-                  <Text style={{ marginTop: 12, color: '#166534', fontWeight: '600' }}>{t.tasks.fetchingMissions}</Text>
+                  <Text style={{ marginTop: 12, color: '#166534', fontWeight: '600' }}>
+                    {t.tasks.fetchingMissions}
+                  </Text>
                 </View>
-              ) : loadError ? (
-                <Animated.View entering={ZoomIn.duration(400)} style={styles.emptyState}>
-                  <Text style={styles.emptyStateEmoji}>⚠️</Text>
-                  <Text style={styles.emptyStateText}>Couldn't load tasks. Check your connection.</Text>
-                  <TouchableOpacity style={[styles.markDoneBtn, { marginTop: 16 }]} onPress={() => activeCrop && fetchChain(activeCrop)} activeOpacity={0.8}>
-                    <Text style={styles.markDoneBtnText}>Retry</Text>
-                  </TouchableOpacity>
+              ) : chain.length === 0 ? (
+                <Animated.View entering={ZoomIn.delay(300)} style={styles.emptyState}>
+                  <Text style={styles.emptyStateEmoji}>🌱</Text>
+                  <Text style={styles.emptyStateText}>{t.tasks.noTasksToday}</Text>
                 </Animated.View>
               ) : (
                 chain.map((task, index) => {
                   const conf = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG['General'];
                   const diffEmoji = DIFFICULTY_EMOJI[task.difficulty] || '🌱';
                   const isLocked = task.status === 'locked';
+
                   return (
                     <Animated.View
                       key={task.id}
-                      entering={FadeInUp.delay(300 + (index * 80)).duration(400)}
-                      style={[styles.taskCard, task.status === 'approved' && styles.taskCardCompleted]}
+                      entering={FadeInUp.delay(300 + index * 80).duration(400)}
+                      style={[
+                        styles.taskCard,
+                        task.status === 'approved' && styles.taskCardCompleted,
+                      ]}
                     >
                       <View style={styles.taskCardTouchArea}>
-                        <View style={[styles.colorStripe, { backgroundColor: isLocked ? '#9ca3af' : conf.color }]} />
+                        <View style={[
+                          styles.colorStripe,
+                          { backgroundColor: isLocked ? '#9ca3af' : conf.color }
+                        ]} />
                         <View style={styles.taskCardInner}>
                           <View style={styles.taskHeaderRow}>
-                            <View style={[styles.iconCircle, { backgroundColor: isLocked ? '#f3f4f6' : `${conf.color}20` }]}>
-                              <Text style={styles.categoryEmoji}>{isLocked ? '🔒' : conf.icon}</Text>
+                            <View style={[
+                              styles.iconCircle,
+                              { backgroundColor: isLocked ? '#f3f4f6' : `${conf.color}20` }
+                            ]}>
+                              <Text style={styles.categoryEmoji}>
+                                {isLocked ? '🔒' : conf.icon}
+                              </Text>
                             </View>
                             <View style={styles.titleContainer}>
                               <Text style={styles.stageLabel}>{task.stage}</Text>
-                              <Text style={[styles.taskTitle, task.status === 'approved' && styles.strikethrough]}>{task.title}</Text>
-                              <Text style={styles.difficultyText}>{diffEmoji} {task.difficulty}</Text>
+                              <Text style={[
+                                styles.taskTitle,
+                                task.status === 'approved' && styles.strikethrough,
+                              ]}>
+                                {task.title}
+                              </Text>
+                              <Text style={styles.difficultyText}>
+                                {diffEmoji} {task.difficulty}
+                              </Text>
                             </View>
                             <View style={styles.xpBadge}>
                               <Text style={styles.xpBadgeText}>+{task.xpReward} XP</Text>
                             </View>
                           </View>
-                          <Text style={styles.taskDesc} numberOfLines={2}>{task.description}</Text>
+
+                          <Text style={styles.taskDesc} numberOfLines={2}>
+                            {task.description}
+                          </Text>
+
                           <View style={styles.taskFooterRow}>
                             {task.status === 'approved' ? (
                               <View style={styles.completedBadge}>
@@ -245,12 +197,25 @@ export default function TasksScreen() {
                             ) : task.status === 'locked' ? (
                               <View style={styles.completedBadge}>
                                 <Ionicons name="lock-closed" size={18} color="#9ca3af" />
-                                <Text style={[styles.completedText, { color: '#9ca3af' }]}>Locked</Text>
+                                <Text style={[styles.completedText, { color: '#9ca3af' }]}>
+                                  Locked
+                                </Text>
                               </View>
                             ) : (
-                              <TouchableOpacity style={styles.markDoneBtn} activeOpacity={0.8} onPress={() => handleMarkDone(task)}>
+                              <TouchableOpacity
+                                style={styles.markDoneBtn}
+                                activeOpacity={0.8}
+                                onPress={() => handleMarkDone(task)}
+                              >
                                 <Text style={styles.markDoneBtnText}>{t.tasks.markDone}</Text>
-                                {task.requiresProof && <Ionicons name="camera" size={16} color="#ffffff" style={{ marginLeft: 6 }} />}
+                                {task.requiresProof && (
+                                  <Ionicons
+                                    name="camera"
+                                    size={16}
+                                    color="#ffffff"
+                                    style={{ marginLeft: 6 }}
+                                  />
+                                )}
                               </TouchableOpacity>
                             )}
                             <View style={styles.coinIndicator}>

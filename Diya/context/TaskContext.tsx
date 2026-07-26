@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { taskService } from '../services/taskService';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // ── Task Data Types ─────────────────────────────────────────────────────
 export interface Task {
@@ -19,7 +21,27 @@ export interface Task {
   createdAt?: string;
 }
 
+export interface CropTask {
+  id: string;
+  taskId: string;
+  title: string;
+  description: string;
+  category: string;
+  xpReward: number;
+  coinReward: number;
+  requiresProof: boolean;
+  difficulty: string;
+  stage: string;
+  stageOrder: number;
+  crop: string;
+  status: 'locked' | 'active' | 'approved';
+  isCompleted: boolean;
+  estimatedTime?: number;
+  skillLevel?: string;
+}
+
 interface TaskContextType {
+  // Legacy flat task list (for dashboard pendingTasks count)
   tasks: Task[];
   completedTasks: Task[];
   pendingTasks: Task[];
@@ -27,6 +49,14 @@ interface TaskContextType {
   error: string | null;
   refreshTasks: () => Promise<void>;
   completeTask: (taskId: string) => Promise<boolean>;
+
+  // Crop-chain system (for tasks screen)
+  crops: string[];
+  activeCrop: string | null;
+  chain: CropTask[];
+  chainLoading: boolean;
+  setActiveCrop: (crop: string) => void;
+  refreshChain: () => Promise<void>;
 }
 
 // ── Context Creation ────────────────────────────────────────────────────
@@ -38,22 +68,77 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Crop-chain state
+  const [crops, setCrops] = useState<string[]>([]);
+  const [activeCrop, setActiveCropState] = useState<string | null>(null);
+  const [chain, setChain] = useState<CropTask[]>([]);
+  const [chainLoading, setChainLoading] = useState(false);
+
   useEffect(() => {
     initializeTasks();
+    fetchCrops();
   }, []);
 
+  // ── Fetch user's crops ──────────────────────────────────────────────
+  const fetchCrops = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/tasks/my-crops`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const cropList: string[] = data.crops || [];
+      setCrops(cropList);
+      if (cropList.length > 0) {
+        setActiveCropState(prev => prev && cropList.includes(prev) ? prev : cropList[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch crops:', err);
+    }
+  };
+
+  // ── Fetch chain for active crop ──────────────────────────────────────
+  const fetchChain = useCallback(async (crop: string) => {
+    setChainLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch(
+        `${API_BASE_URL}/tasks/crop-chain?crop=${encodeURIComponent(crop)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setChain(data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch chain:', err);
+      setChain([]);
+    } finally {
+      setChainLoading(false);
+    }
+  }, []);
+
+  // Re-fetch chain whenever activeCrop changes
+  useEffect(() => {
+    if (activeCrop) fetchChain(activeCrop);
+  }, [activeCrop, fetchChain]);
+
+  const setActiveCrop = (crop: string) => {
+    setActiveCropState(crop);
+  };
+
+  const refreshChain = async () => {
+    if (activeCrop) await fetchChain(activeCrop);
+    await fetchCrops(); // also refresh crop list in case profile changed
+  };
+
+  // ── Legacy flat task list (kept for dashboard pendingTasks) ──────────
   const initializeTasks = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Try to load from cache first
       const cachedTasks = await AsyncStorage.getItem('tasks');
-      if (cachedTasks) {
-        setTasks(JSON.parse(cachedTasks));
-      }
-
-      // Fetch fresh data from API
+      if (cachedTasks) setTasks(JSON.parse(cachedTasks));
       const tasksData = await taskService.getTasks();
       if (tasksData && tasksData.length > 0) {
         setTasks(tasksData);
@@ -75,6 +160,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         setTasks(tasksData);
         await AsyncStorage.setItem('tasks', JSON.stringify(tasksData));
       }
+      await refreshChain();
     } catch (err) {
       console.error('Error refreshing tasks:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh tasks');
@@ -86,7 +172,6 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       setError(null);
       const success = await taskService.completeTask(taskId);
       if (success) {
-        // Update local state
         setTasks(prev =>
           prev.map(task =>
             (task._id === taskId || task.id === taskId)
@@ -94,7 +179,6 @@ export function TaskProvider({ children }: { children: ReactNode }) {
               : task
           )
         );
-        // Refresh to sync with server
         await refreshTasks();
         return true;
       }
@@ -117,6 +201,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     error,
     refreshTasks,
     completeTask,
+    crops,
+    activeCrop,
+    chain,
+    chainLoading,
+    setActiveCrop,
+    refreshChain,
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;

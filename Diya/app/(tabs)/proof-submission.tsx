@@ -20,7 +20,8 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { useTasks } from "../../context/TaskContext";
+import { useUser } from "../../context/UserContext";
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.41:4000/api";
 
 export default function ProofSubmissionScreen() {
@@ -31,6 +32,9 @@ export default function ProofSubmissionScreen() {
     title?: string;
     xpReward?: string;
   }>();
+  const { refreshChain } = useTasks();
+  const { refreshUser } = useUser();
+
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
@@ -163,6 +167,9 @@ export default function ProofSubmissionScreen() {
       } else {
         setStatus("Submitted — awaiting review ⏳");
       }
+
+      // ✅ Sync: refresh task chain AND user XP/coins across all screens
+      await Promise.all([refreshChain(), refreshUser()]);
 
       setTimeout(() => { router.back(); }, 2000);
 

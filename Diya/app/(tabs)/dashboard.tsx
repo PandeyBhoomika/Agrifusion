@@ -137,9 +137,10 @@ export default function PersonalizedDashboard() {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('Dashboard focused - refreshing user data');
-      refreshUser().catch((err: any) => console.error('Failed to refresh user on focus:', err));
-    }, [refreshUser])
+      // ✅ Sync: refresh user XP/coins AND task chain whenever dashboard comes into focus
+      refreshUser().catch(err => console.error('Failed to refresh user on focus:', err));
+      refreshTasks().catch(err => console.error('Failed to refresh tasks on focus:', err));
+    }, [refreshUser, refreshTasks])
   );
 
   useEffect(() => {
