@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { userService } from '../services/userService';
 
@@ -89,7 +89,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshUser = async () => {
+  // ✅ FIX: wrapped in useCallback with an empty dependency array so this
+  // function keeps a stable identity across renders. Without this, any
+  // screen using refreshUser inside a useFocusEffect/useCallback pair
+  // (like dashboard.tsx) would regenerate its effect on every render,
+  // causing an infinite refresh loop — this was the cause of the
+  // "buffering" / hundreds-of-console-logs issue.
+  const refreshUser = useCallback(async () => {
     try {
       setError(null);
       const userData = await userService.getProfile();
@@ -101,9 +107,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       console.error('Error refreshing user:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh user data');
     }
-  };
+  }, []);
 
-  const updateProfile = async (profileData: Partial<UserProfile>) => {
+  // ✅ Same fix applied here for consistency and to prevent the same class
+  // of bug wherever updateProfile is used inside a memoized callback.
+  const updateProfile = useCallback(async (profileData: Partial<UserProfile>) => {
     try {
       setError(null);
       const updatedUser = await userService.updateProfile(profileData);
@@ -116,7 +124,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setError(err instanceof Error ? err.message : 'Failed to update profile');
       throw err;
     }
-  };
+  }, []);
 
   const value: UserContextType = {
     user,

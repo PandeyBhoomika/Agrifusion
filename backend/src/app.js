@@ -12,14 +12,14 @@ import videoRoutes from "./routes/video.routes.js";
 import quizRoutes from "./routes/quiz.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import schemeRoutes from "./routes/scheme.routes.js";
-import storyRoutes from "./routes/story.routes.js";   // ✅ NEW
+import storyRoutes from "./routes/story.routes.js";
+import activityRoutes from "./routes/activity.routes.js"; // ✅ NEW
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Env validation ────────────────────────────────────
-// Fail fast and clearly instead of running with silently broken pieces.
 const REQUIRED_ENV_VARS = ["JWT_SECRET", "MONGO_URI", "EMAIL_HOST", "EMAIL_USER", "EMAIL_PASS"];
 const missingVars = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
 
@@ -46,7 +46,7 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
-    process.exit(1); // Don't run with a dead database — fail loudly instead of serving broken requests.
+    process.exit(1);
   });
 
 // ─── Routes ───────────────────────────────────────────
@@ -58,7 +58,8 @@ app.use("/api/videos", videoRoutes);
 app.use("/api/quiz", quizRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/schemes", schemeRoutes);
-app.use("/api/stories", storyRoutes);               // ✅ NEW
+app.use("/api/stories", storyRoutes);
+app.use("/api/activity", activityRoutes); // ✅ NEW
 
 // ─── States API ───────────────────────────────────────
 app.get("/api/states", (req, res) => {
