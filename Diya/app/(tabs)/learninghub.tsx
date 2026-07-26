@@ -60,6 +60,7 @@ import {
   searchVideos,
   getVideoProgress,
   updateVideoProgress,
+  completeVideoOnBackend,
   VideoModule,
 } from '../../services/videoService';
 import { useLanguage } from '../../context/LanguageContext';
@@ -145,6 +146,11 @@ export default function LearningHub({ onBack, autoDemo = false, onMiniGames }: L
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [shouldSeek, setShouldSeek] = useState(false);
   const youtubePlayerRef = useRef<any>(null);
+
+  // ✅ NEW: tracks which video IDs we've already told the backend are
+  // complete this session, so the 5-second auto-save loop doesn't call
+  // completeVideoOnBackend repeatedly once a video crosses 98%.
+  const completionSentRef = useRef<Set<string>>(new Set());
 
   // ── Tab / search / filter state ────────────────────────────────────────────
   const [selectedTab, setSelectedTab] = useState<'overview' | 'simulations' | 'videos' | 'quizzes' | 'mini-games'>('overview');
@@ -244,7 +250,20 @@ export default function LearningHub({ onBack, autoDemo = false, onMiniGames }: L
   useEffect(() => {
     if (!selectedVideo || videoDuration === 0 || currentTime === 0) return;
     const save = setInterval(() => {
-      updateVideoProgress(selectedVideo.id, videoProgress, currentTime, videoDuration, videoProgress >= 100);
+      const isComplete = videoProgress >= 98;
+      updateVideoProgress(selectedVideo.id, videoProgress, currentTime, videoDuration, isComplete);
+
+      // ✅ NEW: tell the backend once, when the video first crosses completion.
+      // Previously nothing called the server here at all — progress was
+      // saved locally only, so XP was never actually granted.
+      if (isComplete && !completionSentRef.current.has(selectedVideo.id)) {
+        completionSentRef.current.add(selectedVideo.id);
+        completeVideoOnBackend(selectedVideo.id).then((res) => {
+          if (res.success && !res.alreadyCompleted) {
+            console.log(`Video completed! +${res.xpEarned} XP`);
+          }
+        });
+      }
     }, 5000);
     return () => clearInterval(save);
   }, [selectedVideo?.id, videoProgress, currentTime, videoDuration]);

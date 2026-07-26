@@ -1,14 +1,15 @@
-import mongoose from 'mongoose'; // Required to check ObjectId validity
+import mongoose from 'mongoose';
 import Task from '../models/Task.js';
 import UserCropTask from '../models/UserCropTask.js';
 import { generateCropTaskChain } from '../utils/generateCropTasks.js';
 import User from '../models/User.js';
+import { logActivity } from '../utils/logActivity.js';
 
 // Get all active tasks, with per-user status (locked / active / approved)
 // based on stageOrder — only one task is unlocked at a time.
 export const getTasks = async (req, res) => {
     try {
-const userId = req.user?.userId || req.query.userId;
+        const userId = req.user?.userId || req.query.userId;
         const tasks = await Task.find({ isActive: true }).sort({ stageOrder: 1, createdAt: 1 });
 
         let unlockedSoFar = true;
@@ -91,6 +92,16 @@ export const completeTask = async (req, res) => {
 
         await User.findByIdAndUpdate(userId, { $inc: { xp: xpReward, greenCoins: coinReward } });
 
+        // ✅ NEW — record this in the Activity ledger
+        await logActivity({
+            userId,
+            type: 'task',
+            description: `Completed "${task.title}"`,
+            xpEarned: xpReward,
+            coinsEarned: coinReward,
+            sourceId: task._id,
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Task completed and rewards granted!',
@@ -101,6 +112,7 @@ export const completeTask = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
 // GET /api/tasks/crop-chain?crop=Wheat
 // Returns the logged-in user's full task chain for one crop, with computed
 // status (locked/active/approved) based on sequential progress.
@@ -116,8 +128,6 @@ export const getCropTaskChain = async (req, res) => {
             return res.status(400).json({ success: false, message: 'crop is required, e.g. ?crop=Wheat' });
         }
 
-        // Make sure the chain exists (in case profile was saved before this
-        // feature existed, or a new stage template was added since).
         await generateCropTaskChain(userId, crop);
 
         const rows = await UserCropTask.find({ userId, crop })
@@ -126,7 +136,7 @@ export const getCropTaskChain = async (req, res) => {
 
         let unlockedSoFar = true;
         const chain = rows.map((row) => {
-            const task = row.taskId; // populated Task document
+            const task = row.taskId;
             let status;
             if (row.status === 'approved') {
                 status = 'approved';
@@ -184,6 +194,7 @@ export const getMyCrops = async (req, res) => {
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
+
 // POST /api/tasks/crop-chain/:userCropTaskId/complete
 // Marks one step of a crop chain as approved (used for tasks that DON'T
 // require proof — proof-required tasks get approved via submitProof instead).
@@ -212,11 +223,21 @@ export const completeCropTask = async (req, res) => {
         await row.save();
 
         const User = (await import('../models/User.js')).default;
+        const xpReward = row.taskId?.xpReward || 0;
+        const coinReward = row.taskId?.coinReward || 0;
+
         await User.findByIdAndUpdate(userId, {
-            $inc: {
-                xp: row.taskId?.xpReward || 0,
-                greenCoins: row.taskId?.coinReward || 0,
-            },
+            $inc: { xp: xpReward, greenCoins: coinReward },
+        });
+
+        // ✅ NEW — record this in the Activity ledger
+        await logActivity({
+            userId,
+            type: 'task',
+            description: `Completed "${row.taskId?.title || 'crop task step'}" (${row.crop})`,
+            xpEarned: xpReward,
+            coinsEarned: coinReward,
+            sourceId: row.taskId?._id,
         });
 
         res.status(200).json({ success: true, message: 'Step approved!', data: row });

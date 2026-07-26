@@ -1,4 +1,7 @@
 import Video from '../models/Video.js';
+import VideoProgress from '../models/VideoProgress.js';
+import User from '../models/User.js';
+import { logActivity } from '../utils/logActivity.js';
 
 // GET /api/videos
 export const getVideos = async (req, res) => {
@@ -56,6 +59,59 @@ export const getVideoById = async (req, res) => {
         res.status(200).json({ success: true, data: video });
     } catch (error) {
         console.error('Error fetching video by id:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// POST /api/videos/:id/complete
+// Marks a video as watched for the logged-in user and grants XP once.
+// Idempotent: replaying/re-completing an already-completed video grants no extra XP.
+export const completeVideo = async (req, res) => {
+    try {
+        const userId = req.user?.userId || req.user?.id;
+        if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+        const videoId = req.params.id;
+        const video = await Video.findById(videoId);
+        if (!video || !video.isActive) {
+            return res.status(404).json({ success: false, message: 'Video not found' });
+        }
+
+        const existing = await VideoProgress.findOne({ userId, videoId });
+        if (existing?.completed) {
+            return res.status(200).json({
+                success: true,
+                message: 'Video already completed — no additional XP awarded.',
+                alreadyCompleted: true,
+            });
+        }
+
+        await VideoProgress.findOneAndUpdate(
+            { userId, videoId },
+            { completed: true, completedAt: new Date() },
+            { upsert: true, new: true }
+        );
+
+        const xpReward = video.points || 100;
+        await User.findByIdAndUpdate(userId, { $inc: { xp: xpReward } });
+
+        await logActivity({
+            userId,
+            type: 'video',
+            description: `Watched "${video.title}"`,
+            xpEarned: xpReward,
+            coinsEarned: 0,
+            sourceId: video._id,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `Video completed! Earned ${xpReward} XP.`,
+            xpEarned: xpReward,
+            alreadyCompleted: false,
+        });
+    } catch (error) {
+        console.error('Error completing video:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };
