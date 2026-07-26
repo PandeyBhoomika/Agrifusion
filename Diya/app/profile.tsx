@@ -9,10 +9,12 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useUser, UserProfile } from "../context/UserContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, loading, refreshUser, setUser } = useUser();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = React.useState(false);
 
   useFocusEffect(
@@ -29,13 +31,13 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "Log Out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log Out",
-          style: "destructive",
+  t.profile.logOut,
+  t.profile.logOutConfirmMessage,
+  [
+    { text: t.common.cancel, style: "cancel" },
+    {
+      text: t.profile.logOut,
+      style: "destructive",
           onPress: async () => {
             await AsyncStorage.multiRemove(["authToken", "user", "profileComplete", "loggedIn"]);
             setUser(null);
@@ -64,7 +66,7 @@ export default function ProfileScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#86efac" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Profile</Text>
+          <Text style={styles.headerTitle}>{t.profile.title}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -78,7 +80,7 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 30 }}>👨‍🌾</Text>
               </View>
               <View style={{ marginLeft: 14, flex: 1 }}>
-                <Text style={styles.name}>{user?.fullName || "Farmer"}</Text>
+                <Text style={styles.name}>{user?.fullName || t.profile.farmer}</Text>
                 <Text style={styles.subtext}>{user?.email}</Text>
                 {!!user?.phone && <Text style={styles.subtext}>{user.phone}</Text>}
               </View>
@@ -86,31 +88,31 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Progress</Text>
+            <Text style={styles.sectionTitle}>{t.profile.progress}</Text>
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>Lv.{user?.level ?? 1}</Text>
-                <Text style={styles.statLabel}>Level</Text>
+                <Text style={styles.statLabel}>{t.profile.level}</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>{user?.xp ?? 0}</Text>
-                <Text style={styles.statLabel}>XP</Text>
+                <Text style={styles.statLabel}>{t.profile.xp}</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>{user?.greenCoins ?? 0}</Text>
-                <Text style={styles.statLabel}>Green Coins</Text>
+                <Text style={styles.statLabel}>{t.profile.greenCoins}</Text>
               </View>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>🔥{user?.streakDays ?? 0}</Text>
-                <Text style={styles.statLabel}>Streak</Text>
+                <Text style={styles.statLabel}>{t.profile.streak}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Badges</Text>
+            <Text style={styles.sectionTitle}>{t.profile.badges}</Text>
             {(!user?.badges || user.badges.length === 0) ? (
-              <Text style={styles.emptyText}>No badges earned yet</Text>
+              <Text style={styles.emptyText}>{t.profile.noBadges}</Text>
             ) : (
               <View style={styles.badgeRow}>
                 {user.badges.map((b: string, i: number) => (
@@ -124,24 +126,24 @@ export default function ProfileScreen() {
 
           <View style={styles.card}>
             <View style={styles.rowBetween}>
-              <Text style={styles.sectionTitle}>Farm Details</Text>
+              <Text style={styles.sectionTitle}>{t.profile.farmDetails}</Text>
               <TouchableOpacity onPress={() => router.push("/farm-profile")}>
                 <Feather name="edit-2" size={16} color="#86efac" />
               </TouchableOpacity>
             </View>
-            <DetailRow label="Crops" value={profile.primaryCrops?.join(", ") || "Not set"} />
-            <DetailRow label="Farm size" value={profile.farmSize ? `${profile.farmSize} acres` : "Not set"} />
-            <DetailRow label="Soil type" value={profile.soilType || "Not set"} />
-            <DetailRow label="Water source" value={profile.waterAvailability || "Not set"} />
-            <DetailRow label="Region" value={profile.region || "Not set"} />
-            <DetailRow label="Season" value={profile.season || "Not set"} />
-            <DetailRow label="Skill level" value={profile.skillLevel || "Not set"} />
-            {!!profile.previousCrop && <DetailRow label="Previous crop" value={profile.previousCrop} />}
+            <DetailRow label={t.profile.crops} value={profile.primaryCrops?.join(", ") || t.profile.notSet} />
+            <DetailRow label={t.profile.farmSize} value={profile.farmSize ? `${profile.farmSize} ${t.profile.acres}` : t.profile.notSet} />
+            <DetailRow label={t.profile.soilType} value={profile.soilType || t.profile.notSet} />
+            <DetailRow label={t.profile.waterSource} value={profile.waterAvailability || t.profile.notSet} />
+            <DetailRow label={t.profile.region} value={profile.region || t.profile.notSet} />
+            <DetailRow label={t.profile.season} value={profile.season || t.profile.notSet} />
+            <DetailRow label={t.profile.skillLevel} value={profile.skillLevel || t.profile.notSet} />
+            {!!profile.previousCrop && <DetailRow label={t.profile.previousCrop} value={profile.previousCrop} />}
           </View>
 
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.75}>
             <Ionicons name="log-out-outline" size={18} color="#fca5a5" />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <Text style={styles.logoutText}>{t.profile.logOut}</Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>

@@ -9,7 +9,8 @@
   "tabs": { "dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", "tasks": "ಕಾರ್ಯಗಳು", "learn": "ಕಲಿಯಿರಿ", "community": "ಸಮುದಾಯ" },
 "tasks": { "back": "← ಹಿಂದೆ", "weeklyMissions": "ಈ ವಾರದ ಮಿಷನ್‌ಗಳು 🌾", "tasksDone": "ಕಾರ್ಯಗಳು ಪೂರ್ಣ", "xpEarned": "XP ಗಳಿಸಲಾಗಿದೆ", "fetchingMissions": "ನಿಮ್ಮ ಮಿಷನ್‌ಗಳನ್ನು ತರುತ್ತಿದ್ದೇವೆ...", "noTasksToday": "ಇಂದು ಕಾರ್ಯಗಳಿಲ್ಲ — ಅದ್ಭುತ! 🎉", "markDone": "ಮುಗಿಸಿ", "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ", "requiresPhoto": "ಈ ಕಾರ್ಯಕ್ಕೆ ಫೋಟೋ ಬೇಕು! ಕ್ಯಾಮೆರಾ ತೆರೆಯುತ್ತಿದೆ...", "all": "ಎಲ್ಲಾ", "today": "ಇಂದು" },
 "community": { "title": "ಸಮುದಾಯ", "subtitle": "ಒಟ್ಟಿಗೆ ಸೇರಿ & ಕಲಿಯಿರಿ 🌾", "searchPlaceholder": "ಪೋಸ್ಟ್‌ಗಳು, ರೈತರು ಹುಡುಕಿ...", "feed": "ಫೀಡ್", "challenges": "ಸವಾಲುಗಳು", "leaderboard": "ಲೀಡರ್‌ಬೋರ್ಡ್", "trendingNow": "ಈಗ ಟ್ರೆಂಡಿಂಗ್", "successStory": "🏆 ಯಶೋಗಾಥೆ", "joinChallenge": "ಸವಾಲಿಗೆ ಸೇರಿ", "notifyMe": "ನನಗೆ ತಿಳಿಸಿ", "loadingFeed": "ಸಮುದಾಯ ಫೀಡ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...", "createPost": "ಪೋಸ್ಟ್ ರಚಿಸಿ", "sharePlaceholder": "ನಿಮ್ಮ ಕೃಷಿ ಅನುಭವ ಹಂಚಿಕೊಳ್ಳಿ...", "post": "ಪೋಸ್ಟ್ ಮಾಡಿ", "failedPost": "ಪೋಸ್ಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.", "networkError": "ನೆಟ್‌ವರ್ಕ್ ದೋಷ." },
-"dashboard": { "goodMorning": "ಶುಭೋದಯ", "goodAfternoon": "ಶುಭ ಮಧ್ಯಾಹ್ನ", "goodEvening": "ಶುಭ ಸಂಜೆ", "missionProgress": "ಮಿಷನ್ ಪ್ರಗತಿ", "smartInsights": "ಸ್ಮಾರ್ಟ್ ಒಳನೋಟಗಳು 🧠", "farmHealth": "ಕೃಷಿ ಆರೋಗ್ಯ 🌿", "yourTools": "ನಿಮ್ಮ ಸಾಧನಗಳು ⚒️", "tasks": "ಕಾರ್ಯಗಳು", "dailyMissions": "ದೈನಂದಿನ ಮಿಷನ್‌ಗಳು", "submitProof": "ಪುರಾವೆ ಸಲ್ಲಿಸಿ", "uploadImages": "ಚಿತ್ರಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ", "rewards": "ಬಹುಮಾನಗಳು", "unlockBadges": "ಬ್ಯಾಡ್ಜ್‌ಗಳನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಿ", "virtualFarm": "ವರ್ಚುವಲ್ ಫಾರ್ಮ್", "cropStatus": "ಬೆಳೆ ಸ್ಥಿತಿ", "learningHub": "ಕಲಿಕಾ ಕೇಂದ್ರ", "watchLearn": "ನೋಡಿ & ಕಲಿಯಿರಿ", "community": "ಸಮುದಾಯ", "askExperts": "ತಜ್ಞರನ್ನು ಕೇಳಿ", "govSchemes": "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು", "findSubsidies": "ಸಬ್ಸಿಡಿ ಮತ್ತು ಆರ್ಥಿಕ ಸಹಾಯ ಹುಡುಕಿ", "soilHealthy": "ಆರೋಗ್ಯಕರ", "waterEfficient": "ಸಮರ್ಥ", "pestLowRisk": "ಕಡಿಮೆ ಅಪಾಯ", "sunGood": "ಉತ್ತಮ", "cropHealthStable": "ಬೆಳೆ ಆರೋಗ್ಯ ಸ್ಥಿರ ಮತ್ತು ಸುಧಾರಿಸುತ್ತಿದೆ", "waterUsageBetter": "ನೀರಿನ ಬಳಕೆ 12% ಉತ್ತಮ", "newRewards": "2 ಹೊಸ ಬಹುಮಾನಗಳು ಅನ್‌ಲಾಕ್ ಆಗಿವೆ!", "goodForIrrigation": "ನೀರಾವರಿಗೆ ಉತ್ತಮ", "farmingScore": "ಕೃಷಿ ಸ್ಕೋರ್", "streakDays": "ದಿನಗಳ ಸರಣಿ", "xpBonus": "+20 XP ಬೋನಸ್", "xpToday": "ಇಂದಿನ XP", "xpToLevel": "ಲೆವೆಲ್‌ಗೆ XP", "pending": "ಬಾಕಿ", "fieldPhotos": "ಹೊಲದ ಫೋಟೋಗಳು", "overview": "ಅವಲೋಕನ", "live": "ಲೈವ್", "eligible": "ಅರ್ಹ", "new": "ಹೊಸ" },
+"dashboard": { "goodMorning": "ಶುಭೋದಯ", "goodAfternoon": "ಶುಭ ಮಧ್ಯಾಹ್ನ", "goodEvening": "ಶುಭ ಸಂಜೆ", "missionProgress": "ಮಿಷನ್ ಪ್ರಗತಿ", "smartInsights": "ಸ್ಮಾರ್ಟ್ ಒಳನೋಟಗಳು 🧠", "farmHealth": "ಕೃಷಿ ಆರೋಗ್ಯ 🌿", "yourTools": "ನಿಮ್ಮ ಸಾಧನಗಳು ⚒️", "tasks": "ಕಾರ್ಯಗಳು", "dailyMissions": "ದೈನಂದಿನ ಮಿಷನ್‌ಗಳು", "submitProof": "ಪುರಾವೆ ಸಲ್ಲಿಸಿ", "uploadImages": "ಚಿತ್ರಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಿ", "rewards": "ಬಹುಮಾನಗಳು", "unlockBadges": "ಬ್ಯಾಡ್ಜ್‌ಗಳನ್ನು ಅನ್‌ಲಾಕ್ ಮಾಡಿ", "virtualFarm": "ವರ್ಚುವಲ್ ಫಾರ್ಮ್", "cropStatus": "ಬೆಳೆ ಸ್ಥಿತಿ", "learningHub": "ಕಲಿಕಾ ಕೇಂದ್ರ", "watchLearn": "ನೋಡಿ & ಕಲಿಯಿರಿ", "community": "ಸಮುದಾಯ", "askExperts": "ತಜ್ಞರನ್ನು ಕೇಳಿ", "govSchemes": "ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು", "findSubsidies": "ಸಬ್ಸಿಡಿ ಮತ್ತು ಆರ್ಥಿಕ ಸಹಾಯ ಹುಡುಕಿ", "soilHealthy": "ಆರೋಗ್ಯಕರ", "waterEfficient": "ಸಮರ್ಥ", "pestLowRisk": "ಕಡಿಮೆ ಅಪಾಯ", "sunGood": "ಉತ್ತಮ", "cropHealthStable": "ಬೆಳೆ ಆರೋಗ್ಯ ಸ್ಥಿರ ಮತ್ತು ಸುಧಾರಿಸುತ್ತಿದೆ", "waterUsageBetter": "ನೀರಿನ ಬಳಕೆ 12% ಉತ್ತಮ", "newRewards": "2 ಹೊಸ ಬಹುಮಾನಗಳು ಅನ್‌ಲಾಕ್ ಆಗಿವೆ!", "goodForIrrigation": "ನೀರಾವರಿಗೆ ಉತ್ತಮ", "farmingScore": "ಕೃಷಿ ಸ್ಕೋರ್", "streakDays": "ದಿನಗಳ ಸರಣಿ", "xpBonus": "+20 XP ಬೋನಸ್", "xpToday": "ಇಂದಿನ XP", "xpToLevel": "ಲೆವೆಲ್‌ಗೆ XP", "pending": "ಬಾಕಿ", "fieldPhotos": "ಹೊಲದ ಫೋಟೋಗಳು", "overview": "ಅವಲೋಕನ", "live": "ಲೈವ್", "eligible": "ಅರ್ಹ", "new": "ಹೊಸ","myProfile": "ನನ್ನ ಪ್ರೊಫೈಲ್",
+"yourDetailsProgress": "ನಿಮ್ಮ ವಿವರಗಳು ಮತ್ತು ಪ್ರಗತಿ" },
 "learningHub": { "title": "ಕಲಿಕಾ ಕೇಂದ್ರ 📚", "subtitle": "ಆಧುನಿಕ ಕೃಷಿ ತಂತ್ರಗಳನ್ನು ಕಲಿಯಿರಿ", "searchPlaceholder": "ಮಾಡ್ಯೂಲ್‌ಗಳು & ವೀಡಿಯೋಗಳು ಹುಡುಕಿ...", "featuredLabel": "ವಿಶೇಷ", "featuredTitle": "ಬೆಳೆ ಸರದಿಯಲ್ಲಿ ಪರಿಣತಿ ಸಾಧಿಸಿ", "featuredSub": "ಈ ಸೀಸನ್‌ನಲ್ಲಿ 40% ಹೆಚ್ಚು ಇಳುವರಿ ಪಡೆಯಿರಿ.", "startCourse": "ಕೋರ್ಸ್ ಪ್ರಾರಂಭಿಸಿ", "courseCompletion": "ಕೋರ್ಸ್ ಪೂರ್ಣತೆ", "weeklyGoal": "ವಾರದ ಗುರಿ", "all": "ಎಲ್ಲಾ", "simulations": "ಸಿಮ್ಯುಲೇಶನ್‌ಗಳು", "videos": "ವೀಡಿಯೋಗಳು", "quizzes": "ಕ್ವಿಜ್‌ಗಳು", "miniGames": "ಮಿನಿ ಗೇಮ್ಸ್", "quizCenter": "ಕ್ವಿಜ್ ಕೇಂದ್ರ", "takeFullQuiz": "ಪೂರ್ಣ ಕ್ವಿಜ್ ತೆಗೆದುಕೊಳ್ಳಿ", "quizSub": "ಎಲ್ಲಾ ಮಾಡ್ಯೂಲ್‌ಗಳಲ್ಲಿ ನಿಮ್ಮ ಜ್ಞಾನ ಪರೀಕ್ಷಿಸಿ.", "availableGames": "ಲಭ್ಯವಿರುವ ಗೇಮ್‌ಗಳು", "cropRotationGame": "ಬೆಳೆ ಸರದಿ ಮಾಸ್ಟರ್", "cropRotationSub": "ಮಣ್ಣಿನ ಪೋಷಕಾಂಶಗಳನ್ನು ಸಮತೋಲನಗೊಳಿಸಲು ಕಲಿಯಿರಿ!", "farmDayGame": "ಫಾರ್ಮ್ ಡೇ ಚಾಲೆಂಜ್", "farmDaySub": "ನಿಮ್ಮ ಕೃಷಿಯನ್ನು ನಿರ್ವಹಿಸಿ!", "backToHub": "ಹಬ್‌ಗೆ ಹಿಂದೆ", "loadingVideo": "ವೀಡಿಯೋ ಲೋಡ್ ಆಗುತ್ತಿದೆ...", "videoCompleted": "✓ ವೀಡಿಯೋ ಪೂರ್ಣ! ನೀವು +{points} XP ಗಳಿಸಿದ್ದೀರಿ", "simulationComingSoon": "ಸಿಮ್ಯುಲೇಶನ್ ಶೀಘ್ರದಲ್ಲಿ ಬರುತ್ತಿದೆ", "simulationText": "ಸಂವಾದಾತ್ಮಕ ಕೃಷಿ ಸಿಮ್ಯುಲೇಶನ್‌ಗಳು ಇಲ್ಲಿ ಲಭ್ಯವಾಗುತ್ತವೆ." },"farmData": {
   "soilAlluvial": "ಮೆಕ್ಕಲು", "soilAlluvialDesc": "ಫಲವತ್ತಾದ, ನದಿ ನಿಕ್ಷೇಪ",
   "soilBlack": "ಕಪ್ಪು (ರೆಗೂರ್)", "soilBlackDesc": "ನೀರು ಹಿಡಿದಿಡುತ್ತದೆ, ಹತ್ತಿ",
@@ -46,5 +47,29 @@
   "mango": "ಮಾವು", "grapes": "ದ್ರಾಕ್ಷಿ", "pomegranate": "ದಾಳಿಂಬೆ", "guava": "ಪೇರಲ",
   "papaya": "ಪಪ್ಪಾಯಿ", "coconut": "ತೆಂಗಿನಕಾಯಿ", "arecanut": "ಅಡಿಕೆ", "cashew": "ಗೋಡಂಬಿ",
   "tea": "ಚಹಾ", "coffee": "ಕಾಫಿ"
+},
+"profile": {
+  "title": "ನನ್ನ ಪ್ರೊಫೈಲ್",
+  "progress": "ಪ್ರಗತಿ",
+  "level": "ಹಂತ",
+  "xp": "XP",
+  "greenCoins": "ಗ್ರೀನ್ ಕಾಯಿನ್‌ಗಳು",
+  "streak": "ಸ್ಟ್ರೀಕ್",
+  "badges": "ಬ್ಯಾಡ್ಜ್‌ಗಳು",
+  "noBadges": "ಇನ್ನೂ ಯಾವುದೇ ಬ್ಯಾಡ್ಜ್ ಗಳಿಸಿಲ್ಲ",
+  "farmDetails": "ಜಮೀನಿನ ವಿವರಗಳು",
+  "crops": "ಬೆಳೆಗಳು",
+  "farmSize": "ಜಮೀನಿನ ಗಾತ್ರ",
+  "soilType": "ಮಣ್ಣಿನ ಪ್ರಕಾರ",
+  "waterSource": "ನೀರಿನ ಮೂಲ",
+  "region": "ಪ್ರದೇಶ",
+  "season": "ಋತು",
+  "skillLevel": "ಕೌಶಲ್ಯ ಮಟ್ಟ",
+  "previousCrop": "ಹಿಂದಿನ ಬೆಳೆ",
+  "notSet": "ಹೊಂದಿಸಿಲ್ಲ",
+  "acres": "ಎಕರೆ",
+  "farmer": "ರೈತ",
+  "logOut": "ಲಾಗ್ ಔಟ್",
+  "logOutConfirmMessage": "ನೀವು ಖಚಿತವಾಗಿ ಲಾಗ್ ಔಟ್ ಮಾಡಲು ಬಯಸುವಿರಾ?"
 }
 }

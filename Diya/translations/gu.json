@@ -9,7 +9,8 @@
   "tabs": { "dashboard": "ડૅશબોર્ડ", "tasks": "કાર્યો", "learn": "શીખો", "community": "સમુદાય" },
 "tasks": { "back": "← પાછા", "weeklyMissions": "આ અઠવાડિયાના મિશન 🌾", "tasksDone": "કાર્યો પૂર્ણ", "xpEarned": "XP કમાયા", "fetchingMissions": "તમારા મિશન લઈ આવી રહ્યા છીએ...", "noTasksToday": "આજે કોઈ કાર્ય નથી — સરસ! 🎉", "markDone": "પૂર્ણ કરો", "completed": "પૂર્ણ", "requiresPhoto": "આ કાર્ય માટે ફોટો જોઈએ! કૅમેરા ખોલી રહ્યા છીએ...", "all": "બધા", "today": "આજે" },
 "community": { "title": "સમુદાય", "subtitle": "સાથે જોડાઓ & શીખો 🌾", "searchPlaceholder": "પોસ્ટ, ખેડૂત શોધો...", "feed": "ફીડ", "challenges": "પડકારો", "leaderboard": "લીડરબોર્ડ", "trendingNow": "હમણાં ટ્રેન્ડિંગ", "successStory": "🏆 સફળતાની વાર્તા", "joinChallenge": "પડકારમાં જોડાઓ", "notifyMe": "મને જણાવો", "loadingFeed": "સમુદાય ફીડ લોડ થઈ રહ્યો છે...", "createPost": "પોસ્ટ બનાવો", "sharePlaceholder": "તમારો ખેતી અનુભવ શેર કરો...", "post": "પોસ્ટ કરો", "failedPost": "પોસ્ટ કરવામાં નિષ્ફળ. ફરી પ્રયત્ન કરો.", "networkError": "નેટવર્ક ભૂલ." },
-"dashboard": { "goodMorning": "શુભ સવાર", "goodAfternoon": "શુભ બપોર", "goodEvening": "શુભ સાંજ", "missionProgress": "મિશન પ્રગતિ", "smartInsights": "સ્માર્ટ આંતરદૃષ્ટિ 🧠", "farmHealth": "ખેત આરોગ્ય 🌿", "yourTools": "તમારા સાધનો ⚒️", "tasks": "કાર્યો", "dailyMissions": "દૈનિક મિશન", "submitProof": "પુરાવો સબમિટ કરો", "uploadImages": "છબીઓ અપલોડ કરો", "rewards": "ઇનામ", "unlockBadges": "બૅઝ અનલૉક કરો", "virtualFarm": "વર્ચ્યુઅલ ફાર્મ", "cropStatus": "પાકની સ્થિતિ", "learningHub": "લર્નિંગ હબ", "watchLearn": "જુઓ & શીખો", "community": "સમુદાય", "askExperts": "નિષ્ણાતોને પૂછો", "govSchemes": "સરકારી યોજનાઓ", "findSubsidies": "સબ્સિડી અને નાણાકીય સહાય શોધો", "soilHealthy": "સ્વસ્થ", "waterEfficient": "કાર્યક્ષમ", "pestLowRisk": "ઓછો જોખમ", "sunGood": "સારું", "cropHealthStable": "પાક આરોગ્ય સ્થિર અને સુધરી રહ્યું છે", "waterUsageBetter": "પાણીનો ઉપયોગ ગત સપ્તાહ કરતાં 12% સારો", "newRewards": "2 નવા ઇનામ અનલૉક થયા!", "goodForIrrigation": "સિંચાઈ માટે સારું", "farmingScore": "ખેતી સ્કોર", "streakDays": "દિવસોની શ્રેણી", "xpBonus": "+20 XP બોનસ", "xpToday": "આજનો XP", "xpToLevel": "લેવલ સુધી XP", "pending": "બાકી", "fieldPhotos": "ખેતરના ફોટો", "overview": "અવલોકન", "live": "લાઇવ", "eligible": "પાત્ર", "new": "નવું" },
+"dashboard": { "goodMorning": "શુભ સવાર", "goodAfternoon": "શુભ બપોર", "goodEvening": "શુભ સાંજ", "missionProgress": "મિશન પ્રગતિ", "smartInsights": "સ્માર્ટ આંતરદૃષ્ટિ 🧠", "farmHealth": "ખેત આરોગ્ય 🌿", "yourTools": "તમારા સાધનો ⚒️", "tasks": "કાર્યો", "dailyMissions": "દૈનિક મિશન", "submitProof": "પુરાવો સબમિટ કરો", "uploadImages": "છબીઓ અપલોડ કરો", "rewards": "ઇનામ", "unlockBadges": "બૅઝ અનલૉક કરો", "virtualFarm": "વર્ચ્યુઅલ ફાર્મ", "cropStatus": "પાકની સ્થિતિ", "learningHub": "લર્નિંગ હબ", "watchLearn": "જુઓ & શીખો", "community": "સમુદાય", "askExperts": "નિષ્ણાતોને પૂછો", "govSchemes": "સરકારી યોજનાઓ", "findSubsidies": "સબ્સિડી અને નાણાકીય સહાય શોધો", "soilHealthy": "સ્વસ્થ", "waterEfficient": "કાર્યક્ષમ", "pestLowRisk": "ઓછો જોખમ", "sunGood": "સારું", "cropHealthStable": "પાક આરોગ્ય સ્થિર અને સુધરી રહ્યું છે", "waterUsageBetter": "પાણીનો ઉપયોગ ગત સપ્તાહ કરતાં 12% સારો", "newRewards": "2 નવા ઇનામ અનલૉક થયા!", "goodForIrrigation": "સિંચાઈ માટે સારું", "farmingScore": "ખેતી સ્કોર", "streakDays": "દિવસોની શ્રેણી", "xpBonus": "+20 XP બોનસ", "xpToday": "આજનો XP", "xpToLevel": "લેવલ સુધી XP", "pending": "બાકી", "fieldPhotos": "ખેતરના ફોટો", "overview": "અવલોકન", "live": "લાઇવ", "eligible": "પાત્ર", "new": "નવું" ,"myProfile": "મારી પ્રોફાઇલ",
+"yourDetailsProgress": "તમારી વિગતો અને પ્રગતિ"},
 "learningHub": { "title": "લર્નિંગ હબ 📚", "subtitle": "આધુનિક ખેતી તકનીકો શીખો", "searchPlaceholder": "મૉડ્યુલ & વિડિઓ શોધો...", "featuredLabel": "વિશેષ", "featuredTitle": "પાક ચક્રમાં નિપુણ બનો", "featuredSub": "આ સિઝનમાં 40% વધુ ઉત્પાદન મેળવો.", "startCourse": "અભ્યાસ ક્રમ શરૂ કરો", "courseCompletion": "અભ્યાસ ક્રમ પૂર્ણ", "weeklyGoal": "સાપ્તાહિક ધ્યેય", "all": "બધા", "simulations": "સિમ્યુલેશન", "videos": "વિડિઓ", "quizzes": "ક્વિઝ", "miniGames": "મિની ગેમ્સ", "quizCenter": "ક્વિઝ કેન્દ્ર", "takeFullQuiz": "સંપૂર્ણ ક્વિઝ આપો", "quizSub": "તમામ મૉડ્યુલમાં તમારું જ્ઞાન ચકાસો.", "availableGames": "ઉપલબ્ધ ગેમ્સ", "cropRotationGame": "પાક ચક્ર માસ્ટર", "cropRotationSub": "જમીનના પોષક તત્વો સંતુલિત કરતાં શીખો!", "farmDayGame": "ફાર્મ ડે ચૅલેન્જ", "farmDaySub": "તમારી ખેતી સંચાલિત કરો!", "backToHub": "હબ પર પાછા", "loadingVideo": "વિડિઓ લોડ થઈ રહ્યો છે...", "videoCompleted": "✓ વિડિઓ પૂર્ણ! તમે +{points} XP કમાયા", "simulationComingSoon": "સિમ્યુલેશન જલ્દી આવે છે", "simulationText": "ઇન્ટરેક્ટિવ ખેતી સિમ્યુલેશન અહીં ઉપલબ્ધ થશે." },"farmData": {
   "soilAlluvial": "કાંપ", "soilAlluvialDesc": "ફળદ્રૂપ, નદીના થર",
   "soilBlack": "કાળી (રેગુર)", "soilBlackDesc": "પાણી ટકાવે, કપાસ",
@@ -46,5 +47,29 @@
   "mango": "કેરી", "grapes": "દ્રાક્ષ", "pomegranate": "દાડમ", "guava": "જામફળ",
   "papaya": "પપૈયા", "coconut": "નારિયેળ", "arecanut": "સોપારી", "cashew": "કાજુ",
   "tea": "ચા", "coffee": "કોફી"
+},
+"profile": {
+  "title": "મારી પ્રોફાઇલ",
+  "progress": "પ્રગતિ",
+  "level": "સ્તર",
+  "xp": "XP",
+  "greenCoins": "ગ્રીન કોઈન્સ",
+  "streak": "સ્ટ્રીક",
+  "badges": "બેજેસ",
+  "noBadges": "હજુ સુધી કોઈ બેજ મેળવ્યા નથી",
+  "farmDetails": "ખેતરની વિગતો",
+  "crops": "પાકો",
+  "farmSize": "ખેતરનું કદ",
+  "soilType": "માટીનો પ્રકાર",
+  "waterSource": "પાણીનો સ્ત્રોત",
+  "region": "પ્રદેશ",
+  "season": "ઋતુ",
+  "skillLevel": "કૌશલ્ય સ્તર",
+  "previousCrop": "અગાઉનો પાક",
+  "notSet": "સેટ નથી",
+  "acres": "એકર",
+  "farmer": "ખેડૂત",
+  "logOut": "લોગ આઉટ",
+  "logOutConfirmMessage": "શું તમે ખરેખર લોગ આઉટ કરવા માંગો છો?"
 }
 }

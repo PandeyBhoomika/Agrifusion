@@ -9,7 +9,8 @@
   "tabs": { "dashboard": "ഡാഷ്‌ബോർഡ്", "tasks": "ജോലികൾ", "learn": "പഠിക്കുക", "community": "സമൂഹം" },
 "tasks": { "back": "← തിരികെ", "weeklyMissions": "ഈ ആഴ്ചത്തെ ദൗത്യങ്ങൾ 🌾", "tasksDone": "ജോലികൾ പൂർത്തി", "xpEarned": "XP നേടി", "fetchingMissions": "നിങ്ങളുടെ ദൗത്യങ്ങൾ കൊണ്ടുവരുന്നു...", "noTasksToday": "ഇന്ന് ജോലികൾ ഇല്ല — മികച്ചത്! 🎉", "markDone": "പൂർത്തിയാക്കുക", "completed": "പൂർത്തിയായി", "requiresPhoto": "ഈ ജോലിക്ക് ഫോട്ടോ ആവശ്യമാണ്! ക്യാമറ തുറക്കുന്നു...", "all": "എല്ലാം", "today": "ഇന്ന്" },
 "community": { "title": "സമൂഹം", "subtitle": "ഒരുമിച്ച് ബന്ധപ്പെടുക & പഠിക്കുക 🌾", "searchPlaceholder": "പോസ്റ്റുകൾ, കർഷകർ തിരയുക...", "feed": "ഫീഡ്", "challenges": "വെല്ലുവിളികൾ", "leaderboard": "ലീഡർബോർഡ്", "trendingNow": "ഇപ്പോൾ ട്രെൻഡിംഗ്", "successStory": "🏆 വിജയ കഥ", "joinChallenge": "വെല്ലുവിളിയിൽ ചേരുക", "notifyMe": "എന്നെ അറിയിക്കുക", "loadingFeed": "സമൂഹ ഫീഡ് ലോഡ് ചെയ്യുന്നു...", "createPost": "പോസ്റ്റ് സൃഷ്ടിക്കുക", "sharePlaceholder": "നിങ്ങളുടെ കൃഷി അനുഭവം പങ്കിടുക...", "post": "പോസ്റ്റ് ചെയ്യുക", "failedPost": "പോസ്റ്റ് ചെയ്യുന്നതിൽ പരാജയം. വീണ്ടും ശ്രമിക്കുക.", "networkError": "നെറ്റ്‌വർക്ക് പിശക്." },
-"dashboard": { "goodMorning": "ശുഭ പ്രഭാതം", "goodAfternoon": "ശുഭ ഉച്ചകഴിഞ്ഞ്", "goodEvening": "ശുഭ സന്ധ്യ", "missionProgress": "ദൗത്യ പുരോഗതി", "smartInsights": "സ്മാർട്ട് ഉൾക്കാഴ്ചകൾ 🧠", "farmHealth": "ഫാം ആരോഗ്യം 🌿", "yourTools": "നിങ്ങളുടെ ഉപകരണങ്ങൾ ⚒️", "tasks": "ജോലികൾ", "dailyMissions": "ദൈനംദിന ദൗത്യങ്ങൾ", "submitProof": "തെളിവ് സമർപ്പിക്കുക", "uploadImages": "ചിത്രങ്ങൾ അപ്‌ലോഡ് ചെയ്യുക", "rewards": "പ്രതിഫലങ്ങൾ", "unlockBadges": "ബാഡ്ജുകൾ അൺലോക്ക് ചെയ്യുക", "virtualFarm": "വർച്വൽ ഫാം", "cropStatus": "വിള നില", "learningHub": "പഠന കേന്ദ്രം", "watchLearn": "കാണുക & പഠിക്കുക", "community": "സമൂഹം", "askExperts": "വിദഗ്ധരോട് ചോദിക്കുക", "govSchemes": "സർക്കാർ പദ്ധതികൾ", "findSubsidies": "സബ്‌സിഡിയും സാമ്പത്തിക സഹായവും കണ്ടെത്തുക", "soilHealthy": "ആരോഗ്യകരം", "waterEfficient": "കാര്യക്ഷമം", "pestLowRisk": "കുറഞ്ഞ അപകടം", "sunGood": "നല്ലത്", "cropHealthStable": "വിള ആരോഗ്യം സ്ഥിരവും മെച്ചപ്പെടുന്നതും", "waterUsageBetter": "ജലോപയോഗം 12% മെച്ചപ്പെട്ടു", "newRewards": "2 പുതിയ പ്രതിഫലങ്ങൾ അൺലോക്ക് ആയി!", "goodForIrrigation": "ജലസേചനത്തിന് അനുകൂലം", "farmingScore": "കൃഷി സ്കോർ", "streakDays": "ദിവസങ്ങളുടെ തുടർച്ച", "xpBonus": "+20 XP ബോണസ്", "xpToday": "ഇന്നത്തെ XP", "xpToLevel": "ലെവലിലേക്ക് XP", "pending": "തീർക്കാനുള്ളത്", "fieldPhotos": "വയൽ ഫോട്ടോകൾ", "overview": "അവലോകനം", "live": "തത്സമയം", "eligible": "യോഗ്യം", "new": "പുതിയത്" },
+"dashboard": { "goodMorning": "ശുഭ പ്രഭാതം", "goodAfternoon": "ശുഭ ഉച്ചകഴിഞ്ഞ്", "goodEvening": "ശുഭ സന്ധ്യ", "missionProgress": "ദൗത്യ പുരോഗതി", "smartInsights": "സ്മാർട്ട് ഉൾക്കാഴ്ചകൾ 🧠", "farmHealth": "ഫാം ആരോഗ്യം 🌿", "yourTools": "നിങ്ങളുടെ ഉപകരണങ്ങൾ ⚒️", "tasks": "ജോലികൾ", "dailyMissions": "ദൈനംദിന ദൗത്യങ്ങൾ", "submitProof": "തെളിവ് സമർപ്പിക്കുക", "uploadImages": "ചിത്രങ്ങൾ അപ്‌ലോഡ് ചെയ്യുക", "rewards": "പ്രതിഫലങ്ങൾ", "unlockBadges": "ബാഡ്ജുകൾ അൺലോക്ക് ചെയ്യുക", "virtualFarm": "വർച്വൽ ഫാം", "cropStatus": "വിള നില", "learningHub": "പഠന കേന്ദ്രം", "watchLearn": "കാണുക & പഠിക്കുക", "community": "സമൂഹം", "askExperts": "വിദഗ്ധരോട് ചോദിക്കുക", "govSchemes": "സർക്കാർ പദ്ധതികൾ", "findSubsidies": "സബ്‌സിഡിയും സാമ്പത്തിക സഹായവും കണ്ടെത്തുക", "soilHealthy": "ആരോഗ്യകരം", "waterEfficient": "കാര്യക്ഷമം", "pestLowRisk": "കുറഞ്ഞ അപകടം", "sunGood": "നല്ലത്", "cropHealthStable": "വിള ആരോഗ്യം സ്ഥിരവും മെച്ചപ്പെടുന്നതും", "waterUsageBetter": "ജലോപയോഗം 12% മെച്ചപ്പെട്ടു", "newRewards": "2 പുതിയ പ്രതിഫലങ്ങൾ അൺലോക്ക് ആയി!", "goodForIrrigation": "ജലസേചനത്തിന് അനുകൂലം", "farmingScore": "കൃഷി സ്കോർ", "streakDays": "ദിവസങ്ങളുടെ തുടർച്ച", "xpBonus": "+20 XP ബോണസ്", "xpToday": "ഇന്നത്തെ XP", "xpToLevel": "ലെവലിലേക്ക് XP", "pending": "തീർക്കാനുള്ളത്", "fieldPhotos": "വയൽ ഫോട്ടോകൾ", "overview": "അവലോകനം", "live": "തത്സമയം", "eligible": "യോഗ്യം", "new": "പുതിയത്","myProfile": "എന്റെ പ്രൊഫൈൽ",
+"yourDetailsProgress": "നിങ്ങളുടെ വിവരങ്ങളും പുരോഗതിയും" },
 "learningHub": { "title": "പഠന കേന്ദ്രം 📚", "subtitle": "ആധുനിക കൃഷി സാങ്കേതിക വിദ്യകൾ പഠിക്കുക", "searchPlaceholder": "മൊഡ്യൂളുകൾ & വീഡിയോകൾ തിരയുക...", "featuredLabel": "ശ്രദ്ധേയം", "featuredTitle": "വിള ഭ്രമണത്തിൽ നൈപുണ്യം നേടുക", "featuredSub": "ഈ സീസണിൽ 40% കൂടുതൽ വിളവ് നേടുക.", "startCourse": "കോഴ്സ് ആരംഭിക്കുക", "courseCompletion": "കോഴ്സ് പൂർത്തീകരണം", "weeklyGoal": "ആഴ്ചയിലെ ലക്ഷ്യം", "all": "എല്ലാം", "simulations": "സിമുലേഷനുകൾ", "videos": "വീഡിയോകൾ", "quizzes": "ക്വിസുകൾ", "miniGames": "മിനി ഗെയിംസ്", "quizCenter": "ക്വിസ് സെന്റർ", "takeFullQuiz": "പൂർണ്ണ ക്വിസ് എടുക്കുക", "quizSub": "എല്ലാ മൊഡ്യൂളുകളിലും നിങ്ങളുടെ അറിവ് പരീക്ഷിക്കുക.", "availableGames": "ലഭ്യമായ ഗെയിംസ്", "cropRotationGame": "വിള ഭ്രമണ മാസ്റ്റർ", "cropRotationSub": "മണ്ണിലെ പോഷകങ്ങൾ സന്തുലിതമാക്കാൻ പഠിക്കുക!", "farmDayGame": "ഫാം ഡേ ചലഞ്ച്", "farmDaySub": "നിങ്ങളുടെ ഫാം നിയന്ത്രിക്കുക!", "backToHub": "ഹബിലേക്ക് തിരികെ", "loadingVideo": "വീഡിയോ ലോഡ് ചെയ്യുന്നു...", "videoCompleted": "✓ വീഡിയോ പൂർത്തിയായി! നിങ്ങൾ +{points} XP നേടി", "simulationComingSoon": "സിമുലേഷൻ ഉടൻ വരുന്നു", "simulationText": "ഇന്ററാക്ടീവ് കൃഷി സിമുലേഷനുകൾ ഇവിടെ ലഭ്യമാകും." },"farmData": {
   "soilAlluvial": "എക്കൽ", "soilAlluvialDesc": "ഫലഭൂയിഷ്ഠം, നദി നിക്ഷേപം",
   "soilBlack": "കറുപ്പ് (റെഗൂർ)", "soilBlackDesc": "ജലം നിലനിർത്തുന്നു, പരുത്തി",
@@ -46,5 +47,29 @@
   "mango": "മാമ്പഴം", "grapes": "മുന്തിരി", "pomegranate": "മാതളം", "guava": "പേരക്ക",
   "papaya": "പപ്പായ", "coconut": "തേങ്ങ", "arecanut": "അടയ്ക്ക", "cashew": "കശുവണ്ടി",
   "tea": "ചായ", "coffee": "കോഫി"
-}
+},
+"profile": {
+  "title": "എന്റെ പ്രൊഫൈൽ",
+  "progress": "പുരോഗതി",
+  "level": "ലെവൽ",
+  "xp": "XP",
+  "greenCoins": "ഗ്രീൻ കോയിനുകൾ",
+  "streak": "സ്ട്രീക്ക്",
+  "badges": "ബാഡ്ജുകൾ",
+  "noBadges": "ഇതുവരെ ബാഡ്ജുകളൊന്നും നേടിയിട്ടില്ല",
+  "farmDetails": "കൃഷിയിടത്തിന്റെ വിവരങ്ങൾ",
+  "crops": "വിളകൾ",
+  "farmSize": "കൃഷിയിടത്തിന്റെ വലുപ്പം",
+  "soilType": "മണ്ണിന്റെ തരം",
+  "waterSource": "ജല സ്രോതസ്സ്",
+  "region": "പ്രദേശം",
+  "season": "സീസൺ",
+  "skillLevel": "വൈദഗ്ധ്യ നിലവാരം",
+  "previousCrop": "മുൻ വിള",
+  "notSet": "സജ്ജമാക്കിയിട്ടില്ല",
+  "acres": "ഏക്കർ",
+  "farmer": "കർഷകൻ",
+  "logOut": "ലോഗ് ഔട്ട്",
+  "logOutConfirmMessage": "നിങ്ങൾക്ക് ലോഗ് ഔട്ട് ചെയ്യണമെന്ന് ഉറപ്പാണോ?"
+} 
 }

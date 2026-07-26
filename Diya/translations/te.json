@@ -9,7 +9,8 @@
   "tasks": { "back": "← వెనక్కి","weeklyMissions": "ఈ వారం మిషన్లు 🌾", "tasksDone": "పనులు పూర్తయ్యాయి", "xpEarned": "XP సంపాదించారు", "fetchingMissions": "మీ మిషన్లు తీసుకువస్తున్నాం...", "noTasksToday": "ఈరోజు పనులు లేవు — అద్భుతం! 🎉", "markDone": "పూర్తి చేయి", "completed": "పూర్తయింది", "requiresPhoto": "ఈ పనికి ఫోటో అవసరం! కెమెరా తెరుస్తోంది...", "all": "అన్నీ", "today": "ఈరోజు" }, 
   "tabs": { "dashboard": "డాష్‌బోర్డ్", "tasks": "పనులు", "learn": "నేర్చుకోండి", "community": "సమాజం" },
   "community": { "title": "సమాజం", "subtitle": "కలిసి జోడించండి & నేర్చుకోండి 🌾", "searchPlaceholder": "పోస్టులు, రైతులు వెతుకు...", "feed": "ఫీడ్", "challenges": "సవాళ్ళు", "leaderboard": "లీడర్‌బోర్డ్", "trendingNow": "ఇప్పుడు ట్రెండింగ్", "successStory": "🏆 విజయ కథ", "joinChallenge": "సవాలులో చేరండి", "notifyMe": "నాకు తెలియజేయి", "loadingFeed": "సమాజ ఫీడ్ లోడ్ అవుతోంది...", "createPost": "పోస్ట్ సృష్టించు", "sharePlaceholder": "మీ వ్యవసాయ అనుభవం పంచుకోండి...", "post": "పోస్ట్ చేయి", "failedPost": "పోస్ట్ చేయడం విఫలమైంది. మళ్ళీ ప్రయత్నించండి.", "networkError": "నెట్‌వర్క్ లోపం." },
-"dashboard": { "goodMorning": "శుభోదయం", "goodAfternoon": "శుభ మధ్యాహ్నం", "goodEvening": "శుభ సాయంత్రం", "missionProgress": "మిషన్ పురోగతి", "smartInsights": "స్మార్ట్ అంతర్దృష్టులు 🧠", "farmHealth": "వ్యవసాయ ఆరోగ్యం 🌿", "yourTools": "మీ సాధనాలు ⚒️", "tasks": "పనులు", "dailyMissions": "రోజువారీ మిషన్లు", "submitProof": "రుజువు సమర్పించు", "uploadImages": "చిత్రాలు అప్‌లోడ్ చేయి", "rewards": "బహుమతులు", "unlockBadges": "బ్యాడ్జ్‌లు అన్‌లాక్ చేయి", "virtualFarm": "వర్చువల్ ఫార్మ్", "cropStatus": "పంట స్థితి", "learningHub": "లర్నింగ్ హబ్", "watchLearn": "చూడండి & నేర్చుకోండి", "community": "సమాజం", "askExperts": "నిపుణులను అడగండి", "govSchemes": "ప్రభుత్వ పథకాలు", "findSubsidies": "సబ్సిడీలు మరియు ఆర్థిక సహాయం కనుగొనండి", "soilHealthy": "ఆరోగ్యకరమైన", "waterEfficient": "సమర్థవంతమైన", "pestLowRisk": "తక్కువ ప్రమాదం", "sunGood": "మంచిది", "cropHealthStable": "పంట ఆరోగ్యం స్థిరంగా మెరుగుపడుతోంది", "waterUsageBetter": "నీటి వినియోగం 12% మెరుగైంది", "newRewards": "2 కొత్త బహుమతులు అన్‌లాక్ అయ్యాయి!", "goodForIrrigation": "నీటిపారుదలకు అనుకూలం", "farmingScore": "వ్యవసాయ స్కోర్", "streakDays": "రోజుల వరుస", "xpBonus": "+20 XP బోనస్", "xpToday": "ఈరోజు XP", "xpToLevel": "లెవెల్‌కు XP", "pending": "పెండింగ్", "fieldPhotos": "పొలం ఫోటోలు", "overview": "అవలోకనం", "live": "లైవ్", "eligible": "అర్హత", "new": "కొత్తది" },
+"dashboard": { "goodMorning": "శుభోదయం", "goodAfternoon": "శుభ మధ్యాహ్నం", "goodEvening": "శుభ సాయంత్రం", "missionProgress": "మిషన్ పురోగతి", "smartInsights": "స్మార్ట్ అంతర్దృష్టులు 🧠", "farmHealth": "వ్యవసాయ ఆరోగ్యం 🌿", "yourTools": "మీ సాధనాలు ⚒️", "tasks": "పనులు", "dailyMissions": "రోజువారీ మిషన్లు", "submitProof": "రుజువు సమర్పించు", "uploadImages": "చిత్రాలు అప్‌లోడ్ చేయి", "rewards": "బహుమతులు", "unlockBadges": "బ్యాడ్జ్‌లు అన్‌లాక్ చేయి", "virtualFarm": "వర్చువల్ ఫార్మ్", "cropStatus": "పంట స్థితి", "learningHub": "లర్నింగ్ హబ్", "watchLearn": "చూడండి & నేర్చుకోండి", "community": "సమాజం", "askExperts": "నిపుణులను అడగండి", "govSchemes": "ప్రభుత్వ పథకాలు", "findSubsidies": "సబ్సిడీలు మరియు ఆర్థిక సహాయం కనుగొనండి", "soilHealthy": "ఆరోగ్యకరమైన", "waterEfficient": "సమర్థవంతమైన", "pestLowRisk": "తక్కువ ప్రమాదం", "sunGood": "మంచిది", "cropHealthStable": "పంట ఆరోగ్యం స్థిరంగా మెరుగుపడుతోంది", "waterUsageBetter": "నీటి వినియోగం 12% మెరుగైంది", "newRewards": "2 కొత్త బహుమతులు అన్‌లాక్ అయ్యాయి!", "goodForIrrigation": "నీటిపారుదలకు అనుకూలం", "farmingScore": "వ్యవసాయ స్కోర్", "streakDays": "రోజుల వరుస", "xpBonus": "+20 XP బోనస్", "xpToday": "ఈరోజు XP", "xpToLevel": "లెవెల్‌కు XP", "pending": "పెండింగ్", "fieldPhotos": "పొలం ఫోటోలు", "overview": "అవలోకనం", "live": "లైవ్", "eligible": "అర్హత", "new": "కొత్తది","myProfile": "నా ప్రొఫైల్",
+"yourDetailsProgress": "మీ వివరాలు & పురోగతి" },
 "learningHub": { "title": "లర్నింగ్ హబ్ 📚", "subtitle": "ఆధునిక వ్యవసాయ పద్ధతులు నేర్చుకోండి", "searchPlaceholder": "మాడ్యూల్స్ & వీడియోలు వెతుకు...", "featuredLabel": "ప్రత్యేకం", "featuredTitle": "పంట మార్పిడిలో నైపుణ్యం సాధించండి", "featuredSub": "ఈ సీజన్‌లో 40% అధిక దిగుబడి పొందండి.", "startCourse": "కోర్సు ప్రారంభించు", "courseCompletion": "కోర్సు పూర్తి", "weeklyGoal": "వారాంతపు లక్ష్యం", "all": "అన్నీ", "simulations": "సిమ్యులేషన్లు", "videos": "వీడియోలు", "quizzes": "క్విజ్‌లు", "miniGames": "మినీ గేమ్స్", "quizCenter": "క్విజ్ సెంటర్", "takeFullQuiz": "పూర్తి క్విజ్ తీసుకోండి", "quizSub": "అన్ని మాడ్యూల్స్‌లో మీ జ్ఞానాన్ని పరీక్షించుకోండి.", "availableGames": "అందుబాటులో ఉన్న గేమ్స్", "cropRotationGame": "పంట మార్పిడి మాస్టర్", "cropRotationSub": "నేల పోషకాలను సమతుల్యం చేయడం నేర్చుకోండి!", "farmDayGame": "ఫార్మ్ డే ఛాలెంజ్", "farmDaySub": "మీ వ్యవసాయాన్ని నిర్వహించండి!", "backToHub": "హబ్‌కు తిరిగి", "loadingVideo": "వీడియో లోడ్ అవుతోంది...", "videoCompleted": "✓ వీడియో పూర్తయింది! మీరు +{points} XP సంపాదించారు", "simulationComingSoon": "సిమ్యులేషన్ త్వరలో వస్తోంది", "simulationText": "ఇంటరాక్టివ్ వ్యవసాయ సిమ్యులేషన్లు ఇక్కడ అందుబాటులో ఉంటాయి." },"farmData": {
   "soilAlluvial": "అలువియల్", "soilAlluvialDesc": "సారవంతమైన, నది నిక్షేపాలు",
   "soilBlack": "నల్ల (రెగూర్)", "soilBlackDesc": "నీరు నిల్వ, పత్తి",
@@ -46,5 +47,29 @@
   "mango": "మామిడి", "grapes": "ద్రాక్ష", "pomegranate": "దానిమ్మ", "guava": "జామ",
   "papaya": "బొప్పాయి", "coconut": "కొబ్బరి", "arecanut": "వక్క", "cashew": "జీడిపప్పు",
   "tea": "టీ", "coffee": "కాఫీ"
+},
+"profile": {
+  "title": "నా ప్రొఫైల్",
+  "progress": "పురోగతి",
+  "level": "స్థాయి",
+  "xp": "XP",
+  "greenCoins": "గ్రీన్ కాయిన్స్",
+  "streak": "స్ట్రీక్",
+  "badges": "బ్యాడ్జీలు",
+  "noBadges": "ఇంకా బ్యాడ్జీలు సంపాదించలేదు",
+  "farmDetails": "వ్యవసాయ వివరాలు",
+  "crops": "పంటలు",
+  "farmSize": "వ్యవసాయ భూమి పరిమాణం",
+  "soilType": "నేల రకం",
+  "waterSource": "నీటి వనరు",
+  "region": "ప్రాంతం",
+  "season": "సీజన్",
+  "skillLevel": "నైపుణ్య స్థాయి",
+  "previousCrop": "మునుపటి పంట",
+  "notSet": "సెట్ చేయలేదు",
+  "acres": "ఎకరాలు",
+  "farmer": "రైతు",
+  "logOut": "లాగ్ అవుట్",
+  "logOutConfirmMessage": "మీరు ఖచ్చితంగా లాగ్ అవుట్ చేయాలనుకుంటున్నారా?"
 }
 }
