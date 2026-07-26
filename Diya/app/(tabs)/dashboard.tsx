@@ -6,7 +6,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { AntDesign, Feather, FontAwesome5, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import Reanimated, { FadeInUp, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';

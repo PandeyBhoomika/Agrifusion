@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { taskService } from '../services/taskService';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { taskService } from "../services/taskService";
+import { refreshEngine } from "../engine/refresh.engine";
 
-// ── Task Data Types ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Task Types
+// ─────────────────────────────────────────────────────────────
+
 export interface Task {
   _id: string;
   id?: string;
@@ -14,7 +24,13 @@ export interface Task {
   dueDate?: string | Date;
   isCompleted?: boolean;
   requiresProof?: boolean;
-  difficulty: 'Easy' | 'Medium' | 'Hard' | 'easy' | 'medium' | 'hard';
+  difficulty:
+    | "Easy"
+    | "Medium"
+    | "Hard"
+    | "easy"
+    | "medium"
+    | "hard";
   isActive: boolean;
   createdAt?: string;
 }
@@ -25,89 +41,204 @@ interface TaskContextType {
   pendingTasks: Task[];
   loading: boolean;
   error: string | null;
+
   refreshTasks: () => Promise<void>;
-  completeTask: (taskId: string) => Promise<boolean>;
+
+  completeTask: (
+    taskId: string
+  ) => Promise<boolean>;
 }
 
-// ── Context Creation ────────────────────────────────────────────────────
-const TaskContext = createContext<TaskContextType | undefined>(undefined);
+// ─────────────────────────────────────────────────────────────
+// Context
+// ─────────────────────────────────────────────────────────────
 
-// ── Provider Component ──────────────────────────────────────────────────
-export function TaskProvider({ children }: { children: ReactNode }) {
+const TaskContext = createContext<
+  TaskContextType | undefined
+>(undefined);
+
+// ─────────────────────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────────────────────
+
+export function TaskProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  // ---------------------------------------------------------
+  // App Startup
+  // ---------------------------------------------------------
 
   useEffect(() => {
     initializeTasks();
   }, []);
+
+  // ---------------------------------------------------------
+  // Register Refresh Function
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    refreshEngine.registerTaskRefresh(
+      refreshTasks
+    );
+  }, []);
+
+  // ---------------------------------------------------------
+  // Initialize Tasks
+  // ---------------------------------------------------------
 
   const initializeTasks = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Try to load from cache first
-      const cachedTasks = await AsyncStorage.getItem('tasks');
+      const cachedTasks =
+        await AsyncStorage.getItem("tasks");
+
       if (cachedTasks) {
         setTasks(JSON.parse(cachedTasks));
       }
 
-      // Fetch fresh data from API
-      const tasksData = await taskService.getTasks();
-      if (tasksData && tasksData.length > 0) {
+      const tasksData =
+        await taskService.getTasks();
+
+      if (
+        tasksData &&
+        tasksData.length > 0
+      ) {
         setTasks(tasksData);
-        await AsyncStorage.setItem('tasks', JSON.stringify(tasksData));
+
+        await AsyncStorage.setItem(
+          "tasks",
+          JSON.stringify(tasksData)
+        );
       }
     } catch (err) {
-      console.error('Error initializing tasks:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load tasks');
+      console.error(
+        "Error initializing tasks:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load tasks"
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ---------------------------------------------------------
+  // Refresh Tasks
+  // ---------------------------------------------------------
+
   const refreshTasks = async () => {
     try {
       setError(null);
-      const tasksData = await taskService.getTasks();
-      if (tasksData && tasksData.length > 0) {
+
+      const tasksData =
+        await taskService.getTasks();
+
+      if (
+        tasksData &&
+        tasksData.length > 0
+      ) {
         setTasks(tasksData);
-        await AsyncStorage.setItem('tasks', JSON.stringify(tasksData));
+
+        await AsyncStorage.setItem(
+          "tasks",
+          JSON.stringify(tasksData)
+        );
       }
     } catch (err) {
-      console.error('Error refreshing tasks:', err);
-      setError(err instanceof Error ? err.message : 'Failed to refresh tasks');
+      console.error(
+        "Error refreshing tasks:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to refresh tasks"
+      );
     }
   };
 
-  const completeTask = async (taskId: string): Promise<boolean> => {
+  // ---------------------------------------------------------
+  // Complete Task
+  // ---------------------------------------------------------
+
+  const completeTask = async (
+    taskId: string
+  ): Promise<boolean> => {
     try {
       setError(null);
-      const success = await taskService.completeTask(taskId);
+
+      const success =
+        await taskService.completeTask(
+          taskId
+        );
+
       if (success) {
-        // Update local state
-        setTasks(prev =>
-          prev.map(task =>
-            (task._id === taskId || task.id === taskId)
-              ? { ...task, isCompleted: true }
+        setTasks((prev) =>
+          prev.map((task) =>
+            task._id === taskId ||
+            task.id === taskId
+              ? {
+                  ...task,
+                  isCompleted: true,
+                }
               : task
           )
         );
-        // Refresh to sync with server
+
         await refreshTasks();
+
         return true;
       }
+
       return false;
     } catch (err) {
-      console.error('Error completing task:', err);
-      setError(err instanceof Error ? err.message : 'Failed to complete task');
+      console.error(
+        "Error completing task:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to complete task"
+      );
+
       return false;
     }
   };
 
-  const completedTasks = tasks.filter(t => t.isCompleted);
-  const pendingTasks = tasks.filter(t => !t.isCompleted);
+  // ---------------------------------------------------------
+  // Derived State
+  // ---------------------------------------------------------
+
+  const completedTasks = tasks.filter(
+    (t) => t.isCompleted
+  );
+
+  const pendingTasks = tasks.filter(
+    (t) => !t.isCompleted
+  );
+
+  // ---------------------------------------------------------
+  // Context Value
+  // ---------------------------------------------------------
 
   const value: TaskContextType = {
     tasks,
@@ -115,18 +246,32 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     pendingTasks,
     loading,
     error,
+
     refreshTasks,
+
     completeTask,
   };
 
-  return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
+  return (
+    <TaskContext.Provider value={value}>
+      {children}
+    </TaskContext.Provider>
+  );
 }
 
-// ── Custom Hook ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────
+
 export function useTasks(): TaskContextType {
-  const context = useContext(TaskContext);
-  if (context === undefined) {
-    throw new Error('useTasks must be used within a TaskProvider');
+  const context =
+    useContext(TaskContext);
+
+  if (!context) {
+    throw new Error(
+      "useTasks must be used within a TaskProvider"
+    );
   }
+
   return context;
 }

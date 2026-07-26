@@ -156,9 +156,14 @@ export default function ProofSubmissionScreen() {
 
       setStatus("Submitted — awaiting review ⏳");
 
-      setTimeout(() => {
-        router.back();
-      }, 2000);
+      router.replace({
+  pathname: "/proof-submitted",
+  params: {
+    taskId,
+    title,
+    xpReward,
+  },
+});
 
     } catch (error) {
       console.error("Submission Error:", error);
