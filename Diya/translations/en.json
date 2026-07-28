@@ -9,8 +9,7 @@
     "dashboard": "Dashboard", "tasks": "Tasks", "learn": "Learn", "community": "Community"
   },
   "splash": {
-    "tagline": "Empowering Farmers Through Technology",
-    "smartTasks": "Smart Task Management", "earnXP": "Earn XP & Green Coins", "connect": "Connect with Farmers"
+"tagline": "Smart Farming, Real Rewards"    ,"smartTasks": "Smart Task Management", "earnXP": "Earn XP & Green Coins", "connect": "Connect with Farmers"
   },
   "language": {
     "welcome": "Welcome to AgriFusion", "selectLanguage": "Select your preferred language", "choosePrompt": "Choose a language"
