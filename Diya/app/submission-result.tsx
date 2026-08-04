@@ -204,7 +204,7 @@ export default function ProofSubmittedScreen() {
             <TouchableOpacity
               activeOpacity={0.9}
               style={styles.primaryButton}
-              onPress={() => router.replace("/(tabs)/tasks")}
+              onPress={() => router.replace('/tasks')}
             >
               <Text style={styles.primaryButtonText}>
                 View My Submissions
@@ -220,7 +220,7 @@ export default function ProofSubmittedScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.secondaryButton}
-              onPress={() => router.replace("/(tabs)/tasks")}
+              onPress={() => router.replace('/tasks')}
             >
               <Text style={styles.secondaryButtonText}>
                 Return to Tasks

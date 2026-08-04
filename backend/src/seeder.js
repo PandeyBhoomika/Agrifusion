@@ -7,7 +7,9 @@ import Video from "./models/Video.js";
 
 dotenv.config();
 
+// ─── TASKS ────────────────────────────────────────────
 const tasks = [
+    // ── UNIVERSAL STAGES (shown in every crop's chain, stages 1-4) ──────
     {
         title: "Test Soil pH",
         description: "Use a pH testing kit on 3 different sections of your farm.",
@@ -15,7 +17,33 @@ const tasks = [
         coinReward: 20,
         category: "Soil Health",
         difficulty: "Easy",
+        stage: "Soil Test",
         stageOrder: 1,
+        cropTypes: [],
+        requiresProof: true
+    },
+    {
+        title: "Prepare the Land",
+        description: "Plough and level the field, clearing debris and weeds before sowing.",
+        xpReward: 150,
+        coinReward: 25,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Land Preparation",
+        stageOrder: 2,
+        cropTypes: [],
+        requiresProof: true
+    },
+    {
+        title: "Sow the Seeds",
+        description: "Sow seeds at the recommended spacing and depth for your chosen crop.",
+        xpReward: 200,
+        coinReward: 30,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Sowing",
+        stageOrder: 3,
+        cropTypes: [],
         requiresProof: true
     },
     {
@@ -25,13 +53,167 @@ const tasks = [
         coinReward: 50,
         category: "Water Conservation",
         difficulty: "Hard",
-        stageOrder: 2,
+        stage: "First Irrigation",
+        stageOrder: 4,
+        cropTypes: [],
         requiresProof: true
-    }
+    },
+
+    // ── WHEAT-SPECIFIC STAGES (stages 5-7) ───────────────────────────
+    {
+        title: "Apply Fertilizer",
+        description: "Apply the recommended NPK fertilizer mix for your wheat crop.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Fertilizing",
+        stageOrder: 5,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+    {
+        title: "Weed the Field",
+        description: "Remove weeds competing with your wheat crop for nutrients and water.",
+        xpReward: 150,
+        coinReward: 25,
+        category: "Crop Management",
+        difficulty: "Easy",
+        stage: "Weeding",
+        stageOrder: 6,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Wheat",
+        description: "Harvest the wheat crop once grains have fully matured and dried.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Wheat"],
+        requiresProof: true
+    },
+
+    // ── RICE-SPECIFIC STAGES (stages 5-7) ────────────────────────────
+    {
+        title: "Transplant Seedlings",
+        description: "Transplant rice seedlings from the nursery bed into the main flooded field.",
+        xpReward: 250,
+        coinReward: 40,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Transplanting",
+        stageOrder: 5,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+    {
+        title: "Pest Control Check",
+        description: "Inspect for common rice pests (stem borer, leaf folder) and apply control measures if needed.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 6,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Rice",
+        description: "Harvest the rice crop once grains have reached full maturity.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Rice"],
+        requiresProof: true
+    },
+
+    // ── MAIZE-SPECIFIC STAGES (stages 5-7) ───────────────────────────
+    {
+        title: "Apply Fertilizer",
+        description: "Apply the recommended fertilizer dose for your maize crop at the right growth stage.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Soil Health",
+        difficulty: "Medium",
+        stage: "Fertilizing",
+        stageOrder: 5,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+    {
+        title: "Pest Control Check",
+        description: "Inspect for fall armyworm and other common maize pests, and treat if necessary.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 6,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Maize",
+        description: "Harvest maize cobs once kernels have hardened and husks have dried.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Maize"],
+        requiresProof: true
+    },
+
+    // ── COTTON-SPECIFIC STAGES (stages 5-7) ──────────────────────────
+    {
+        title: "Pest Control Check",
+        description: "Inspect for bollworm and whitefly infestation on your cotton crop and treat if necessary.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Pest Control",
+        difficulty: "Medium",
+        stage: "Pest Control",
+        stageOrder: 5,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
+    {
+        title: "Prune the Plants",
+        description: "Prune excess vegetative growth to encourage boll development on your cotton crop.",
+        xpReward: 200,
+        coinReward: 35,
+        category: "Crop Management",
+        difficulty: "Medium",
+        stage: "Pruning",
+        stageOrder: 6,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
+    {
+        title: "Harvest Cotton",
+        description: "Pick cotton bolls once they have fully opened and fibers are dry and fluffy.",
+        xpReward: 400,
+        coinReward: 75,
+        category: "Crop Management",
+        difficulty: "Hard",
+        stage: "Harvest",
+        stageOrder: 7,
+        cropTypes: ["Cotton"],
+        requiresProof: true
+    },
 ];
 
+// ─── SCHEMES ──────────────────────────────────────────
 const schemes = [
-    // ── NATIONAL SCHEMES ──────────────────────────────
     {
         title: "PM-KISAN Samman Nidhi",
         description: "Direct income support of Rs. 6000 per year to land-holding farmer families in three equal installments of Rs. 2000 each.",
@@ -88,8 +270,6 @@ const schemes = [
         link: "https://pgsindia-ncof.gov.in/pkvy/Index.aspx",
         category: "organic-farming"
     },
-
-    // ── MAHARASHTRA SCHEMES ───────────────────────────
     {
         title: "Mahatma Jyotirao Phule Shetkari Karj Mukti Yojana",
         description: "Loan waiver scheme for distressed farmers in Maharashtra covering loans up to Rs. 2 lakh taken from cooperative and nationalized banks.",
@@ -122,8 +302,6 @@ const schemes = [
         link: "https://mahafarm.maharashtra.gov.in/",
         category: "horticulture"
     },
-
-    // ── KERALA SCHEMES ────────────────────────────────
     {
         title: "Subhiksha Keralam",
         description: "Kerala state initiative to achieve self-sufficiency in agriculture by promoting integrated farming across paddy, vegetables, and allied sectors.",
@@ -140,8 +318,6 @@ const schemes = [
         link: "https://keralaagriculture.gov.in/",
         category: "financial-assistance"
     },
-
-    // ── PUNJAB SCHEMES ────────────────────────────────
     {
         title: "Punjab Kisan Karj Mafi Scheme",
         description: "Debt relief scheme for small and marginal farmers in Punjab with outstanding crop loans from cooperative banks.",
@@ -158,8 +334,6 @@ const schemes = [
         link: "https://agripb.gov.in/",
         category: "irrigation"
     },
-
-    // ── UTTAR PRADESH SCHEMES ─────────────────────────
     {
         title: "UP Mukhyamantri Krishak Durghatna Kalyan Yojana",
         description: "Accident compensation scheme for farmers and farm workers in Uttar Pradesh providing up to Rs. 5 lakh on accidental death.",
@@ -168,8 +342,6 @@ const schemes = [
         link: "https://upagripardarshi.gov.in/",
         category: "insurance"
     },
-
-    // ── GUJARAT SCHEMES ───────────────────────────────
     {
         title: "Mukhyamantri Bagayat Vikas Mission",
         description: "Gujarat scheme to develop horticulture clusters with subsidy on seeds, fertilizers and market infrastructure for fruit and vegetable farmers.",
@@ -180,42 +352,118 @@ const schemes = [
     }
 ];
 
+// ─── QUIZZES (slug categories, matching frontend) ─────
 const quizzes = [
     {
         title: "Soil Health Basics",
-        category: "Soil Health",
+        category: "soil-health",
         xpReward: 150,
         coinReward: 25,
         questions: [
-            {
-                questionText: "What is the ideal soil pH for most vegetables?",
-                options: ["4.0 - 5.0", "6.0 - 7.0", "8.0 - 9.0", "10+"],
-                correctAnswerIndex: 1
-            },
-            {
-                questionText: "Which nutrient is responsible for green, leafy growth?",
-                options: ["Nitrogen (N)", "Phosphorus (P)", "Potassium (K)", "Calcium"],
-                correctAnswerIndex: 0
-            }
+            { questionText: "What is the ideal pH range for most crops?", options: ["5.0 - 5.5", "6.0 - 7.0", "7.5 - 8.5", "8.0 - 9.0"], correctAnswerIndex: 1 },
+            { questionText: "Organic matter helps soil retain water.", options: ["True", "False"], correctAnswerIndex: 0 },
+            { questionText: 'Which nutrient is represented by "N" in NPK fertilizer?', options: ["Nickel", "Nitrogen", "Neon", "Sodium"], correctAnswerIndex: 1 },
+            { questionText: "Earthworms are harmful to soil health.", options: ["True", "False"], correctAnswerIndex: 1 }
+        ]
+    },
+    {
+        title: "Crop Management",
+        category: "crop-management",
+        xpReward: 150,
+        coinReward: 25,
+        questions: [
+            { questionText: "What is crop rotation?", options: ["Planting the same crop repeatedly", "Alternating different crops in sequence", "Rotating crops during harvest", "Moving crops to different fields"], correctAnswerIndex: 1 },
+            { questionText: "Monocropping reduces pest problems.", options: ["True", "False"], correctAnswerIndex: 1 },
+            { questionText: "Which season is best for wheat sowing in India?", options: ["Summer", "Monsoon", "Winter", "Spring"], correctAnswerIndex: 2 }
+        ]
+    },
+    {
+        title: "Irrigation & Water",
+        category: "irrigation-water",
+        xpReward: 150,
+        coinReward: 25,
+        questions: [
+            { questionText: "Which irrigation method is most water-efficient?", options: ["Flood irrigation", "Drip irrigation", "Sprinkler irrigation", "Channel irrigation"], correctAnswerIndex: 1 },
+            { questionText: "Overwatering can harm plant roots.", options: ["True", "False"], correctAnswerIndex: 0 },
+            { questionText: 'What does the term "water table" refer to?', options: ["Surface water level", "Underground water level", "Rainfall measurement", "Water quality index"], correctAnswerIndex: 1 }
+        ]
+    },
+    {
+        title: "Pest Control",
+        category: "pest-control",
+        xpReward: 150,
+        coinReward: 25,
+        questions: [
+            { questionText: "Which is an example of biological pest control?", options: ["Using chemical pesticides", "Introducing natural predators", "Burning infested crops", "Using herbicides"], correctAnswerIndex: 1 },
+            { questionText: "Neem oil is a natural pesticide.", options: ["True", "False"], correctAnswerIndex: 0 },
+            { questionText: "What does IPM stand for?", options: ["Integrated Pest Management", "Insect Protection Method", "Internal Plant Monitoring", "Irrigation and Pest Maintenance"], correctAnswerIndex: 0 }
         ]
     }
 ];
 
+// ─── VIDEOS (Bhoomika's learning hub) ─────────────────
+const ytId = (url) => {
+    const match = url.match(/(?:v=|youtu\.be\/)([^&?/\s]{11})/);
+    return match ? match[1] : '';
+};
+
+const video = (title, description, category, url, duration, difficulty, instructor, points) => {
+    const id = ytId(url);
+    return {
+        title, description, category,
+        videoUrl: url,
+        youtubeId: id,
+        thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+        duration, difficulty, instructor, points,
+        isActive: true,
+    };
+};
+
+const videos = [
+    video('Sustainable Crop Rotation', 'Learn the fundamentals of crop rotation for improved soil health and higher yields.', 'crop-rotation', 'https://youtu.be/vkYEmC5xDDE', '8 min', 'beginner', 'Dr. Rajesh Kumar', 120),
+    video('Smart Irrigation Techniques', 'Master modern irrigation methods including drip and sprinkler systems.', 'irrigation', 'https://youtu.be/Ulf8E1XnhgI?si=kcKeWtqh2zQNXCt-', '12 min', 'intermediate', 'Dr. Priya Sharma', 150),
+    video('Organic Pest Management', 'Natural and eco-friendly methods to protect your crops from pests using companion planting and neem-based sprays.', 'pest-control', 'https://youtu.be/-K80djZC8y0?si=jk_Wi3gvTW2q8PGC', '15 min', 'intermediate', 'Prof. Amit Patel', 180),
+    video('Soil Testing & Analysis', 'Understanding soil composition and nutrient levels. Learn how to collect samples and read test results.', 'soil-health', 'https://youtu.be/L6EtmGMJflI?si=jeh8d6-NKan4hgSn', '10 min', 'beginner', 'Dr. Sunita Verma', 130),
+    video('Seasonal Crop Planning', 'Plan your crops according to Kharif, Rabi, and Zaid seasons.', 'crop-management', 'https://youtu.be/d-5jeEgP1BM?si=rFzzjR35EC-zYWsL', '14 min', 'intermediate', 'Mr. Ravi Thakur', 160),
+    video('Water Conservation Methods', 'Save water with rainwater harvesting, farm ponds, and efficient storage techniques.', 'water-management', 'https://youtu.be/gJmY3dzg3Gk?si=54gGQCPLpyQ7kdz3', '11 min', 'beginner', 'Dr. Meera Singh', 140),
+    video('Advanced Fertilizer Application', 'NPK ratios, micronutrients, and precision fertilizer application.', 'soil-health', 'https://youtu.be/JHXKiUUMdL8?si=yhx6uLjWXK61SvFp', '16 min', 'advanced', 'Prof. Anil Desai', 200),
+    video('Climate-Smart Agriculture', 'Adapt your farming practices to changing climate conditions.', 'sustainability', 'https://youtu.be/_92sTa6Ge5I?si=gZb9tbRCnjIC7tUa', '13 min', 'advanced', 'Dr. Kavita Joshi', 190),
+    video('Integrated Farming Systems', 'Combine crop cultivation with livestock, fishery, or horticulture for higher income.', 'crop-management', 'https://youtu.be/tIqvxD7ao74?si=XPmdBhfCxxORCKgg', '18 min', 'intermediate', 'Dr. Suresh Nair', 175),
+    video('Post-Harvest Storage Techniques', 'Reduce post-harvest losses with proper storage, drying, and grading techniques.', 'post-harvest', 'https://youtu.be/CaieNzMxO4M?si=b1uMDaq98c4rE8lL', '9 min', 'beginner', 'Ms. Anita Rao', 110),
+    video('Vermicomposting at Home', 'Turn farm waste into rich organic manure using earthworms.', 'organic-farming', 'https://youtu.be/zKnacCj7lXw?si=9TlUbeZFLG5kba0E', '7 min', 'beginner', 'Mr. Prakash Iyer', 100),
+    video('Greenhouse Farming Basics', 'Introduction to protected cultivation — polyhouse setup, ventilation, and temperature control.', 'crop-management', 'https://youtu.be/RTMIyPiqTYE?si=olGp83xBChfP8neW', '20 min', 'advanced', 'Dr. Ramesh Gupta', 220),
+];
+
+// ─── IMPORT ───────────────────────────────────────────
 const importData = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
         console.log("MongoDB Connected for Seeding...");
 
-        await Task.deleteMany();
+        // Tasks use upsert instead of delete+insert so existing _ids are
+        // preserved — UserCropTask rows reference these _ids, and deleting
+        // Tasks would break all existing user progress chains.
         await Scheme.deleteMany();
         await Quiz.deleteMany();
+        await Video.deleteMany();
         console.log("Old data cleared.");
 
-        await Task.insertMany(tasks);
+        for (const task of tasks) {
+            await Task.updateOne(
+                { title: task.title, cropTypes: task.cropTypes },
+                { $set: task },
+                { upsert: true }
+            );
+        }
         await Scheme.insertMany(schemes);
         await Quiz.insertMany(quizzes);
+        await Video.insertMany(videos);
 
-        console.log(`✅ Data successfully seeded! (${schemes.length} schemes added)`);
+        console.log(`\n✅ Data successfully seeded!`);
+        console.log(`   📋 ${tasks.length} tasks`);
+        console.log(`   🏛️  ${schemes.length} schemes`);
+        console.log(`   ❓ ${quizzes.length} quizzes`);
+        console.log(`   📹 ${videos.length} videos`);
         process.exit();
     } catch (error) {
         console.error("❌ Error seeding data:", error);

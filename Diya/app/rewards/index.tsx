@@ -16,9 +16,10 @@ import Svg, { Circle } from "react-native-svg";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { useUser } from '../../context/UserContext';
 
-// ✅ Added API Base URL fallback
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 /* ---------------------- STATIC DATA ---------------------- */
 const badges = [
@@ -43,56 +44,33 @@ const { width } = Dimensions.get("window");
 ================================================================ */
 
 export default function RewardsScreen() {
-  const [userData, setUserData] = useState({
-    level: 1,
-    xp: 0,
-    xpToNext: 100,
-    greenCoins: 0,
-    rankTier: "Bronze Starter",
-  });
-  const [loading, setLoading] = useState(true);
-  const [chestClaimed, setChestClaimed] = useState(false);
-  const [coinsDisplay, setCoinsDisplay] = useState(0);
+  const { user, loading, refreshUser } = useUser();
 
-  // Confetti animation (emoji falling)
+  // ✅ Sync: derive all values from UserContext — no independent fetch needed
+  const userData = {
+    level: user?.level ?? 1,
+    xp: user?.xp ?? 0,
+    xpToNext: ((user?.level ?? 1) * 1000),
+    greenCoins: user?.greenCoins ?? 0,
+    rankTier: (user?.level ?? 1) < 3 ? "Bronze Starter" : (user?.level ?? 1) < 6 ? "Silver Farmer" : "Gold Master",
+  };
+
+  const [chestClaimed, setChestClaimed] = useState(false);
+  const [coinsDisplay, setCoinsDisplay] = useState(userData.greenCoins);
+
   const [confetti] = useState(new RNAnimated.Value(0));
 
+  // Refresh whenever this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser();
+    }, [])
+  );
+
+  // Keep coinsDisplay in sync with context
   useEffect(() => {
-    fetchUserProfile();
-  }, []);
-
-  const fetchUserProfile = async () => {
-    try {
-      // ✅ Added token retrieval for secure fetching
-      const token = await AsyncStorage.getItem('authToken');
-
-      // ✅ Fixed the fetch call to use the full API URL and Authorization header
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUserData({
-          level: data.level ?? 1,
-          xp: data.xp ?? 0,
-          xpToNext: data.xpToNext ?? 100,
-          greenCoins: data.greenCoins ?? 0,
-          rankTier: data.rankTier ?? "Silver Farmer",
-        });
-        setCoinsDisplay(data.greenCoins ?? 0);
-      } else {
-        console.warn("Failed to fetch user profile:", response.status);
-      }
-    } catch (error) {
-      console.error("Error fetching user profile data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setCoinsDisplay(userData.greenCoins);
+  }, [userData.greenCoins]);
 
   const triggerConfetti = () => {
     confetti.setValue(0);

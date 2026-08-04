@@ -13,7 +13,9 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android'
+  ? 'http://10.0.2.2:4000/api'
+  : 'http://localhost:4000/api');
 
 // ✅ Crops are now translated via t.crops.*
 function getCrops(t: any): string[] {
@@ -257,21 +259,49 @@ export default function FarmProfile() {
     if (step > 1) { setGoBack(true); setStep(s => s - 1); }
   };
 
-  const handleSkip = () =>
-    Alert.alert(
-      t.farmProfile.skipConfirmTitle,
-      t.farmProfile.skipConfirmMessage,
-      [
-        { text: t.farmProfile.skipStay, style: 'cancel' },
-        {
-          text: t.farmProfile.skipConfirm, onPress: async () => {
-            await AsyncStorage.setItem('profileComplete', 'true');
-            router.replace('/(tabs)/dashboard');
+   const handleSkip = () =>
+  Alert.alert(
+    t.farmProfile.skipConfirmTitle,
+    t.farmProfile.skipConfirmMessage,
+    [
+      { text: t.farmProfile.skipStay, style: 'cancel' },
+      {
+        text: t.farmProfile.skipConfirm,
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('authToken');
+            if (token) {
+              await fetch(`${API_BASE}/user/profile`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                // Send whatever partial data they've entered so far, plus mark complete
+                body: JSON.stringify({
+                  primaryCrops: form.primaryCrops,
+                  farmSize: parseFloat(form.farmSize) || 0,
+                  soilType: form.soilType,
+                  region: [form.panchayat, form.district, form.state].filter(Boolean).join(', '),
+                  location: form.location,
+                  season: form.currentSeason,
+                  waterAvailability: form.waterAvailability,
+                  farmingGoals: form.farmingGoals,
+                  skillLevel: form.skillLevel,
+                  previousCrop: form.previousCrop,
+                }),
+              });
+            }
+          } catch (err) {
+            console.warn('Failed to sync skip with server:', err);
+            // Proceed anyway — don't block navigation on this
           }
-        }
-      ]
-    );
-
+          await AsyncStorage.setItem('profileComplete', 'true');
+          router.replace('/dashboard');
+        },
+      },
+    ]
+  );
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
@@ -297,10 +327,13 @@ export default function FarmProfile() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || `Server error ${res.status}`);
+      if (!res.ok) {
+        const message = data?.message || `Server error ${res.status}`;
+        throw new Error(message);
+      }
       if (data.user) await AsyncStorage.setItem('user', JSON.stringify(data.user));
       await AsyncStorage.setItem('profileComplete', 'true');
-      router.replace('/(tabs)/dashboard');
+      router.replace('/dashboard');
     } catch (err: any) {
       Alert.alert(t.common.error, err.message || 'Failed to save farm profile. Please try again.');
     } finally {

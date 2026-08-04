@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,21 +17,29 @@ import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTasks } from "../../context/TaskContext";
+import { useUser } from "../../context/UserContext";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.41:4000/api";
 
 export default function ProofSubmissionScreen() {
   const router = useRouter();
-  const { taskId, title, xpReward } = useLocalSearchParams<{ taskId?: string; title?: string; xpReward?: string }>();
+  const { taskId, userCropTaskId, title, xpReward } = useLocalSearchParams<{
+    taskId?: string;
+    userCropTaskId?: string;
+    title?: string;
+    xpReward?: string;
+  }>();
+  const { refreshChain } = useTasks();
+  const { refreshUser } = useUser();
+
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [location, setLocation] = useState<any>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-
   const [status, setStatus] = useState("Awaiting Submission");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,15 +47,13 @@ export default function ProofSubmissionScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      alert("Sorry, we need camera permissions to make this work!");
+      Alert.alert("Permission Required", "Sorry, we need camera permissions to verify your work!");
       return;
     }
-
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      quality: 0.5,
     });
-
     if (!res.canceled) {
       setPhoto(res.assets[0].uri);
       autoCaptureMetadata();
@@ -58,11 +65,9 @@ export default function ProofSubmissionScreen() {
     try {
       await Audio.requestPermissionsAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true });
-
       const rec = new Audio.Recording();
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await rec.startAsync();
-
       setRecording(rec);
     } catch (e) {
       console.log("Recording error:", e);
@@ -81,11 +86,10 @@ export default function ProofSubmissionScreen() {
   const autoCaptureMetadata = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") return;
-
     const loc = await Location.getCurrentPositionAsync({});
     setLocation({
-      lat: loc.coords.latitude.toFixed(5),
-      lon: loc.coords.longitude.toFixed(5),
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
       time: new Date().toISOString(),
       displayTime: new Date().toLocaleString(),
     });
@@ -94,80 +98,85 @@ export default function ProofSubmissionScreen() {
   /* ------------------ SUBMIT PROOF ------------------ */
   const submitProof = async () => {
     if (!photo) return;
-    if (!taskId) {
+    if (!taskId && !userCropTaskId) {
       setStatus("No task selected ❌");
+      Alert.alert("No task", "This screen was opened without a task. Go back and tap 'Mark Done' on a specific task.");
       return;
     }
 
     setIsLoading(true);
-    setStatus("Uploading proof... 📡");
+    setStatus("Uploading proof... ☁️");
 
     try {
       const token = await AsyncStorage.getItem("authToken");
-      const storedUser = await AsyncStorage.getItem("user");
-      const userId = storedUser ? JSON.parse(storedUser)?._id : undefined;
-
       const formData = new FormData();
 
-        // ✅ Web fix: on web, expo-image-picker gives a blob: URI, and
-        // React Native Web's FormData polyfill needs a real Blob/File object,
-        // not the { uri, name, type } shorthand that only works on native.
-        // Fetching the blob: URI and appending the resulting Blob works on
-        // both web and native.
-        const filename = photo.split("/").pop()?.split("?")[0] || "proof.jpg";
-        const photoMatch = /\.(\w+)$/.exec(filename);
-        const photoType = photoMatch ? `image/${photoMatch[1]}` : `image/jpeg`;
+      // Web fix: use real Blob instead of { uri, name, type } shorthand
+      const filename = photo.split("/").pop()?.split("?")[0] || "proof.jpg";
+      const photoMatch = /\.(\w+)$/.exec(filename);
+      const photoType = photoMatch ? `image/${photoMatch[1]}` : `image/jpeg`;
 
+      if (Platform.OS === "web") {
+        const photoBlob = await (await fetch(photo)).blob();
+        formData.append("photo", photoBlob, filename);
+      } else {
+        formData.append("photo", { uri: photo, name: filename, type: photoType } as any);
+      }
+
+      if (audioUri) {
+        const audioName = audioUri.split("/").pop()?.split("?")[0] || "audio.m4a";
         if (Platform.OS === "web") {
-          const photoBlob = await (await fetch(photo)).blob();
-          formData.append("photo", photoBlob, filename);
+          const audioBlob = await (await fetch(audioUri)).blob();
+          formData.append("audio", audioBlob, audioName);
         } else {
-          formData.append("photo", { uri: photo, name: filename, type: photoType } as any);
+          formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
         }
-
-        if (audioUri) {
-          const audioName = audioUri.split("/").pop()?.split("?")[0] || "audio.m4a";
-          if (Platform.OS === "web") {
-            const audioBlob = await (await fetch(audioUri)).blob();
-            formData.append("audio", audioBlob, audioName);
-          } else {
-            formData.append("audio", { uri: audioUri, name: audioName, type: "audio/m4a" } as any);
-          }
-        }
+      }
 
       if (location) {
-        formData.append("location", JSON.stringify(location));
+        formData.append("location", JSON.stringify({
+          lat: location.latitude,
+          lon: location.longitude,
+          time: location.time,
+        }));
       }
-      formData.append("taskId", taskId);
-      if (userId) formData.append("userId", userId);
+
+      if (taskId) formData.append("taskId", taskId);
+      if (userCropTaskId) formData.append("userCropTaskId", userCropTaskId);
+      // userId is NOT sent — backend derives it from the JWT token
 
       const response = await fetch(`${API_BASE_URL}/proofs/submit`, {
         method: "POST",
         body: formData,
         headers: {
-          "Accept": "application/json",
+          Accept: "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to submit proof to the server.");
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || !json.success) {
+        throw new Error(json.message || "Failed to save proof to the server.");
       }
 
-      setStatus("Submitted — awaiting review ⏳");
+      const backendStatus = json.data?.status;
+      if (backendStatus === "Approved") {
+        const xp = json.data?.xpAwarded ?? 0;
+        setStatus(`Approved ✔️  +${xp} XP awarded!`);
+      } else {
+        setStatus("Submitted — awaiting review ⏳");
+      }
 
-      router.replace({
-  pathname: "/proof-submitted",
-  params: {
-    taskId,
-    title,
-    xpReward,
-  },
-});
+      // ✅ Sync: refresh task chain AND user XP/coins across all screens
+      await Promise.all([refreshChain(), refreshUser()]);
 
-    } catch (error) {
+      setTimeout(() => { router.back(); }, 2000);
+
+    } catch (error: any) {
       console.error("Submission Error:", error);
       setStatus("Submission Failed ❌");
+      Alert.alert("Upload Error", error?.message || "There was a problem submitting your proof.");
     } finally {
       setIsLoading(false);
     }
@@ -177,8 +186,6 @@ export default function ProofSubmissionScreen() {
     <LinearGradient colors={["#d4efdd", "#c8e8d4", "#b8dfc8"]} style={styles.gradient}>
       <StatusBar style="dark" backgroundColor="transparent" />
       <SafeAreaView style={styles.safe}>
-
-        {/* --- HEADER --- */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
             <Ionicons name="arrow-back" size={24} color="#14532d" />
@@ -191,8 +198,6 @@ export default function ProofSubmissionScreen() {
         </Animated.View>
 
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-
-          {/* --- MISSION BADGE --- */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.missionCard}>
             <View style={styles.missionIconWrap}>
               <Ionicons name="leaf" size={24} color="#16a34a" />
@@ -203,15 +208,13 @@ export default function ProofSubmissionScreen() {
             </View>
           </Animated.View>
 
-          {/* --- PHOTO PROOF --- */}
           <Animated.View entering={FadeInUp.delay(200).duration(400)}>
             <TouchableOpacity style={styles.uploadCard} onPress={pickImage} activeOpacity={0.8}>
               <View style={styles.iconCircle}>
                 <Feather name="camera" size={28} color="#16a34a" />
               </View>
-              <Text style={styles.uploadTitle}>Capture Photo Proof</Text>
-              <Text style={styles.uploadSub}>Tap to open camera</Text>
-
+              <Text style={styles.uploadTitle}>{photo ? "Retake Photo" : "Capture Photo Proof"}</Text>
+              <Text style={styles.uploadSub}>Tap to open live camera</Text>
               {photo && (
                 <View style={styles.previewContainer}>
                   <Image source={{ uri: photo }} style={styles.previewImage} contentFit="cover" />
@@ -224,7 +227,6 @@ export default function ProofSubmissionScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* --- AUDIO NOTE --- */}
           <Animated.View entering={FadeInUp.delay(300).duration(400)}>
             <TouchableOpacity
               style={[styles.uploadCard, recording && styles.recordingActive]}
@@ -238,7 +240,6 @@ export default function ProofSubmissionScreen() {
                 {recording ? "Recording... Tap to stop" : "Add Voice Note (Optional)"}
               </Text>
               <Text style={styles.uploadSub}>Explain your process</Text>
-
               {audioUri && !recording && (
                 <View style={styles.successPill}>
                   <MaterialIcons name="audiotrack" size={16} color="#16a34a" />
@@ -248,19 +249,16 @@ export default function ProofSubmissionScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* --- METADATA --- */}
           <Animated.View entering={FadeInUp.delay(400).duration(400)} style={styles.metaCard}>
             <Text style={styles.metaTitle}>Auto-captured Data 📍</Text>
-
             <View style={styles.metaRow}>
               <View style={styles.metaIconBox}>
                 <Feather name="map-pin" size={16} color="#166534" />
               </View>
               <Text style={styles.metaValue}>
-                {location ? `${location.lat}, ${location.lon}` : "Location pending..."}
+                {location ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : "Location pending..."}
               </Text>
             </View>
-
             <View style={styles.metaRow}>
               <View style={styles.metaIconBox}>
                 <Feather name="clock" size={16} color="#166534" />
@@ -271,17 +269,17 @@ export default function ProofSubmissionScreen() {
             </View>
           </Animated.View>
 
-          {/* --- STATUS & SUBMIT --- */}
           <Animated.View entering={FadeInUp.delay(500).duration(400)}>
             <View style={styles.statusCard}>
               <Text style={styles.statusLabel}>Verification Status</Text>
               <Text style={[
                 styles.statusValue,
                 status.includes("Failed") && { color: "#ef4444" },
-                status.includes("Approved") && { color: "#16a34a" }
-              ]}>{status}</Text>
+                status.includes("Approved") && { color: "#16a34a" },
+              ]}>
+                {status}
+              </Text>
             </View>
-
             <TouchableOpacity
               style={[styles.submitBtn, (!photo || isLoading) && styles.submitBtnDisabled]}
               onPress={submitProof}
@@ -306,54 +304,36 @@ export default function ProofSubmissionScreen() {
   );
 }
 
-/* ------------------ STYLES ------------------ */
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
   safe: { flex: 1 },
-
-  /* HEADER */
-  header: {
-    paddingHorizontal: 20, paddingTop: Platform.OS === "android" ? 16 : 8, paddingBottom: 16,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-  },
+  header: { paddingHorizontal: 20, paddingTop: Platform.OS === "android" ? 16 : 8, paddingBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerTitle: { fontSize: 22, fontWeight: "800", color: "#14532d", letterSpacing: -0.5 },
   headerSub: { fontSize: 13, color: "#166534", marginTop: 2, fontWeight: "600" },
   headerButton: { padding: 10, backgroundColor: "#ffffff", borderRadius: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-
   container: { padding: 20 },
-
-  /* MISSION BADGE */
   missionCard: { flexDirection: "row", backgroundColor: "#ffffff", padding: 16, borderRadius: 20, marginBottom: 20, alignItems: "center", borderWidth: 1, borderColor: "rgba(34,197,94,0.3)", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
   missionIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", marginRight: 14 },
   missionLabel: { fontSize: 12, color: "#6b7280", fontWeight: "600", textTransform: "uppercase", marginBottom: 2 },
   missionTitleText: { fontSize: 16, fontWeight: "800", color: "#1f2937" },
-
-  /* UPLOAD CARDS */
   uploadCard: { backgroundColor: "#ffffff", padding: 20, borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.3)", shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 10, elevation: 3, alignItems: "center" },
   recordingActive: { borderColor: "#ef4444", backgroundColor: "#fef2f2" },
   iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: "#f0fdf4", alignItems: "center", justifyContent: "center", marginBottom: 12 },
   iconCircleRecording: { backgroundColor: "#fecaca" },
   uploadTitle: { fontSize: 16, fontWeight: "800", color: "#1f2937", marginBottom: 4 },
   uploadSub: { fontSize: 13, color: "#6b7280", fontWeight: "500" },
-
-  /* PREVIEWS */
   previewContainer: { width: "100%", marginTop: 16, alignItems: "center" },
   previewImage: { width: "100%", height: 200, borderRadius: 16 },
   successPill: { flexDirection: "row", alignItems: "center", backgroundColor: "#dcfce7", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginTop: 12, borderWidth: 1, borderColor: "#bbf7d0" },
   successPillText: { marginLeft: 6, color: "#166534", fontSize: 13, fontWeight: "700" },
-
-  /* METADATA */
   metaCard: { backgroundColor: "rgba(255,255,255,0.6)", padding: 18, borderRadius: 20, marginBottom: 20, borderWidth: 1, borderColor: "rgba(34,197,94,0.2)" },
   metaTitle: { fontSize: 15, fontWeight: "800", color: "#14532d", marginBottom: 12 },
   metaRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   metaIconBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", marginRight: 12 },
   metaValue: { flex: 1, fontSize: 13, color: "#374151", fontWeight: "600" },
-
-  /* STATUS & BUTTON */
   statusCard: { backgroundColor: "#ffffff", padding: 16, borderRadius: 16, alignItems: "center", marginBottom: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.2)" },
   statusLabel: { fontSize: 12, color: "#6b7280", fontWeight: "600", textTransform: "uppercase", marginBottom: 4 },
   statusValue: { fontSize: 16, fontWeight: "800", color: "#14532d" },
-
   submitBtn: { flexDirection: "row", backgroundColor: "#22c55e", paddingVertical: 16, borderRadius: 16, alignItems: "center", justifyContent: "center", shadowColor: "#22c55e", shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   submitBtnDisabled: { backgroundColor: "#9ca3af", shadowOpacity: 0, elevation: 0 },
   submitText: { color: "#ffffff", fontSize: 16, fontWeight: "800", letterSpacing: 0.5 },

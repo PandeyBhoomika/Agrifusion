@@ -3,8 +3,14 @@ import nodemailer from "nodemailer";
 import User from "../models/User.js";
 import Otp from "../models/Otp.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
+const JWT_SECRET = process.env.JWT_SECRET;
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
+const USE_DEMO_OTP = process.env.NODE_ENV !== "production" || !process.env.EMAIL_USER || !process.env.EMAIL_PASS;
+const CAN_SEND_MAIL = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS) && !USE_DEMO_OTP;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not set. Refusing to start without it.");
+}
 
 /* -------------------- EMAIL CONFIG -------------------- */
 const transporter = nodemailer.createTransport({
@@ -16,13 +22,26 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
   tls: {
+    // NOTE: rejectUnauthorized is disabled here as a temporary workaround.
+    // On some dev machines (this one included), local antivirus/network
+    // software intercepts the TLS handshake to the SMTP server and presents
+    // its own self-signed certificate ("self-signed certificate in
+    // certificate chain" error), which Node correctly rejects by default.
+    // Proper fix (not yet done): export the intercepting certificate and
+    // pass it via `ca:` below instead of disabling verification entirely.
+    // Tracked as a known tradeoff — revisit before production deployment.
     rejectUnauthorized: false,
   },
 });
 
 /* -------------------- HELPERS -------------------- */
-const generateOtp = () =>
-  Math.floor(100000 + Math.random() * 900000).toString();
+const generateOtp = () => {
+  if (USE_DEMO_OTP) {
+    return "123456";
+  }
+
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 /* -------------------- SEND OTP -------------------- */
 // POST /api/auth/send-otp
@@ -39,29 +58,28 @@ export const sendOtp = async (req, res) => {
 
     const otp = generateOtp();
 
-    // Upsert the OTP for this email (replaces any existing one)
     await Otp.findOneAndUpdate(
       { email },
       { email, code: otp, createdAt: new Date() },
       { upsert: true, new: true }
     );
 
-    // Dev convenience: print the code to the server console
-    console.log(`\n========================================`);
-    console.log(`🔑 OTP for ${email}: ${otp}`);
-    console.log(`========================================\n`);
-
-    // Send the OTP by email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your AgriFusion verification code",
-      text: `Your AgriFusion OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
-    });
+    if (CAN_SEND_MAIL) {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Your AgriFusion verification code",
+        text: `Your AgriFusion OTP is ${otp}. It expires in ${OTP_EXPIRY_MINUTES} minutes.`,
+      });
+    } else {
+      console.warn(`Demo OTP enabled for ${email}: ${otp}`);
+    }
 
     return res.json({
       success: true,
       message: "OTP sent successfully",
+      otp,
+      devMode: USE_DEMO_OTP,
     });
   } catch (error) {
     console.error("❌ Send OTP error:", error);
@@ -76,7 +94,7 @@ export const sendOtp = async (req, res) => {
 // POST /api/auth/verify-otp
 export const verifyOtp = async (req, res) => {
   try {
-    const { email, otp, password } = req.body;
+    const { email, otp, password, fullName, state, phone } = req.body;
 
     if (!email || !otp) {
       return res.status(400).json({
@@ -94,7 +112,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Check expiry
     const age =
       (Date.now() - new Date(record.createdAt).getTime()) / 60000;
 
@@ -113,17 +130,18 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Find or create the user
     let user = await User.findOne({ email });
     let isNewUser = false;
 
     if (!user) {
-      // Brand new user — create their account now
+      // Brand new user — create their account now with the details from signup
       user = await User.create({
         email,
         emailVerified: true,
+        fullName: fullName || "",
+        state: state || "",
+        phone: phone || "",
       });
-      // Save the password chosen at signup so they can log in later
       if (password) {
         await user.setPassword(password);
         await user.save();

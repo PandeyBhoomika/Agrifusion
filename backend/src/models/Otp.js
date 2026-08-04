@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
-// Notice the capital 'O' in OtpSchema here:
 const OtpSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
+    unique: true, // one active OTP per email; upsert relies on this
   },
   code: {
     type: String,
@@ -13,8 +13,8 @@ const OtpSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-  }
+    expires: 600, // MongoDB auto-deletes this document 600s (10 min) after createdAt
+  },
 });
 
-// Notice the capital 'O' matches exactly here:
 export default mongoose.model('Otp', OtpSchema);

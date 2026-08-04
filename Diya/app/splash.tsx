@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import Reanimated, { FadeInDown, FadeInUp, ZoomIn, FadeIn } from "react-native-reanimated";
 import Svg, { Path, Defs, Pattern, Rect, Circle } from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "../context/LanguageContext";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -78,7 +79,29 @@ export default function SplashScreen() {
       Animated.timing(loadWidthAnim, { toValue: 220, duration: 1000, useNativeDriver: false }).start();
     }, 2600));
 
-    timers.push(setTimeout(() => { router.replace("/language"); }, 3800));
+    timers.push(setTimeout(() => {
+      const navigateNext = async () => {
+        try {
+          const savedLanguage = await AsyncStorage.getItem("app_language");
+          const token = await AsyncStorage.getItem("authToken");
+          const profileComplete = await AsyncStorage.getItem("profileComplete");
+
+          if (!savedLanguage) {
+            router.replace("/language");
+          } else if (!token) {
+            router.replace("/auth");
+          } else if (profileComplete === "true") {
+            router.replace("/dashboard");
+          } else {
+            router.replace("/farm-profile");
+          }
+        } catch {
+          router.replace("/auth");
+        }
+      };
+
+      void navigateNext();
+    }, 3800));
 
     return () => {
       timers.forEach(clearTimeout);

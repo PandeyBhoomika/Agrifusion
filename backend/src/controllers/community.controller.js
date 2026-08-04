@@ -21,9 +21,16 @@ export const createPost = async (req, res) => {
         const userId = req.user.userId; // from the verified token, not the client
         const { content, imageUrl } = req.body;
 
+        if (!content || content.trim().length === 0 || content.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message: 'Content must be between 1 and 500 characters'
+            });
+        }
+
         const newPost = await Post.create({
             userId,
-            content,
+            content: content.trim(),
             imageUrl
         });
 
@@ -81,8 +88,11 @@ export const addComment = async (req, res) => {
         const userId = req.user.userId; // from the verified token, not the client
         const { text } = req.body;
 
-        if (!text || text.trim() === '') {
-            return res.status(400).json({ success: false, message: 'Comment text is required' });
+        if (!text || text.trim().length === 0 || text.length > 300) {
+            return res.status(400).json({
+                success: false,
+                message: 'Comment must be between 1 and 300 characters'
+            });
         }
 
         const post = await Post.findById(id);
@@ -94,7 +104,7 @@ export const addComment = async (req, res) => {
         // Create the new comment object
         const newComment = {
             userId,
-            text,
+            text: text.trim(),
             createdAt: new Date()
         };
 
@@ -112,6 +122,45 @@ export const addComment = async (req, res) => {
         });
     } catch (error) {
         console.error('Error adding comment:', error);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+// Delete a comment from a post (only the comment's own author can delete it)
+export const deleteComment = async (req, res) => {
+    try {
+        const { id, commentId } = req.params; // Post ID and Comment ID from the URL
+        const userId = req.user.userId; // from the verified token, not the client
+
+        const post = await Post.findById(id);
+
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
+        }
+
+        const comment = post.comments.find((c) => c._id.toString() === commentId);
+
+        if (!comment) {
+            return res.status(404).json({ success: false, message: 'Comment not found' });
+        }
+
+        // Only the comment author can delete their own comment
+        if (comment.userId.toString() !== userId.toString()) {
+            return res.status(403).json({ success: false, message: 'You can only delete your own comments' });
+        }
+
+        post.comments = post.comments.filter((c) => c._id.toString() !== commentId);
+        await post.save();
+
+        const populatedPost = await Post.findById(id).populate('comments.userId', 'fullName');
+
+        res.status(200).json({
+            success: true,
+            message: 'Comment deleted',
+            data: populatedPost.comments
+        });
+    } catch (error) {
+        console.error('Error deleting comment:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 };

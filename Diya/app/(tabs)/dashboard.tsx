@@ -14,7 +14,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserContext';
 import { useTasks } from '../../context/TaskContext';
-const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY || '7c6c37dc393f48f3bc2120650250812';
+
+const WEATHER_API_KEY = process.env.EXPO_PUBLIC_WEATHER_API_KEY;
 
 interface WeatherData {
   temp: number;
@@ -28,6 +29,10 @@ interface WeatherData {
 }
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData | null> {
+  if (!WEATHER_API_KEY) {
+    console.warn('Weather API key not configured — skipping weather fetch.');
+    return null;
+  }
   try {
     const url = `https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&aqi=yes`;
     const res = await fetch(url);
@@ -55,6 +60,47 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData | nul
   }
 }
 
+// ── Farm Health scoring: derived from real profile + weather data ──────────
+function getSoilScore(soilType?: string): { score: number; label: string } {
+  const scores: Record<string, number> = {
+    'Loamy': 88, 'Alluvial': 82, 'Black (Regur)': 78,
+    'Clay': 65, 'Red': 60, 'Mountain': 55,
+    'Laterite': 50, 'Sandy': 45,
+  };
+  const score = soilType && scores[soilType] !== undefined ? scores[soilType] : 60;
+  const label = score >= 75 ? 'Good fertility' : score >= 55 ? 'Moderate fertility' : 'Needs attention';
+  return { score, label };
+}
+
+function getWaterScore(waterAvailability?: string, rainChance?: number): { score: number; label: string } {
+  const baseScores: Record<string, number> = {
+    'Drip Irrigation': 85,
+    'Abundant (River/Canal)': 82,
+    'Borewell': 70,
+    'Rainfed Only': 50,
+    'Limited': 35,
+  };
+  let score = waterAvailability && baseScores[waterAvailability] !== undefined
+    ? baseScores[waterAvailability] : 60;
+
+  if (waterAvailability === 'Rainfed Only' && rainChance !== undefined) {
+    score = Math.min(90, score + Math.round(rainChance / 5));
+  }
+
+  const label = score >= 75 ? 'Well managed' : score >= 55 ? 'Adequate' : 'Water stressed';
+  return { score, label };
+}
+
+function getSunScore(condition?: string): { score: number; label: string } {
+  if (!condition) return { score: 65, label: 'Unknown' };
+  const c = condition.toLowerCase();
+  if (c.includes('sunny') || c.includes('clear')) return { score: 90, label: 'Excellent sunlight' };
+  if (c.includes('partly')) return { score: 72, label: 'Good sunlight' };
+  if (c.includes('cloud') || c.includes('overcast')) return { score: 50, label: 'Limited sunlight' };
+  if (c.includes('rain') || c.includes('storm') || c.includes('mist') || c.includes('fog')) return { score: 30, label: 'Low sunlight' };
+  return { score: 65, label: condition };
+}
+
 export default function PersonalizedDashboard() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -68,32 +114,34 @@ export default function PersonalizedDashboard() {
 
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Calculate XP progress to next level ─────────────────────────────
-  // Assuming each level needs ~1000 XP
   const XP_PER_LEVEL = 1000;
   const currentLevelXP = user ? (user.xp % XP_PER_LEVEL) : 0;
   const progressValue = user ? Math.round((currentLevelXP / XP_PER_LEVEL) * 100) : 72;
   const xpToNextLevel = user ? (XP_PER_LEVEL - currentLevelXP) : 180;
   const level = user?.level || 4;
-  const todaysXP = user?.xp ? (user.xp % 100) : 34; // Simplified calculation
+  const todaysXP = user?.xp ? (user.xp % 100) : 34;
   const streakDays = user?.streakDays || 3;
   const fullName = user?.fullName || 'Farmer';
   const avatarEmoji = '👨‍🌾';
-  
-  // ── Real pending tasks count ─────────────────────────────────
+
   const pendingTasksCount = pendingTasks.length;
+
+  // Farm Health scores — derived from real farm profile + weather data
+  const soilInfo = getSoilScore(user?.profile?.soilType);
+  const waterInfo = getWaterScore(user?.profile?.waterAvailability, weather?.rainChance);
+  const sunInfo = getSunScore(weather?.condition);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // ── Refresh user data whenever dashboard comes into focus ─────────────
   useFocusEffect(
     useCallback(() => {
-      console.log('Dashboard focused - refreshing user data');
+      // ✅ Sync: refresh user XP/coins AND task chain whenever dashboard comes into focus
       refreshUser().catch(err => console.error('Failed to refresh user on focus:', err));
-    }, [refreshUser])
+      refreshTasks().catch(err => console.error('Failed to refresh tasks on focus:', err));
+    }, [refreshUser, refreshTasks])
   );
 
   useEffect(() => {
@@ -129,16 +177,14 @@ export default function PersonalizedDashboard() {
     setTimeout(() => setRefreshing(false), 800);
   }, [refreshUser, refreshTasks]);
 
-  const goToTasks = () => router.push('/(tabs)/tasks');
-  // Proof submission needs a specific taskId, which only exists when you tap
-// "Mark Done" on a task that requires proof — so route here instead of
-// opening proof-submission with no task context.
-const goToProofSubmit = () => router.push('/tasks');
+  const goToTasks = () => router.push('/tasks');
+  const goToProofSubmit = () => router.push('/tasks');
   const goToRewards = () => router.push('/rewards');
-  const goToLearningHub = () => router.push('/(tabs)/learninghub');
-  const goToCommunity = () => router.push('/(tabs)/communitydashboard');
+  const goToLearningHub = () => router.push('/learninghub');
+  const goToCommunity = () => router.push('/communitydashboard');
   const goToGovSchemes = () => router.push('/schemes');
-  const goToVirtualFarm = () => router.push('/(tabs)/virtualfarm');
+  const goToVirtualFarm = () => router.push('/virtualfarm');
+  const goToProfile = () => router.push('/profile');
 
   const displayTemp = weather ? `${weather.temp}°C` : '28°C';
   const displayCondition = weather ? weather.condition : 'Partly Cloudy';
@@ -150,7 +196,6 @@ const goToProofSubmit = () => router.push('/tasks');
   const displayScore = weather ? `${weather.score}/10` : '8.4/10';
 
   const hour = now.getHours();
-  // ✅ Translated greeting
   const greeting = hour < 12 ? t.dashboard.goodMorning
     : hour < 17 ? t.dashboard.goodAfternoon
     : t.dashboard.goodEvening;
@@ -165,11 +210,9 @@ const goToProofSubmit = () => router.push('/tasks');
       <StatusBar style="light" backgroundColor="#021F0F" />
       <SafeAreaView style={{ flex: 1 }}>
 
-        {/* HEADER */}
         <Reanimated.View entering={FadeInDown.duration(500)} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              {/* ✅ Translated */}
               <Text style={styles.greetingText}>{greeting}, 🌾</Text>
               {loading ? (
                 <>
@@ -185,20 +228,19 @@ const goToProofSubmit = () => router.push('/tasks');
                 </>
               )}
             </View>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity onPress={goToProfile} style={styles.avatarContainer} activeOpacity={0.75}>
               <View style={styles.avatarCircle}>
                 <Text style={{ fontSize: 24 }}>{avatarEmoji}</Text>
               </View>
               <View style={styles.levelBadge}>
                 <Text style={styles.levelBadgeText}>Lv.{level}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
           <View style={styles.headerBottomRow}>
             <View style={styles.headerXpTrack}>
               <LinearGradient colors={['#22c55e', '#4ade80']} style={[styles.headerXpFill, { width: `${progressValue}%` }]} />
             </View>
-            {/* ✅ Translated */}
             <Text style={styles.headerXpLabel}>{xpToNextLevel} {t.dashboard.xpToLevel} {level + 1}</Text>
           </View>
         </Reanimated.View>
@@ -207,7 +249,6 @@ const goToProofSubmit = () => router.push('/tasks');
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22c55e" />}
         >
-          {/* WEATHER CARD */}
           <Reanimated.View entering={FadeInUp.delay(100).duration(400)}>
             <LinearGradient colors={['#0F5E35', '#0A4228', '#063020']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.weatherHero}>
               <View style={styles.weatherTopRow}>
@@ -223,14 +264,12 @@ const goToProofSubmit = () => router.push('/tasks');
                 <View style={styles.weatherHeroRight}>
                   <View style={styles.irrigationChip}>
                     <Feather name="zap" size={12} color="#053B24" />
-                    {/* ✅ Translated */}
                     <Text style={styles.irrigationChipText}>{t.dashboard.goodForIrrigation}</Text>
                   </View>
                   <Animated.View style={{ transform: [{ rotate: rotation }], marginTop: 10 }}>
                     <Ionicons name="sunny" size={56} color="#fbbf24" />
                   </Animated.View>
                   <View style={styles.farmingScorePill}>
-                    {/* ✅ Translated */}
                     <Text style={styles.scorePillText}>{t.dashboard.farmingScore} {displayScore}</Text>
                   </View>
                 </View>
@@ -244,13 +283,11 @@ const goToProofSubmit = () => router.push('/tasks');
             </LinearGradient>
           </Reanimated.View>
 
-          {/* STREAK & XP ROW */}
           <View style={styles.rowCards}>
             <Reanimated.View entering={FadeInUp.delay(200).duration(400)} style={styles.halfCardWrapper}>
               <LinearGradient colors={['#92400e', '#78350f']} style={[styles.halfCard, styles.streakCard]}>
                 <Text style={styles.halfCardEmoji}>🔥</Text>
                 <View>
-                  {/* ✅ Translated */}
                   <Text style={styles.halfCardTitle}>{streakDays} {t.dashboard.streakDays}</Text>
                   <Text style={styles.halfCardSubGold}>{t.dashboard.xpBonus}</Text>
                 </View>
@@ -260,7 +297,6 @@ const goToProofSubmit = () => router.push('/tasks');
               <LinearGradient colors={['#14532d', '#0a3d1f']} style={[styles.halfCard, styles.xpCard]}>
                 <Text style={styles.halfCardEmoji}>⚡</Text>
                 <View>
-                  {/* ✅ Translated */}
                   <Text style={styles.halfCardTitle}>+{todaysXP} {t.dashboard.xpToday}</Text>
                   <View style={styles.miniProgressTrack}>
                     <View style={[styles.miniProgressFill, { width: '70%' }]} />
@@ -270,7 +306,6 @@ const goToProofSubmit = () => router.push('/tasks');
             </Reanimated.View>
           </View>
 
-          {/* MISSION PROGRESS CIRCLE */}
           <Reanimated.View entering={ZoomIn.delay(400).duration(500)} style={styles.missionCircleContainer}>
             <View style={styles.outerGlowRing}>
               <Svg width={150} height={150}>
@@ -282,7 +317,6 @@ const goToProofSubmit = () => router.push('/tasks');
               <View style={styles.circleInnerContent}>
                 <Text style={{ fontSize: 28 }}>{avatarEmoji}</Text>
                 <Text style={styles.circlePercentage}>{progressValue}%</Text>
-                {/* ✅ Translated */}
                 <Text style={styles.circleLabel}>{t.dashboard.missionProgress}</Text>
               </View>
             </View>
@@ -291,9 +325,7 @@ const goToProofSubmit = () => router.push('/tasks');
             </View>
           </Reanimated.View>
 
-          {/* SMART INSIGHTS */}
           <Reanimated.View entering={FadeInUp.delay(500).duration(400)} style={styles.glassCard}>
-            {/* ✅ Translated */}
             <Text style={styles.sectionTitle}>{t.dashboard.smartInsights}</Text>
             <View style={styles.insightRow}>
               <View style={styles.insightIcon}><Feather name="trending-up" size={16} color="#86efac" /></View>
@@ -312,39 +344,48 @@ const goToProofSubmit = () => router.push('/tasks');
             </View>
           </Reanimated.View>
 
-          {/* FARM HEALTH */}
           <Reanimated.View entering={FadeInUp.delay(600).duration(400)} style={styles.glassCard}>
-            {/* ✅ Translated */}
             <Text style={styles.sectionTitle}>{t.dashboard.farmHealth}</Text>
             <View style={styles.healthGrid}>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🌱 Soil</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '82%', backgroundColor: '#22c55e' }]} /></View>
-                <Text style={styles.healthValue}>82% · {t.dashboard.soilHealthy}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${soilInfo.score}%`, backgroundColor: '#22c55e' }]} /></View>
+                <Text style={styles.healthValue}>{soilInfo.score}% · {soilInfo.label}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>💧 Water</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '74%', backgroundColor: '#3b82f6' }]} /></View>
-                <Text style={styles.healthValue}>74% · {t.dashboard.waterEfficient}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${waterInfo.score}%`, backgroundColor: '#3b82f6' }]} /></View>
+                <Text style={styles.healthValue}>{waterInfo.score}% · {waterInfo.label}</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>🐛 Pest</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '38%', backgroundColor: '#f97316' }]} /></View>
-                <Text style={styles.healthValue}>38% · {t.dashboard.pestLowRisk}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '0%', backgroundColor: '#9ca3af' }]} /></View>
+                <Text style={styles.healthValue}>Tracking coming soon</Text>
               </View>
               <View style={styles.healthItem}>
                 <Text style={styles.healthLabel}>☀️ Sun</Text>
-                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: '68%', backgroundColor: '#fbbf24' }]} /></View>
-                <Text style={styles.healthValue}>68% · {t.dashboard.sunGood}</Text>
+                <View style={styles.healthBarTrack}><View style={[styles.healthBarFill, { width: `${sunInfo.score}%`, backgroundColor: '#fbbf24' }]} /></View>
+                <Text style={styles.healthValue}>{sunInfo.score}% · {sunInfo.label}</Text>
               </View>
             </View>
           </Reanimated.View>
 
-          {/* TOOLS GRID */}
           <Reanimated.View entering={FadeInUp.delay(700).duration(400)}>
-            {/* ✅ Translated */}
             <Text style={[styles.sectionTitle, { marginLeft: 4, marginTop: 10 }]}>{t.dashboard.yourTools}</Text>
             <View style={styles.toolsGrid}>
+
+              <TouchableOpacity style={styles.toolCard} onPress={goToProfile} activeOpacity={0.75}>
+                <View style={styles.toolHeader}>
+                  <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(96,165,250,0.15)' }]}>
+                    <Ionicons name="person" size={20} color="#60a5fa" />
+                  </View>
+                  <View style={[styles.toolBadge, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                    <Text style={styles.toolBadgeText}>Lv.{level}</Text>
+                  </View>
+                </View>
+                <Text style={styles.toolTitle}>My Profile</Text>
+                <Text style={styles.toolSubtitle}>Your details & progress</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToTasks} activeOpacity={0.75}>
                 <View style={styles.toolHeader}>

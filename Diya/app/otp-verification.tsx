@@ -18,25 +18,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 
 import { useLanguage } from "../context/LanguageContext";
-import { verifyOtp } from "../services/authService";
+import { verifyOtp, sendOtp } from "../services/authService";
 
 export default function OtpVerification() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { email, fullName, phone, state, password } = params;
+
+  // ── Params passed from auth.tsx ──────────────────────────
+  const email = Array.isArray(params.email) ? params.email[0] : params.email;
+  const fullName = Array.isArray(params.fullName) ? params.fullName[0] : params.fullName;
+  const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone;
+  const state = Array.isArray(params.state) ? params.state[0] : params.state;
+  const password = Array.isArray(params.password) ? params.password[0] : params.password;
+  const initialOtp = Array.isArray(params.otp) ? params.otp[0] : params.otp;
 
   const { t } = useLanguage();
 
   const [otpArray, setOtpArray] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState("");
   const [timer, setTimer] = useState(30);
 
-  // ✅ Fix 2: changed to TextInput[] (no null)
   const inputRefs = useRef<TextInput[]>([]);
 
   useEffect(() => {
-    // ✅ Fix 1: ReturnType<typeof setInterval> instead of NodeJS.Timeout
     let interval: ReturnType<typeof setInterval>;
     if (timer > 0) {
       interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
@@ -44,10 +50,39 @@ export default function OtpVerification() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  function handleResend() {
-    if (timer === 0) {
-      setTimer(30);
-      setError("");
+  useEffect(() => {
+    if (typeof initialOtp === "string" && initialOtp) {
+      const digits = initialOtp.split("");
+      const padded = [...digits, ...Array(Math.max(0, 6 - digits.length)).fill("")];
+      setOtpArray(padded.slice(0, 6));
+    }
+  }, [initialOtp]);
+
+  async function handleResend() {
+    if (timer !== 0 || isResending) return;
+
+    setIsResending(true);
+    setError("");
+    try {
+      const res = await sendOtp(email as string);
+      if (!res.success) {
+        setError(res.error || t.common.error);
+      } else {
+        setTimer(30);
+        if (res.otp) {
+          const digits = res.otp.split("");
+          const padded = [...digits, ...Array(Math.max(0, 6 - digits.length)).fill("")];
+          setOtpArray(padded.slice(0, 6));
+        } else {
+          setOtpArray(["", "", "", "", "", ""]);
+        }
+        inputRefs.current[0]?.focus();
+      }
+    } catch (e) {
+      console.error("Failed to resend OTP:", e);
+      setError(t.common.error);
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -79,7 +114,14 @@ export default function OtpVerification() {
     setError("");
 
     try {
-      const res = await verifyOtp(email as string, otpCode, password as string);
+      const res = await verifyOtp(
+        email as string,
+        otpCode,
+        password as string,
+        fullName as string,
+        state as string,
+        phone as string
+      );
       if (!res.success) {
         setError(res.error || t.common.error);
         setIsLoading(false);
@@ -89,11 +131,11 @@ export default function OtpVerification() {
       await AsyncStorage.setItem("authToken", res.token);
       await AsyncStorage.setItem("user", JSON.stringify(res.user));
 
-    const isProfileFinished = res.user?.profile?.profileCompleted === true;
+      const isProfileFinished = res.user?.profile?.profileCompleted === true;
       await AsyncStorage.setItem("profileComplete", String(isProfileFinished));
 
       if (isProfileFinished) {
-        router.replace("/(tabs)/dashboard");
+        router.replace("/dashboard");
       } else {
         router.replace("/farm-profile");
       }
@@ -140,7 +182,6 @@ export default function OtpVerification() {
                 return (
                   <Animated.View key={index} entering={FadeInUp.delay(300 + index * 50).duration(400)}>
                     <TextInput
-                      // ✅ Fix 3: cast el as TextInput to satisfy TypeScript
                       ref={(el) => { inputRefs.current[index] = el as TextInput; }}
                       style={[styles.otpBox, isFilled && styles.otpBoxFilled]}
                       value={digit}
@@ -167,6 +208,8 @@ export default function OtpVerification() {
               <Text style={styles.resendText}>Didn't receive the code? </Text>
               {timer > 0 ? (
                 <Text style={styles.timerText}>Resend in {timer}s</Text>
+              ) : isResending ? (
+                <ActivityIndicator size="small" color="#4ade80" />
               ) : (
                 <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
                   <Text style={styles.resendActiveText}>Resend OTP</Text>
@@ -219,7 +262,7 @@ const styles = StyleSheet.create({
   otpBoxFilled: { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "#4ade80", shadowColor: "#22c55e", shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   errorBox: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "rgba(239,68,68,0.3)", marginBottom: 20 },
   errorText: { color: "#fca5a5", fontSize: 13, fontWeight: "500", marginLeft: 8, flex: 1 },
-  resendContainer: { flexDirection: "row", justifyContent: "center", marginBottom: 30 },
+  resendContainer: { flexDirection: "row", justifyContent: "center", marginBottom: 30, alignItems: "center" },
   resendText: { color: "rgba(187,247,208,0.6)", fontSize: 14, fontWeight: "500" },
   timerText: { color: "#86efac", fontSize: 14, fontWeight: "700" },
   resendActiveText: { color: "#4ade80", fontSize: 14, fontWeight: "800", textDecorationLine: "underline" },

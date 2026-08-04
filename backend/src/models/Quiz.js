@@ -10,7 +10,8 @@ const quizSchema = new mongoose.Schema(
             {
                 questionText: { type: String, required: true },
                 options: [{ type: String, required: true }],
-                correctAnswerIndex: { type: Number, required: true } // 0, 1, 2, or 3
+                correctAnswerIndex: { type: Number, required: true },
+                difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' }
             }
         ],
         isActive: { type: Boolean, default: true }

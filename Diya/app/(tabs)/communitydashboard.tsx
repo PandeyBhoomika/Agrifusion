@@ -19,14 +19,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import StoriesBar from '../../components/Stories';
 
 const { width } = Dimensions.get('window');
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.29.51:4000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // ─── Auth header helper ───────────────────────────────
-// Reads the JWT saved at login and returns headers including the
-// Authorization bearer token. Backend derives identity from this token,
-// so userId no longer needs to be sent in request bodies.
 const authHeaders = async () => {
   const token = await AsyncStorage.getItem('authToken');
   return {
@@ -85,16 +83,14 @@ export default function CommunityDashboard() {
   const [newPostText, setNewPostText] = useState('');
   const [posting, setPosting] = useState(false);
 
-  // Comment modal
   const [commentModal, setCommentModal] = useState(false);
   const [activePost, setActivePost] = useState<Post | null>(null);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
-  // Current user from storage
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // ─── Load current user ────────────────────────────
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -111,7 +107,6 @@ export default function CommunityDashboard() {
     fetchPosts();
   }, []);
 
-  // ─── Fetch posts ──────────────────────────────────
   const fetchPosts = async () => {
     try {
       const res = await fetch(`${API_URL}/community`, {
@@ -134,7 +129,6 @@ export default function CommunityDashboard() {
     fetchPosts();
   }, []);
 
-  // ─── Create post ──────────────────────────────────
   const handlePost = async () => {
     if (!newPostText.trim()) return;
     if (!currentUserId) {
@@ -163,7 +157,6 @@ export default function CommunityDashboard() {
     }
   };
 
-  // ─── Like / Unlike ────────────────────────────────
   const handleLike = async (post: Post) => {
     if (!currentUserId) {
       Alert.alert('Login required', 'Please log in to like posts.');
@@ -172,7 +165,6 @@ export default function CommunityDashboard() {
 
     const isLiked = post.likes.includes(currentUserId);
 
-    // Optimistic update
     setPosts((prev) =>
       prev.map((p) => {
         if (p._id !== post._id) return p;
@@ -192,26 +184,22 @@ export default function CommunityDashboard() {
       });
       const json = await res.json();
       if (!json.success) {
-        // Revert if failed
         setPosts((prev) =>
           prev.map((p) => (p._id === post._id ? post : p))
         );
       }
     } catch {
-      // Revert on network error
       setPosts((prev) =>
         prev.map((p) => (p._id === post._id ? post : p))
       );
     }
   };
 
-  // ─── Open comment modal ───────────────────────────
   const openComments = (post: Post) => {
     setActivePost(post);
     setCommentModal(true);
   };
 
-  // ─── Add comment ──────────────────────────────────
   const handleAddComment = async () => {
     if (!commentText.trim() || !activePost) return;
     if (!currentUserId) {
@@ -228,13 +216,11 @@ export default function CommunityDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        // Update posts list with new comments
         setPosts((prev) =>
           prev.map((p) =>
             p._id === activePost._id ? { ...p, comments: json.data } : p
           )
         );
-        // Update active post for modal
         setActivePost((prev) =>
           prev ? { ...prev, comments: json.data } : prev
         );
@@ -247,6 +233,50 @@ export default function CommunityDashboard() {
     }
   };
 
+  // ─── Delete comment ───────────────────────────────
+  const confirmDeleteComment = (comment: Comment) => {
+    Alert.alert(
+      'Delete comment?',
+      'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => handleDeleteComment(comment._id) },
+      ]
+    );
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!activePost) return;
+
+    setDeletingCommentId(commentId);
+    try {
+      const res = await fetch(
+        `${API_URL}/community/${activePost._id}/comment/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: await authHeaders(),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p._id === activePost._id ? { ...p, comments: json.data } : p
+          )
+        );
+        setActivePost((prev) =>
+          prev ? { ...prev, comments: json.data } : prev
+        );
+      } else {
+        Alert.alert('Error', json.message || 'Could not delete comment.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not delete comment. Check your connection.');
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   // ─── Post Card ────────────────────────────────────
   const PostCard = ({ post }: { post: Post }) => {
     const isLiked = currentUserId ? post.likes.includes(currentUserId) : false;
@@ -254,7 +284,6 @@ export default function CommunityDashboard() {
 
     return (
       <View style={styles.card}>
-        {/* Author row */}
         <View style={styles.cardHeader}>
           <View style={[styles.avatar, { backgroundColor: getAvatarColor(authorName) }]}>
             <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
@@ -267,10 +296,8 @@ export default function CommunityDashboard() {
           </View>
         </View>
 
-        {/* Content */}
         <Text style={styles.postContent}>{post.content}</Text>
 
-        {/* Image if present */}
         {post.imageUrl ? (
           <Image
             source={{ uri: post.imageUrl }}
@@ -279,7 +306,6 @@ export default function CommunityDashboard() {
           />
         ) : null}
 
-        {/* Actions */}
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.actionBtn}
@@ -309,7 +335,6 @@ export default function CommunityDashboard() {
     );
   };
 
-  // ─── Render ───────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#1B4332', '#2D6A4F']} style={styles.header}>
@@ -328,7 +353,8 @@ export default function CommunityDashboard() {
           />
         }
       >
-        {/* Compose Box */}
+        <StoriesBar />
+
         <View style={styles.composeBox}>
           <TextInput
             style={styles.composeInput}
@@ -353,7 +379,6 @@ export default function CommunityDashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Feed */}
         {loading ? (
           <ActivityIndicator size="large" color="#2D6A4F" style={{ marginTop: 40 }} />
         ) : posts.length === 0 ? (
@@ -369,7 +394,6 @@ export default function CommunityDashboard() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Comment Modal */}
       <Modal
         visible={commentModal}
         animationType="slide"
@@ -381,7 +405,6 @@ export default function CommunityDashboard() {
           style={styles.modalOverlay}
         >
           <View style={styles.modalSheet}>
-            {/* Modal header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Comments</Text>
               <TouchableOpacity onPress={() => setCommentModal(false)}>
@@ -389,36 +412,55 @@ export default function CommunityDashboard() {
               </TouchableOpacity>
             </View>
 
-            {/* Comments list */}
             <ScrollView style={styles.commentsList}>
               {activePost?.comments.length === 0 ? (
                 <Text style={styles.noComments}>No comments yet. Be the first!</Text>
               ) : (
-                activePost?.comments.map((c) => (
-                  <View key={c._id} style={styles.commentItem}>
-                    <View
-                      style={[
-                        styles.commentAvatar,
-                        { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
-                      ]}
-                    >
-                      <Text style={styles.commentAvatarText}>
-                        {getInitials(c.userId?.fullName || 'F')}
-                      </Text>
+                activePost?.comments.map((c) => {
+                  const isOwnComment = currentUserId && c.userId?._id === currentUserId;
+                  const isDeleting = deletingCommentId === c._id;
+
+                  return (
+                    <View key={c._id} style={styles.commentItem}>
+                      <View
+                        style={[
+                          styles.commentAvatar,
+                          { backgroundColor: getAvatarColor(c.userId?.fullName || 'F') },
+                        ]}
+                      >
+                        <Text style={styles.commentAvatarText}>
+                          {getInitials(c.userId?.fullName || 'F')}
+                        </Text>
+                      </View>
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentTopRow}>
+                          <Text style={styles.commentAuthor}>
+                            {c.userId?.fullName || 'Farmer'}
+                          </Text>
+
+                          {isOwnComment && (
+                            <TouchableOpacity
+                              onPress={() => confirmDeleteComment(c)}
+                              disabled={isDeleting}
+                              style={styles.commentDeleteBtn}
+                            >
+                              {isDeleting ? (
+                                <ActivityIndicator size="small" color="#9CA3AF" />
+                              ) : (
+                                <Ionicons name="trash-outline" size={15} color="#9CA3AF" />
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <Text style={styles.commentText}>{c.text}</Text>
+                        <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
+                      </View>
                     </View>
-                    <View style={styles.commentBody}>
-                      <Text style={styles.commentAuthor}>
-                        {c.userId?.fullName || 'Farmer'}
-                      </Text>
-                      <Text style={styles.commentText}>{c.text}</Text>
-                      <Text style={styles.commentTime}>{timeAgo(c.createdAt)}</Text>
-                    </View>
-                  </View>
-                ))
+                  );
+                })
               )}
             </ScrollView>
 
-            {/* Add comment */}
             <View style={styles.commentInputRow}>
               <TextInput
                 style={styles.commentInput}
@@ -448,143 +490,51 @@ export default function CommunityDashboard() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
-
-  // Header
   header: { paddingTop: 10, paddingBottom: 20, paddingHorizontal: 20 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
   headerSubtitle: { fontSize: 13, color: '#B7E4C7', marginTop: 2 },
-
-  // Feed
   feed: { flex: 1 },
-
-  // Compose
-  composeBox: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 14,
-    padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  composeInput: {
-    fontSize: 15,
-    color: '#111827',
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  postBtn: {
-    backgroundColor: '#2D6A4F',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
+  composeBox: { backgroundColor: '#fff', margin: 16, borderRadius: 14, padding: 14, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  composeInput: { fontSize: 15, color: '#111827', minHeight: 70, textAlignVertical: 'top' },
+  postBtn: { backgroundColor: '#2D6A4F', borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 10 },
   postBtnDisabled: { backgroundColor: '#9CA3AF' },
   postBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-
-  // Card
-  card: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+  card: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
+  avatar: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   avatarText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   authorInfo: { flex: 1 },
   authorName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   authorMeta: { fontSize: 12, color: '#6B7280', marginTop: 1 },
   postContent: { fontSize: 15, color: '#374151', lineHeight: 22, marginBottom: 12 },
   postImage: { width: '100%', height: 200, borderRadius: 10, marginBottom: 12 },
-
-  // Actions
   cardActions: { flexDirection: 'row', gap: 20, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   actionCount: { fontSize: 14, color: '#6B7280' },
   likedText: { color: '#E63946' },
-
-  // Empty
   emptyState: { alignItems: 'center', marginTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#374151' },
   emptySubtitle: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
-
-  // Modal
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
+  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '80%', paddingBottom: Platform.OS === 'ios' ? 30 : 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
   commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   noComments: { textAlign: 'center', color: '#9CA3AF', marginTop: 30, fontSize: 14 },
   commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
-  commentAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  commentAvatar: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   commentAvatarText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   commentBody: { flex: 1 },
+  commentTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  commentDeleteBtn: { padding: 4 },
   commentAuthor: { fontSize: 13, fontWeight: '600', color: '#111827' },
   commentText: { fontSize: 14, color: '#374151', marginTop: 2, lineHeight: 20 },
   commentTime: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },
-  commentInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    gap: 10,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    maxHeight: 100,
-  },
-  sendBtn: {
-    backgroundColor: '#2D6A4F',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  commentInputRow: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
+  commentInput: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#111827', maxHeight: 100 },
+  sendBtn: { backgroundColor: '#2D6A4F', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { backgroundColor: '#9CA3AF' },
 });

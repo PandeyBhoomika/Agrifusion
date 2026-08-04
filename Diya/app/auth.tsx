@@ -5,7 +5,7 @@ import {
   Alert, ActivityIndicator, Animated, Easing, Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Reanimated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -15,7 +15,6 @@ import { useLanguage } from "../context/LanguageContext";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-// --- PARTICLE COMPONENT (unchanged) ---
 const Particle = ({ particle }: { particle: any }) => {
   const animY = useRef(new Animated.Value(0)).current;
 
@@ -54,10 +53,13 @@ const Particle = ({ particle }: { particle: any }) => {
 
 export default function AuthScreen() {
   const router = useRouter();
-  // ✅ Get translations
   const { t } = useLanguage();
+  const params = useLocalSearchParams<{ mode?: string }>();
 
-  const [isLogin, setIsLogin] = useState(false);
+  const [isLogin, setIsLogin] = useState(() => {
+    const mode = params.mode;
+    return typeof mode === "string" ? mode !== "signup" : true;
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -88,6 +90,11 @@ export default function AuthScreen() {
     loadStates();
   }, []);
 
+  useEffect(() => {
+    const mode = params.mode;
+    setIsLogin(typeof mode === "string" ? mode !== "signup" : true);
+  }, [params.mode]);
+
   const handleInputChange = (field: string, value: string) => {
     setErrorMessage("");
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -95,28 +102,36 @@ export default function AuthScreen() {
 
   const handleSendOtp = async () => {
     if (!formData.email.trim() || !formData.fullName.trim() || !formData.phone.trim() || !formData.state.trim() || !formData.password.trim()) {
-      // ✅ Translated error
       setErrorMessage(t.auth.allFieldsRequired);
       return;
     }
     if (formData.phone.length !== 10 || !/^\d+$/.test(formData.phone)) {
-      // ✅ Translated error
       setErrorMessage(t.auth.invalidPhone);
       return;
     }
+    if (formData.password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters");      return;
+    }
+
     setIsLoading(true);
     setErrorMessage("");
     try {
       const response = await sendOtp(formData.email);
       if (response.success) {
-        // ✅ Translated alert
-        Alert.alert(t.common.success, t.auth.otpSentSuccess);
+        const message = response.otp
+          ? `${t.auth.otpSentSuccess}\nDemo code: ${response.otp}`
+          : t.auth.otpSentSuccess;
+
+        Alert.alert(t.common.success, message);
         router.push({
           pathname: "/otp-verification",
           params: {
-            email: formData.email, fullName: formData.fullName,
-            phone: formData.phone, state: formData.state,
+            email: formData.email,
+            fullName: formData.fullName,
+            phone: formData.phone,
+            state: formData.state,
             password: formData.password,
+            otp: response.otp || "",
           },
         });
       } else {
@@ -135,7 +150,7 @@ export default function AuthScreen() {
       setErrorMessage(t.auth.allFieldsRequired);
       return;
     }
-  setIsLoading(true);
+    setIsLoading(true);
     setErrorMessage("");
 
     try {
@@ -153,12 +168,11 @@ export default function AuthScreen() {
       await AsyncStorage.setItem("authToken", token);
       await AsyncStorage.setItem("user", JSON.stringify(user));
 
-      // Route based on whether the farm profile is complete (same check as OTP flow)
       const isProfileFinished = user?.profile?.profileCompleted === true;
       await AsyncStorage.setItem("profileComplete", String(isProfileFinished));
 
       if (isProfileFinished) {
-        router.replace("/(tabs)/dashboard");
+        router.replace("/dashboard");
       } else {
         router.replace("/farm-profile");
       }
@@ -180,24 +194,20 @@ export default function AuthScreen() {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
-            {/* --- HEADER --- */}
             <Reanimated.View entering={FadeInDown.delay(100).duration(500)} style={styles.logoContainer}>
               <View style={styles.logoGlow}>
                 <Text style={styles.logoEmoji}>🌾</Text>
               </View>
               <Text style={styles.header}>AgriFusion</Text>
-              {/* ✅ Translated subtitle */}
               <Text style={styles.sub}>{t.auth.appSubtitle}</Text>
             </Reanimated.View>
 
-            {/* --- PILL TOGGLE --- */}
             <Reanimated.View entering={FadeInDown.delay(200).duration(500)} style={styles.toggleContainer}>
               <TouchableOpacity
                 style={[styles.toggleBtn, isLogin && styles.toggleBtnActive]}
                 onPress={() => { setIsLogin(true); setErrorMessage(""); }}
                 activeOpacity={0.8}
               >
-                {/* ✅ Translated toggle */}
                 <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>{t.auth.login}</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -209,12 +219,10 @@ export default function AuthScreen() {
               </TouchableOpacity>
             </Reanimated.View>
 
-            {/* --- FORM FIELDS --- */}
             <Reanimated.View entering={FadeInUp.delay(300).duration(500)} style={styles.formContainer}>
 
               {!isLogin && (
                 <View style={styles.field}>
-                  {/* ✅ Translated labels & placeholders */}
                   <Text style={styles.label}>{t.auth.fullName}</Text>
                   <TextInput
                     value={formData.fullName}
@@ -297,7 +305,6 @@ export default function AuthScreen() {
                 </View>
               </View>
 
-              {/* Error Message */}
               {errorMessage ? (
                 <Reanimated.View entering={ZoomIn.duration(300)} style={styles.errorBox}>
                   <Ionicons name="alert-circle" size={18} color="#fca5a5" />
@@ -305,7 +312,6 @@ export default function AuthScreen() {
                 </Reanimated.View>
               ) : null}
 
-              {/* Submit Button */}
               <TouchableOpacity
                 style={[styles.submitWrapper, isLoading && styles.disabled]}
                 onPress={onSubmit}
@@ -320,7 +326,6 @@ export default function AuthScreen() {
                   {isLoading ? (
                     <ActivityIndicator color="#ffffff" />
                   ) : (
-                    // ✅ Translated button
                     <Text style={styles.submitText}>
                       {isLogin ? t.auth.loginButton : t.auth.signUpButton}
                     </Text>
@@ -328,7 +333,6 @@ export default function AuthScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* ✅ Translated disclaimer */}
               <Text style={styles.disclaimer}>{t.auth.disclaimer}</Text>
 
             </Reanimated.View>

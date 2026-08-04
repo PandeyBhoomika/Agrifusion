@@ -3,18 +3,17 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
-// ✅ Fallback to the IP address we confirmed is working!
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.0.103:4000/api";
 
 export default function LoginScreen() {
   const router = useRouter();
 
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // ✅ Added loading state
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (phone.trim() === "" || password.trim() === "") {
+    if (email.trim() === "" || password.trim() === "") {
       Alert.alert("Error", "Please enter both fields");
       return;
     }
@@ -22,15 +21,13 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      console.log(`🌐 Attempting login at: ${API_BASE_URL}/auth/login`);
-      
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phone: phone, // Note: If your backend expects 'email' instead of 'phone', change the key here to 'email: phone'
+          email: email.trim().toLowerCase(),
           password: password,
         }),
       });
@@ -38,29 +35,26 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        // Backend returned an error (e.g., 401 Unauthorized)
         Alert.alert("Login Failed", data.message || "Invalid credentials");
         setIsLoading(false);
         return;
       }
 
-      // ✅ Success! Save the real token and user data
       await AsyncStorage.setItem("loggedIn", "true");
-      
+
       if (data.token) {
-        await AsyncStorage.setItem("authToken", data.token); // Needed for Rewards fetching
+        await AsyncStorage.setItem("authToken", data.token);
       }
       if (data.user) {
-        await AsyncStorage.setItem("user", JSON.stringify(data.user)); // Needed for Community posts
+        await AsyncStorage.setItem("user", JSON.stringify(data.user));
       }
 
-      // Navigate to your main app
       router.replace("/dashboard");
 
     } catch (error) {
       console.error("Login network error:", error);
       Alert.alert(
-        "Network Error", 
+        "Network Error",
         "Could not connect to the server. Please check your connection."
       );
     } finally {
@@ -75,10 +69,11 @@ export default function LoginScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Phone Number"
-        keyboardType="number-pad"
-        value={phone}
-        onChangeText={setPhone}
+        placeholder="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={setEmail}
         editable={!isLoading}
       />
 
@@ -91,8 +86,8 @@ export default function LoginScreen() {
         editable={!isLoading}
       />
 
-      <TouchableOpacity 
-        style={[styles.loginBtn, isLoading && styles.loginBtnDisabled]} 
+      <TouchableOpacity
+        style={[styles.loginBtn, isLoading && styles.loginBtnDisabled]}
         onPress={handleLogin}
         disabled={isLoading}
       >
@@ -101,6 +96,16 @@ export default function LoginScreen() {
         ) : (
           <Text style={styles.loginText}>Login</Text>
         )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.signupLink}
+        onPress={() => router.push("/auth?mode=signup")}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.signupLinkText}>
+          Don’t have an account? <Text style={styles.signupLinkTextBold}>Sign up</Text>
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -141,17 +146,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 10,
     elevation: 4,
-    height: 54, // Fixed height so it doesn't jump when spinner appears
+    height: 54,
     justifyContent: 'center',
   },
   loginBtnDisabled: {
-    backgroundColor: "#6EE7B7", // Lighter green when loading
+    backgroundColor: "#6EE7B7",
     elevation: 0,
   },
   loginText: {
     textAlign: "center",
     color: "white",
     fontSize: 18,
+    fontWeight: "700",
+  },
+  signupLink: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  signupLinkText: {
+    color: "#374151",
+    fontSize: 15,
+  },
+  signupLinkTextBold: {
+    color: "#10B981",
     fontWeight: "700",
   },
 });

@@ -7,107 +7,72 @@ const taskSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     description: {
       type: String,
       required: true,
     },
-
     xpReward: {
       type: Number,
       required: true,
       default: 50,
     },
-
     coinReward: {
       type: Number,
       required: true,
       default: 10,
     },
-
     category: {
       type: String,
-      enum: [
-        "Soil Health",
-        "Water Conservation",
-        "Pest Control",
-        "Crop Management",
-        "General",
-      ],
+      enum: ["Soil Health", "Water Conservation", "Pest Control", "Crop Management", "General"],
       default: "General",
     },
     missionId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Mission",
-},
-
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Mission",
+      default: null,
+    },
     difficulty: {
       type: String,
       enum: ["Easy", "Medium", "Hard"],
       default: "Easy",
     },
-
     isActive: {
       type: Boolean,
       default: true,
     },
-
-    // Used to sequence tasks
     stageOrder: {
       type: Number,
       default: 1,
     },
-
-    // Whether proof submission is required
+    stage: {
+      type: String,
+      default: "",
+    },
     requiresProof: {
       type: Boolean,
       default: false,
     },
-
-    // ===== NEW PERSONALIZATION FIELDS =====
-
     estimatedTime: {
       type: Number,
       default: 10,
     },
-
-    season: [
-      {
-        type: String,
-      },
-    ],
-
-    cropTypes: [
-      {
-        type: String,
-      },
-    ],
-
-    states: [
-      {
-        type: String,
-      },
-    ],
-
+    season: [{ type: String }],
+    cropTypes: [{ type: String }],
+    states: [{ type: String }],
     skillLevel: {
       type: String,
       enum: ["Beginner", "Intermediate", "Advanced"],
       default: "Beginner",
     },
-
     repeatType: {
       type: String,
-      enum: ["Daily", "Weekly", "Monthly", "Seasonal", "One-Time"],  // ✅ added Monthly & Seasonal
+      enum: ["Daily", "Weekly", "Monthly", "Seasonal", "One-Time"],
       default: "Daily",
     },
-
     image: {
       type: String,
       default: "",
     },
-
-    // ===== USERS WHO COMPLETED THIS TASK =====
-
     completedBy: [
       {
         userId: {
@@ -115,7 +80,6 @@ const taskSchema = new mongoose.Schema(
           ref: "User",
           required: true,
         },
-
         completedAt: {
           type: Date,
           default: Date.now,
@@ -123,9 +87,7 @@ const taskSchema = new mongoose.Schema(
       },
     ],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 export default mongoose.model("Task", taskSchema);
