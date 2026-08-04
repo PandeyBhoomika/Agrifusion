@@ -48,7 +48,7 @@ function getWaterSources(t: any) {
   return [
     { value: 'Abundant (River/Canal)', icon: '🌊', label: t.farmData.waterAbundant },
     { value: 'Borewell', icon: '💧', label: t.farmData.waterBorewell },
-    { value: 'Rainfed Only', icon: '🌧️', label: t.farmData.waterRainfed },
+    { value: 'Rainfall Only', icon: '🌧️', label: t.farmData.waterRainfed },
     { value: 'Drip Irrigation', icon: '💦', label: t.farmData.waterDrip },
     { value: 'Limited', icon: '⚠️', label: t.farmData.waterLimited },
   ];

@@ -383,8 +383,8 @@ export default function PersonalizedDashboard() {
                     <Text style={styles.toolBadgeText}>Lv.{level}</Text>
                   </View>
                 </View>
-                <Text style={styles.toolTitle}>My Profile</Text>
-                <Text style={styles.toolSubtitle}>Your details & progress</Text>
+                <Text style={styles.toolTitle}>{t.dashboard.myProfile}</Text>
+<Text style={styles.toolSubtitle}>{t.dashboard.yourDetailsProgress}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.toolCard} onPress={goToTasks} activeOpacity={0.75}>

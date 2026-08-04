@@ -9,7 +9,7 @@
     "dashboard": "डैशबोर्ड", "tasks": "कार्य", "learn": "सीखें", "community": "समुदाय"
   },
   "splash": {
-    "tagline": "तकनीक के माध्यम से किसानों को सशक्त बनाना",
+    "tagline": "स्मार्ट खेती, असली इनाम",
     "smartTasks": "स्मार्ट कार्य प्रबंधन", "earnXP": "XP और ग्रीन कॉइन कमाएं", "connect": "किसानों से जुड़ें"
   },
   "language": {
@@ -127,7 +127,8 @@
     "streakDays": "दिन की लकीर", "xpBonus": "+20 XP बोनस",
     "xpToday": "आज का XP", "xpToLevel": "लेवल तक XP",
     "pending": "लंबित", "fieldPhotos": "खेत की तस्वीरें",
-    "overview": "अवलोकन", "live": "लाइव", "eligible": "पात्र", "new": "नया"
+    "overview": "अवलोकन", "live": "लाइव", "eligible": "पात्र", "new": "नया","myProfile": "मेरी प्रोफ़ाइल",
+"yourDetailsProgress": "आपका विवरण और प्रगति"
   },
   "learningHub": {
     "title": "लर्निंग हब 📚", "subtitle": "आधुनिक खेती तकनीक सीखें",
@@ -181,5 +182,29 @@
   "mango": "आम", "grapes": "अंगूर", "pomegranate": "अनार", "guava": "अमरूद",
   "papaya": "पपीता", "coconut": "नारियल", "arecanut": "सुपारी", "cashew": "काजू",
   "tea": "चाय", "coffee": "कॉफी"
+},
+"profile": {
+  "title": "मेरी प्रोफ़ाइल",
+  "progress": "प्रगति",
+  "level": "स्तर",
+  "xp": "XP",
+  "greenCoins": "ग्रीन कॉइन",
+  "streak": "स्ट्रीक",
+  "badges": "बैज",
+  "noBadges": "अभी तक कोई बैज अर्जित नहीं किया",
+  "farmDetails": "खेत का विवरण",
+  "crops": "फसलें",
+  "farmSize": "खेत का आकार",
+  "soilType": "मिट्टी का प्रकार",
+  "waterSource": "जल स्रोत",
+  "region": "क्षेत्र",
+  "season": "मौसम",
+  "skillLevel": "कौशल स्तर",
+  "previousCrop": "पिछली फसल",
+  "notSet": "सेट नहीं है",
+  "acres": "एकड़",
+  "farmer": "किसान",
+  "logOut": "लॉग आउट",
+  "logOutConfirmMessage": "क्या आप वाकई लॉग आउट करना चाहते हैं?"
 }
 }

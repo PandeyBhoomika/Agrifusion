@@ -9,8 +9,7 @@
     "dashboard": "Dashboard", "tasks": "Tasks", "learn": "Learn", "community": "Community"
   },
   "splash": {
-    "tagline": "Empowering Farmers Through Technology",
-    "smartTasks": "Smart Task Management", "earnXP": "Earn XP & Green Coins", "connect": "Connect with Farmers"
+"tagline": "Smart Farming, Real Rewards"    ,"smartTasks": "Smart Task Management", "earnXP": "Earn XP & Green Coins", "connect": "Connect with Farmers"
   },
   "language": {
     "welcome": "Welcome to AgriFusion", "selectLanguage": "Select your preferred language", "choosePrompt": "Choose a language"
@@ -129,7 +128,8 @@
     "streakDays": "Day Streak", "xpBonus": "+20 XP Bonus",
     "xpToday": "XP Today", "xpToLevel": "XP to Level",
     "pending": "pending", "fieldPhotos": "Field Photos",
-    "overview": "Overview", "live": "Live", "eligible": "eligible", "new": "New"
+    "overview": "Overview", "live": "Live", "eligible": "eligible", "new": "New","myProfile": "My Profile",
+"yourDetailsProgress": "Your details & progress"
   },
   "learningHub": {
     "title": "Learning Hub 📚", "subtitle": "Master modern farming techniques",
@@ -183,5 +183,29 @@
   "mango": "Mango", "grapes": "Grapes", "pomegranate": "Pomegranate", "guava": "Guava",
   "papaya": "Papaya", "coconut": "Coconut", "arecanut": "Arecanut", "cashew": "Cashew",
   "tea": "Tea", "coffee": "Coffee"
+},
+"profile": {
+  "title": "My Profile",
+  "progress": "Progress",
+  "level": "Level",
+  "xp": "XP",
+  "greenCoins": "Green Coins",
+  "streak": "Streak",
+  "badges": "Badges",
+  "noBadges": "No badges earned yet",
+  "farmDetails": "Farm Details",
+  "crops": "Crops",
+  "farmSize": "Farm size",
+  "soilType": "Soil type",
+  "waterSource": "Water source",
+  "region": "Region",
+  "season": "Season",
+  "skillLevel": "Skill level",
+  "previousCrop": "Previous crop",
+  "notSet": "Not set",
+  "acres": "acres",
+  "farmer": "Farmer",
+  "logOut": "Log Out",
+  "logOutConfirmMessage": "Are you sure you want to log out?"
 }
 }

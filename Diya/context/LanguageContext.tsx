@@ -260,8 +260,37 @@ export type Translations = {
     live: string;
     eligible: string;
     new: string;
+     myProfile: string;
+    yourDetailsProgress: string;
   };
 
+  // ✅ PROFILE
+  profile: {
+    title: string;
+    progress: string;
+    level: string;
+    xp: string;
+    greenCoins: string;
+    streak: string;
+    badges: string;
+    noBadges: string;
+    farmDetails: string;
+    crops: string;
+    farmSize: string;
+    soilType: string;
+    waterSource: string;
+    region: string;
+    season: string;
+    skillLevel: string;
+    previousCrop: string;
+    notSet: string;
+    acres: string;
+    farmer: string;
+    logOut: string;
+    logOutConfirmMessage: string;
+  };
+
+  
   // ✅ LEARNING HUB
   learningHub: {
     title: string;

@@ -1,6 +1,6 @@
 {
   "common": { "continue": "ਜਾਰੀ ਰੱਖੋ", "back": "ਵਾਪਸ", "skip": "ਛੱਡੋ", "loading": "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...", "error": "ਗਲਤੀ", "success": "ਸਫਲਤਾ", "cancel": "ਰੱਦ ਕਰੋ", "confirm": "ਪੁਸ਼ਟੀ ਕਰੋ", "save": "ਸੁਰੱਖਿਅਤ ਕਰੋ", "close": "ਬੰਦ ਕਰੋ", "search": "ਖੋਜੋ", "all": "ਸਾਰੇ", "yes": "ਹਾਂ", "no": "ਨਹੀਂ", "required": "ਲੋੜੀਂਦਾ", "optional": "ਵਿਕਲਪਿਕ" },
-  "splash": { "tagline": "ਤਕਨਾਲੋਜੀ ਰਾਹੀਂ ਕਿਸਾਨਾਂ ਨੂੰ ਸਸ਼ਕਤ ਬਣਾਉਣਾ", "smartTasks": "ਸਮਾਰਟ ਕੰਮ ਪ੍ਰਬੰਧਨ", "earnXP": "XP ਅਤੇ ਗ੍ਰੀਨ ਕੋਇਨ ਕਮਾਓ", "connect": "ਕਿਸਾਨਾਂ ਨਾਲ ਜੁੜੋ" },
+  "splash": { "tagline": "ਸਮਾਰਟ ਖੇਤੀ, ਅਸਲ ਇਨਾਮ", "smartTasks": "ਸਮਾਰਟ ਕੰਮ ਪ੍ਰਬੰਧਨ", "earnXP": "XP ਅਤੇ ਗ੍ਰੀਨ ਕੋਇਨ ਕਮਾਓ", "connect": "ਕਿਸਾਨਾਂ ਨਾਲ ਜੁੜੋ" },
   "language": { "welcome": "AgriFusion ਵਿੱਚ ਤੁਹਾਡਾ ਸੁਆਗਤ ਹੈ", "selectLanguage": "ਆਪਣੀ ਪਸੰਦੀਦਾ ਭਾਸ਼ਾ ਚੁਣੋ", "choosePrompt": "ਇੱਕ ਭਾਸ਼ਾ ਚੁਣੋ" },
   "auth": { "appSubtitle": "ਤਕਨਾਲੋਜੀ ਰਾਹੀਂ ਕਿਸਾਨਾਂ ਨੂੰ ਸਸ਼ਕਤ ਬਣਾਉਣਾ", "login": "ਲਾਗਿਨ", "signUp": "ਸਾਈਨ ਅੱਪ", "fullName": "ਪੂਰਾ ਨਾਮ", "fullNamePlaceholder": "ਆਪਣਾ ਪੂਰਾ ਨਾਮ ਦਰਜ ਕਰੋ", "email": "ਈਮੇਲ ਪਤਾ", "emailPlaceholder": "ਆਪਣਾ ਈਮੇਲ ਦਰਜ ਕਰੋ", "phone": "ਫ਼ੋਨ ਨੰਬਰ", "phonePlaceholder": "10 ਅੰਕਾਂ ਦਾ ਫ਼ੋਨ ਨੰਬਰ", "state": "ਰਾਜ", "statePlaceholder": "ਆਪਣਾ ਰਾਜ ਟਾਈਪ ਕਰੋ", "password": "ਪਾਸਵਰਡ", "passwordPlaceholder": "ਆਪਣਾ ਪਾਸਵਰਡ ਦਰਜ ਕਰੋ", "loginButton": "ਡੈਸ਼ਬੋਰਡ ਤੇ ਲਾਗਿਨ ਕਰੋ", "signUpButton": "ਤਸਦੀਕ ਲਈ ਜਾਰੀ ਰੱਖੋ", "disclaimer": "ਅੱਗੇ ਵਧ ਕੇ ਤੁਸੀਂ ਸਾਡੀਆਂ ਸ਼ਰਤਾਂ ਨਾਲ ਸਹਿਮਤ ਹੋ", "otpSentSuccess": "ਤੁਹਾਡੀ ਈਮੇਲ ਤੇ OTP ਭੇਜਿਆ!", "allFieldsRequired": "ਸਾਰੇ ਖੇਤਰ ਲੋੜੀਂਦੇ ਹਨ", "invalidPhone": "ਕਿਰਪਾ ਕਰਕੇ 10 ਅੰਕਾਂ ਦਾ ਫ਼ੋਨ ਨੰਬਰ ਦਰਜ ਕਰੋ", "otpSendFailed": "OTP ਭੇਜਣ ਵਿੱਚ ਅਸਫਲ", "unexpectedError": "OTP ਭੇਜਣ ਵੇਲੇ ਅਚਾਨਕ ਗਲਤੀ", "sessionExpired": "ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਸਾਈਨ ਇਨ ਕਰੋ।" },
   "farmProfile": { "title": "ਖੇਤ ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ", "stepOf": "ਕਦਮ {current} / {total}", "skip": "ਛੱਡੋ", "skipConfirmTitle": "ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ ਛੱਡਣਾ?", "skipConfirmMessage": "ਤੁਸੀਂ ਇਹ ਬਾਅਦ ਵਿੱਚ ਪੂਰਾ ਕਰ ਸਕਦੇ ਹੋ।", "skipStay": "ਰਹੋ", "skipConfirm": "ਹੁਣੇ ਛੱਡੋ", "stepLocation": "ਸਥਾਨ", "stepCrops": "ਫ਼ਸਲਾਂ", "stepGoals": "ਟੀਚੇ", "step1Title": "📍 ਸਥਾਨ ਅਤੇ ਖੇਤ ਦੀ ਜਾਣਕਾਰੀ", "step1Sub": "ਸਹੀ ਮੌਸਮ ਚੇਤਾਵਨੀਆਂ ਅਤੇ ਫ਼ਸਲ ਸਲਾਹ ਲਈ।", "gpsCoords": "GPS ਕੋਆਰਡੀਨੇਟ", "gpsPlaceholder": "📡 ਟੈਪ ਕਰੋ ਜਾਂ ਖ਼ੁਦ ਦਰਜ ਕਰੋ", "gpsHint": "ਸਿਰਫ਼ ਨਿੱਜੀ ਸਿਫਾਰਸ਼ਾਂ ਲਈ।", "panchayat": "ਪੰਚਾਇਤ / ਪਿੰਡ", "panchayatPlaceholder": "ਜਿਵੇਂ ਖਾਰਾਦੀ", "district": "ਜ਼ਿਲ੍ਹਾ", "districtPlaceholder": "ਜਿਵੇਂ ਪੁਣੇ", "stateName": "ਰਾਜ", "statePlaceholder": "ਜਿਵੇਂ ਮਹਾਰਾਸ਼ਟਰ", "farmSize": "ਖੇਤ ਦਾ ਆਕਾਰ (ਏਕੜ)", "farmSizePlaceholder": "ਜਿਵੇਂ 2.5", "step2Title": "🌾 ਫ਼ਸਲਾਂ ਅਤੇ ਸਾਧਨ", "step2Sub": "ਸਿੰਚਾਈ ਸਮਾਂ-ਸੂਚੀ ਅਤੇ ਖਾਦ ਸੁਝਾਅ ਤਿਆਰ ਕਰਨ ਲਈ।", "primaryCrops": "ਮੁੱਖ ਫ਼ਸਲ(ਾਂ)", "cropsPlaceholder": "ਫ਼ਸਲਾਂ ਖੋਜਣ ਲਈ ਟੈਪ ਕਰੋ", "cropsHint": "{count} ਫ਼ਸਲ(ਾਂ) ਚੁਣੀਆਂ। ਸੰਪਾਦਿਤ ਕਰਨ ਲਈ ਟੈਪ ਕਰੋ।", "soilType": "ਮਿੱਟੀ ਦੀ ਕਿਸਮ", "waterSource": "ਪਾਣੀ ਦਾ ਸਰੋਤ", "currentSeason": "ਮੌਜੂਦਾ ਖੇਤੀ ਮੌਸਮ", "seasonAutoDetected": "ਅੱਜ ਦੀ ਤਾਰੀਖ਼ ਤੋਂ ਆਪਣੇ ਆਪ ਪਤਾ ਲੱਗਾ", "step3Title": "🎯 ਟੀਚੇ ਅਤੇ ਤਜ਼ਰਬਾ", "step3Sub": "ਸਭ ਤੋਂ ਢੁਕਵੇਂ ਟਿਕਾਊ ਖੇਤੀ ਮਿਸ਼ਨ ਦੇਣ ਲਈ।", "farmingGoals": "ਖੇਤੀ ਦੇ ਟੀਚੇ", "goalsHint": "ਸਾਰੇ ਲਾਗੂ ਵਿਕਲਪ ਚੁਣੋ।", "skillLevel": "ਹੁਨਰ ਪੱਧਰ", "previousCrop": "ਪਿਛਲੀ ਫ਼ਸਲ", "previousCropPlaceholder": "ਜਿਵੇਂ ਕਣਕ, ਕਪਾਹ", "previousCropHint": "ਬਿਹਤਰ ਫ਼ਸਲ ਚੱਕਰ ਸੁਝਾਉਣ ਲਈ।", "back": "ਵਾਪਸ", "continue": "ਜਾਰੀ ਰੱਖੋ", "completeSetup": "ਸੈੱਟਅੱਪ ਪੂਰਾ ਕਰੋ", "enterPanchayat": "ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੀ ਪੰਚਾਇਤ / ਪਿੰਡ ਦਰਜ ਕਰੋ।", "enterFarmSize": "ਕਿਰਪਾ ਕਰਕੇ ਏਕੜ ਵਿੱਚ ਖੇਤ ਦਾ ਆਕਾਰ ਦਰਜ ਕਰੋ।", "selectCrop": "ਘੱਟੋ-ਘੱਟ ਇੱਕ ਮੁੱਖ ਫ਼ਸਲ ਚੁਣੋ।", "selectSoil": "ਆਪਣੀ ਮਿੱਟੀ ਦੀ ਕਿਸਮ ਚੁਣੋ।", "selectWater": "ਆਪਣਾ ਪਾਣੀ ਦਾ ਸਰੋਤ ਚੁਣੋ।", "selectGoal": "ਘੱਟੋ-ਘੱਟ ਇੱਕ ਖੇਤੀ ਟੀਚਾ ਚੁਣੋ।", "selectSkill": "ਆਪਣਾ ਹੁਨਰ ਪੱਧਰ ਚੁਣੋ।", "selectCropsTitle": "ਮੁੱਖ ਫ਼ਸਲ(ਾਂ) ਚੁਣੋ", "searchCrop": "ਫ਼ਸਲ ਖੋਜੋ...", "noCropsFound": "\"{query}\" ਲਈ ਕੋਈ ਫ਼ਸਲ ਨਹੀਂ", "confirmSelected": "ਪੁਸ਼ਟੀ ਕਰੋ ({count} ਚੁਣੀਆਂ)", "seasonKharif": "ਖਰੀਫ਼ (ਮੌਨਸੂਨ) — ਜੂਨ ਤੋਂ ਸਤੰਬਰ", "seasonRabi": "ਰਬੀ (ਸਰਦੀ) — ਅਕਤੂਬਰ ਤੋਂ ਫਰਵਰੀ", "seasonZaid": "ਜ਼ਾਇਦ (ਗਰਮੀ) — ਮਾਰਚ ਤੋਂ ਮਈ" },
@@ -9,7 +9,8 @@
   "tabs": { "dashboard": "ਡੈਸ਼ਬੋਰਡ", "tasks": "ਕੰਮ", "learn": "ਸਿੱਖੋ", "community": "ਭਾਈਚਾਰਾ" },
 "tasks": { "back": "← ਵਾਪਸ", "weeklyMissions": "ਇਸ ਹਫ਼ਤੇ ਦੇ ਮਿਸ਼ਨ 🌾", "tasksDone": "ਕੰਮ ਪੂਰੇ", "xpEarned": "XP ਕਮਾਇਆ", "fetchingMissions": "ਤੁਹਾਡੇ ਮਿਸ਼ਨ ਲੈ ਆ ਰਹੇ ਹਾਂ...", "noTasksToday": "ਅੱਜ ਕੋਈ ਕੰਮ ਨਹੀਂ — ਸ਼ਾਬਾਸ਼! 🎉", "markDone": "ਪੂਰਾ ਕਰੋ", "completed": "ਪੂਰਾ", "requiresPhoto": "ਇਸ ਕੰਮ ਲਈ ਫ਼ੋਟੋ ਚਾਹੀਦੀ ਹੈ! ਕੈਮਰਾ ਖੁੱਲ੍ਹ ਰਿਹਾ ਹੈ...", "all": "ਸਾਰੇ", "today": "ਅੱਜ" },
 "community": { "title": "ਭਾਈਚਾਰਾ", "subtitle": "ਮਿਲ ਕੇ ਜੁੜੋ & ਸਿੱਖੋ 🌾", "searchPlaceholder": "ਪੋਸਟ, ਕਿਸਾਨ ਖੋਜੋ...", "feed": "ਫੀਡ", "challenges": "ਚੁਣੌਤੀਆਂ", "leaderboard": "ਲੀਡਰਬੋਰਡ", "trendingNow": "ਹੁਣ ਟ੍ਰੈਂਡਿੰਗ", "successStory": "🏆 ਸਫਲਤਾ ਦੀ ਕਹਾਣੀ", "joinChallenge": "ਚੁਣੌਤੀ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ", "notifyMe": "ਮੈਨੂੰ ਸੂਚਿਤ ਕਰੋ", "loadingFeed": "ਭਾਈਚਾਰਾ ਫੀਡ ਲੋਡ ਹੋ ਰਹੀ ਹੈ...", "createPost": "ਪੋਸਟ ਬਣਾਓ", "sharePlaceholder": "ਆਪਣਾ ਖੇਤੀ ਅਨੁਭਵ ਸਾਂਝਾ ਕਰੋ...", "post": "ਪੋਸਟ ਕਰੋ", "failedPost": "ਪੋਸਟ ਕਰਨ ਵਿੱਚ ਅਸਫਲ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।", "networkError": "ਨੈੱਟਵਰਕ ਗਲਤੀ।" },
-"dashboard": { "goodMorning": "ਸ਼ੁਭ ਸਵੇਰ", "goodAfternoon": "ਸ਼ੁਭ ਦੁਪਹਿਰ", "goodEvening": "ਸ਼ੁਭ ਸ਼ਾਮ", "missionProgress": "ਮਿਸ਼ਨ ਤਰੱਕੀ", "smartInsights": "ਸਮਾਰਟ ਸੂਝ 🧠", "farmHealth": "ਖੇਤ ਸਿਹਤ 🌿", "yourTools": "ਤੁਹਾਡੇ ਸੰਦ ⚒️", "tasks": "ਕੰਮ", "dailyMissions": "ਰੋਜ਼ਾਨਾ ਮਿਸ਼ਨ", "submitProof": "ਸਬੂਤ ਜਮ੍ਹਾਂ ਕਰੋ", "uploadImages": "ਤਸਵੀਰਾਂ ਅਪਲੋਡ ਕਰੋ", "rewards": "ਇਨਾਮ", "unlockBadges": "ਬੈਜ ਅਨਲੌਕ ਕਰੋ", "virtualFarm": "ਵਰਚੁਅਲ ਖੇਤ", "cropStatus": "ਫ਼ਸਲ ਦੀ ਸਥਿਤੀ", "learningHub": "ਸਿੱਖਣ ਕੇਂਦਰ", "watchLearn": "ਦੇਖੋ & ਸਿੱਖੋ", "community": "ਭਾਈਚਾਰਾ", "askExperts": "ਮਾਹਿਰਾਂ ਨੂੰ ਪੁੱਛੋ", "govSchemes": "ਸਰਕਾਰੀ ਯੋਜਨਾਵਾਂ", "findSubsidies": "ਸਬਸਿਡੀ ਅਤੇ ਵਿੱਤੀ ਸਹਾਇਤਾ ਲੱਭੋ", "soilHealthy": "ਸਿਹਤਮੰਦ", "waterEfficient": "ਕੁਸ਼ਲ", "pestLowRisk": "ਘੱਟ ਖ਼ਤਰਾ", "sunGood": "ਚੰਗਾ", "cropHealthStable": "ਫ਼ਸਲ ਦੀ ਸਿਹਤ ਸਥਿਰ ਅਤੇ ਸੁਧਰ ਰਹੀ ਹੈ", "waterUsageBetter": "ਪਾਣੀ ਦੀ ਵਰਤੋਂ ਪਿਛਲੇ ਹਫ਼ਤੇ ਨਾਲੋਂ 12% ਬਿਹਤਰ", "newRewards": "2 ਨਵੇਂ ਇਨਾਮ ਅਨਲੌਕ ਹੋਏ!", "goodForIrrigation": "ਸਿੰਚਾਈ ਲਈ ਚੰਗਾ", "farmingScore": "ਖੇਤੀ ਸਕੋਰ", "streakDays": "ਦਿਨਾਂ ਦੀ ਲੜੀ", "xpBonus": "+20 XP ਬੋਨਸ", "xpToday": "ਅੱਜ ਦਾ XP", "xpToLevel": "ਲੈਵਲ ਤੱਕ XP", "pending": "ਬਕਾਇਆ", "fieldPhotos": "ਖੇਤ ਦੀਆਂ ਤਸਵੀਰਾਂ", "overview": "ਸਮੀਖਿਆ", "live": "ਲਾਈਵ", "eligible": "ਯੋਗ", "new": "ਨਵਾਂ" },
+"dashboard": { "goodMorning": "ਸ਼ੁਭ ਸਵੇਰ", "goodAfternoon": "ਸ਼ੁਭ ਦੁਪਹਿਰ", "goodEvening": "ਸ਼ੁਭ ਸ਼ਾਮ", "missionProgress": "ਮਿਸ਼ਨ ਤਰੱਕੀ", "smartInsights": "ਸਮਾਰਟ ਸੂਝ 🧠", "farmHealth": "ਖੇਤ ਸਿਹਤ 🌿", "yourTools": "ਤੁਹਾਡੇ ਸੰਦ ⚒️", "tasks": "ਕੰਮ", "dailyMissions": "ਰੋਜ਼ਾਨਾ ਮਿਸ਼ਨ", "submitProof": "ਸਬੂਤ ਜਮ੍ਹਾਂ ਕਰੋ", "uploadImages": "ਤਸਵੀਰਾਂ ਅਪਲੋਡ ਕਰੋ", "rewards": "ਇਨਾਮ", "unlockBadges": "ਬੈਜ ਅਨਲੌਕ ਕਰੋ", "virtualFarm": "ਵਰਚੁਅਲ ਖੇਤ", "cropStatus": "ਫ਼ਸਲ ਦੀ ਸਥਿਤੀ", "learningHub": "ਸਿੱਖਣ ਕੇਂਦਰ", "watchLearn": "ਦੇਖੋ & ਸਿੱਖੋ", "community": "ਭਾਈਚਾਰਾ", "askExperts": "ਮਾਹਿਰਾਂ ਨੂੰ ਪੁੱਛੋ", "govSchemes": "ਸਰਕਾਰੀ ਯੋਜਨਾਵਾਂ", "findSubsidies": "ਸਬਸਿਡੀ ਅਤੇ ਵਿੱਤੀ ਸਹਾਇਤਾ ਲੱਭੋ", "soilHealthy": "ਸਿਹਤਮੰਦ", "waterEfficient": "ਕੁਸ਼ਲ", "pestLowRisk": "ਘੱਟ ਖ਼ਤਰਾ", "sunGood": "ਚੰਗਾ", "cropHealthStable": "ਫ਼ਸਲ ਦੀ ਸਿਹਤ ਸਥਿਰ ਅਤੇ ਸੁਧਰ ਰਹੀ ਹੈ", "waterUsageBetter": "ਪਾਣੀ ਦੀ ਵਰਤੋਂ ਪਿਛਲੇ ਹਫ਼ਤੇ ਨਾਲੋਂ 12% ਬਿਹਤਰ", "newRewards": "2 ਨਵੇਂ ਇਨਾਮ ਅਨਲੌਕ ਹੋਏ!", "goodForIrrigation": "ਸਿੰਚਾਈ ਲਈ ਚੰਗਾ", "farmingScore": "ਖੇਤੀ ਸਕੋਰ", "streakDays": "ਦਿਨਾਂ ਦੀ ਲੜੀ", "xpBonus": "+20 XP ਬੋਨਸ", "xpToday": "ਅੱਜ ਦਾ XP", "xpToLevel": "ਲੈਵਲ ਤੱਕ XP", "pending": "ਬਕਾਇਆ", "fieldPhotos": "ਖੇਤ ਦੀਆਂ ਤਸਵੀਰਾਂ", "overview": "ਸਮੀਖਿਆ", "live": "ਲਾਈਵ", "eligible": "ਯੋਗ", "new": "ਨਵਾਂ","myProfile": "ਮੇਰੀ ਪ੍ਰੋਫਾਈਲ",
+"yourDetailsProgress": "ਤੁਹਾਡੇ ਵੇਰਵੇ ਅਤੇ ਤਰੱਕੀ" },
 "learningHub": { "title": "ਸਿੱਖਣ ਕੇਂਦਰ 📚", "subtitle": "ਆਧੁਨਿਕ ਖੇਤੀ ਤਕਨੀਕਾਂ ਸਿੱਖੋ", "searchPlaceholder": "ਮੌਡਿਊਲ & ਵੀਡੀਓ ਖੋਜੋ...", "featuredLabel": "ਵਿਸ਼ੇਸ਼", "featuredTitle": "ਫ਼ਸਲ ਚੱਕਰ ਵਿੱਚ ਮਾਹਰ ਬਣੋ", "featuredSub": "ਇਸ ਸੀਜ਼ਨ ਵਿੱਚ 40% ਵੱਧ ਝਾੜ ਪ੍ਰਾਪਤ ਕਰੋ।", "startCourse": "ਕੋਰਸ ਸ਼ੁਰੂ ਕਰੋ", "courseCompletion": "ਕੋਰਸ ਮੁਕੰਮਲਤਾ", "weeklyGoal": "ਹਫ਼ਤਾਵਾਰ ਟੀਚਾ", "all": "ਸਾਰੇ", "simulations": "ਸਿਮੂਲੇਸ਼ਨ", "videos": "ਵੀਡੀਓ", "quizzes": "ਕੁਇਜ਼", "miniGames": "ਮਿਨੀ ਗੇਮਸ", "quizCenter": "ਕੁਇਜ਼ ਕੇਂਦਰ", "takeFullQuiz": "ਪੂਰਾ ਕੁਇਜ਼ ਦਿਓ", "quizSub": "ਸਾਰੇ ਮੌਡਿਊਲਾਂ ਵਿੱਚ ਆਪਣਾ ਗਿਆਨ ਪਰਖੋ।", "availableGames": "ਉਪਲਬਧ ਗੇਮਸ", "cropRotationGame": "ਫ਼ਸਲ ਚੱਕਰ ਮਾਸਟਰ", "cropRotationSub": "ਮਿੱਟੀ ਦੇ ਪੋਸ਼ਕ ਤੱਤਾਂ ਨੂੰ ਸੰਤੁਲਿਤ ਕਰਨਾ ਸਿੱਖੋ!", "farmDayGame": "ਫਾਰਮ ਡੇ ਚੈਲੇਂਜ", "farmDaySub": "ਆਪਣੇ ਖੇਤ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ!", "backToHub": "ਹੱਬ ਤੇ ਵਾਪਸ", "loadingVideo": "ਵੀਡੀਓ ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...", "videoCompleted": "✓ ਵੀਡੀਓ ਮੁਕੰਮਲ! ਤੁਸੀਂ +{points} XP ਕਮਾਇਆ", "simulationComingSoon": "ਸਿਮੂਲੇਸ਼ਨ ਜਲਦੀ ਆ ਰਿਹਾ ਹੈ", "simulationText": "ਇੰਟਰੈਕਟਿਵ ਖੇਤੀ ਸਿਮੂਲੇਸ਼ਨ ਇੱਥੇ ਉਪਲਬਧ ਹੋਣਗੇ।" },"farmData": {
   "soilAlluvial": "ਕਾਂਪ ਮਿੱਟੀ", "soilAlluvialDesc": "ਉਪਜਾਊ, ਦਰਿਆਈ ਤਲਛਟ",
   "soilBlack": "ਕਾਲੀ (ਰੇਗੁਰ)", "soilBlackDesc": "ਪਾਣੀ ਰੱਖਦੀ ਹੈ, ਕਪਾਹ",
@@ -46,5 +47,29 @@
   "mango": "ਅੰਬ", "grapes": "ਅੰਗੂਰ", "pomegranate": "ਅਨਾਰ", "guava": "ਅਮਰੂਦ",
   "papaya": "ਪਪੀਤਾ", "coconut": "ਨਾਰੀਅਲ", "arecanut": "ਸੁਪਾਰੀ", "cashew": "ਕਾਜੂ",
   "tea": "ਚਾਹ", "coffee": "ਕੌਫੀ"
+},
+"profile": {
+  "title": "ਮੇਰੀ ਪ੍ਰੋਫਾਈਲ",
+  "progress": "ਤਰੱਕੀ",
+  "level": "ਪੱਧਰ",
+  "xp": "XP",
+  "greenCoins": "ਗ੍ਰੀਨ ਕੋਇਨ",
+  "streak": "ਸਟ੍ਰੀਕ",
+  "badges": "ਬੈਜ",
+  "noBadges": "ਹਾਲੇ ਤੱਕ ਕੋਈ ਬੈਜ ਹਾਸਲ ਨਹੀਂ ਕੀਤਾ",
+  "farmDetails": "ਖੇਤ ਦੇ ਵੇਰਵੇ",
+  "crops": "ਫਸਲਾਂ",
+  "farmSize": "ਖੇਤ ਦਾ ਆਕਾਰ",
+  "soilType": "ਮਿੱਟੀ ਦੀ ਕਿਸਮ",
+  "waterSource": "ਪਾਣੀ ਦਾ ਸਰੋਤ",
+  "region": "ਖੇਤਰ",
+  "season": "ਮੌਸਮ",
+  "skillLevel": "ਹੁਨਰ ਪੱਧਰ",
+  "previousCrop": "ਪਿਛਲੀ ਫਸਲ",
+  "notSet": "ਸੈੱਟ ਨਹੀਂ",
+  "acres": "ਏਕੜ",
+  "farmer": "ਕਿਸਾਨ",
+  "logOut": "ਲੌਗ ਆਊਟ",
+  "logOutConfirmMessage": "ਕੀ ਤੁਸੀਂ ਯਕੀਨੀ ਤੌਰ 'ਤੇ ਲੌਗ ਆਊਟ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?"
 }
 }
